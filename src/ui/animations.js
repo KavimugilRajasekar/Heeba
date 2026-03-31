@@ -10,7 +10,7 @@ function createOverlays(container) {
 
   // Stars - SPREAD ACROSS ENTIRE WINDOW
   const stars = [];
-  for (let i = 0; i < 150; i++) {
+  for (let i = 0; i < 50; i++) {
     const star = blessed.text({
       parent: bootAnimBox,
       top: (Math.random() * 100).toFixed(2) + '%',
