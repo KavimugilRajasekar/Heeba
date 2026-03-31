@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# ===========================
+# LLAMA.CPP ENGINE & MODELS
+# ===========================
+# These are system-specific and should be downloaded/built by the user
+# See engine/README.md for setup instructions
+
+# Compiled llama.cpp binaries & runtime
+engine/inference-engine/*
+!engine/inference-engine/README.md
+
+# Model files (don't commit large blobs)
+engine/models/*
+!engine/models/.gitkeep
+
+# System/Runtime
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.o
+*.so
+*.dll
+*.exe
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.claude/

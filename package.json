@@ -1,0 +1,19 @@
+{
+  "name": "heeba",
+  "version": "1.0.0",
+  "description": "Personal AI Terminal Companion",
+  "main": "main.js",
+  "bin": {
+    "heeba": "./main.js"
+  },
+  "scripts": {
+    "start": "node main.js",
+    "dev": "node main.js"
+  },
+  "keywords": ["terminal", "ai"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "blessed": "^0.1.81"
+  }
+}
