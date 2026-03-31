@@ -107,7 +107,7 @@ function addOutput(text, className = '') {
   const prefix = {
     command: `${MODES[currentMode].prompt} `,
     error: '[ERR] ',
-    success: '[OK] ',
+    success: '↬ ',
     info: '',
     llm: '↪ '
   }[className] || '';
@@ -398,11 +398,12 @@ UI.inputBox.key('enter', async (ch, key) => {
   UI.inputContainer.height = 3;
   UI.outputArea.height = '100%-17';
   
+  addSpacer();
   addOutput(command, 'command');
   lastOutputWasCommand = true;
 
   const response = await processCommand(command);
-  if (response) { addSpacer(); addOutput(response, 'response'); }
+  if (response) { addSpacer(); addOutput(response, 'response'); addSpacer(); }
 
   if (command) {
     commandHistory.push(command);
