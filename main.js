@@ -105,11 +105,11 @@ function addOutput(text, className = '') {
 
   const textStr = String(text);
   const prefix = {
-    command: `[${MODES[currentMode].prompt}] `,
+    command: `${MODES[currentMode].prompt} `,
     error: '[ERR] ',
     success: '[OK] ',
-    info: '>> ',
-    llm: '[AI] '
+    info: '',
+    llm: '↪ '
   }[className] || '';
   const color = {
     command: C.purple,
@@ -277,12 +277,37 @@ Threads   : ${CONFIG.threads}`;
 
   if (currentMode === 'auto') {
     showLoading(true);
-    addOutput('Thinking...', 'info');
+    
+    // Create animated thinking indicator
+    const thinkingFrames = ['○', '◎', '◉', '●', '◉', '◎'];
+    let frame = 0;
+    const thinkingEl = require('blessed').text({
+      parent: UI.outputArea,
+      top: lineCount,
+      left: 0,
+      width: '100%',
+      content: `${thinkingFrames[0]} Thinking...`,
+      fg: C.cyan
+    });
+    
+    const thinkingInterval = setInterval(() => {
+      frame = (frame + 1) % thinkingFrames.length;
+      thinkingEl.setContent(`${thinkingFrames[frame]} Thinking...`);
+      screen.render();
+    }, 150);
 
     let liveTextEl = null;
 
     try {
       await queryLLM(input, currentMode, CONFIG, (token) => {
+        // Destroy thinking indicator on first token
+        if (thinkingEl) {
+          clearInterval(thinkingInterval);
+          thinkingEl.destroy();
+          // Reset thinkingEl ref to prevent further calls
+          // (Actually, the lineCount will be overwritten by liveTextEl)
+        }
+
         if (!liveTextEl) {
           startLoadingAnimation(UI, overlays, screen, MODES[currentMode], true);
           addSpacer();
@@ -291,7 +316,7 @@ Threads   : ${CONFIG.threads}`;
             top: lineCount++,
             left: 0,
             width: '100%',
-            content: '[AI] ',
+            content: '↪ ',
             fg: C.yellow
           });
         }
@@ -307,6 +332,7 @@ Threads   : ${CONFIG.threads}`;
       }
       return '';
     } catch (err) {
+      if (thinkingEl) { clearInterval(thinkingInterval); thinkingEl.destroy(); }
       showLoading(false);
       logger.error('ENGINE', err);
       return `LLM Error: ${err.message}`;
