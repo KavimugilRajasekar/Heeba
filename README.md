@@ -2,8 +2,6 @@
 
 **Heeba** is a high-performance, visually rich terminal-based AI companion. Powered by Node.js and local LLM inference via `llama.cpp`, Heeba brings an interactive "Cat-vs-Dino" experience directly to your CLI.
 
-![Heeba Boot Animation](https://via.placeholder.com/800x400.png?text=Professional+Terminal+Boot+Animation) *<-- Replace with real screenshot if possible*
-
 ## Key Features
 
 -   **Celestial Boot Sequence**: A professional, character-by-character ASCII reveal with twinkling stars and a dynamic progress bar.
