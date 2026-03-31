@@ -7,7 +7,8 @@ const {
   createOverlays, 
   runBootSequence, 
   startLoadingAnimation, 
-  stopLoadingAnimation 
+  stopLoadingAnimation,
+  startIdleAnimation
 } = require('./src/ui/animations');
 const { MODES } = require('./src/utils/helpers');
 const { 
@@ -53,13 +54,16 @@ function updateWelcomeCard() {
   UI.modeIndicator.setContent(`● ${m.name.toUpperCase()}`);
   UI.modeIndicator.style.fg = m.color;
   UI.cardTitle.setContent(`| Heeba : ${m.headerTitle}`);
-  UI.mascotEl.setContent(m.mascot);
+  UI.mascotEl.setContent(m.mascot[0]);
   UI.mascotEl.style.fg = m.color;
   UI.statusLinesEl.setContent(m.statusLines);
   UI.engineInfoEl.setContent(`Engine : llama.cpp (local)\nModel  : ${CONFIG.model}`);
   UI.tipsText.setContent(m.tips.map(t => '> ' + t).join('\n'));
   UI.promptText.setContent(`[${m.prompt}]`);
   UI.promptText.style.fg = m.color;
+  
+  // Start subtle idle animation (blinking)
+  startIdleAnimation(UI, screen, m);
 }
 
 function clearOutput() {
@@ -90,9 +94,11 @@ function addSpacer() { lineCount++; screen.render(); }
 
 function showLoading(show) { 
   if (show) {
-    startLoadingAnimation(UI, overlays, screen, MODES[currentMode].color);
+    UI.promptText.setContent(`[thinking...]`);
+    startLoadingAnimation(UI, overlays, screen, MODES[currentMode]);
   } else {
-    stopLoadingAnimation(UI, overlays, screen, MODES[currentMode].color);
+    UI.promptText.setContent(`[${MODES[currentMode].prompt}]`);
+    stopLoadingAnimation(UI, overlays, screen, MODES[currentMode]);
   }
 }
 

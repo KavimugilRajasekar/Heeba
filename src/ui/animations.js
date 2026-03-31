@@ -71,20 +71,7 @@ function createOverlays(container) {
 
   // REMOVED Version text to focus on the centered cluster
 
-  // PERFECT CENTERED LOADING INDICATOR
-  const loadingIndicator = blessed.box({
-    parent: container, 
-    top: '50%-1', // Exact center row
-    left: 'center', 
-    width: 20, 
-    height: 3,
-    content: '\n  - Thinking...  ',
-    align: 'center',
-    fg: C.yellow, 
-    hidden: true, 
-    bg: C.bg, 
-    border: STYLES.border
-  });
+  // REMOVED: Center loadingIndicator box for a cleaner look
 
   // ... (existing modeOverlay logic)
   const modeOverlay = blessed.box({
@@ -105,7 +92,7 @@ function createOverlays(container) {
   });
 
   return {
-    bootAnimBox, heebaLines, HEEBA_ART, statusText, progressText, percentText, loadingIndicator, modeOverlay, modeOverlayText, stars
+    bootAnimBox, heebaLines, HEEBA_ART, statusText, progressText, percentText, modeOverlay, modeOverlayText, stars
   };
 }
 
@@ -196,46 +183,75 @@ async function runBootSequence(overlays, ui, screen, CONFIG) {
 
 let loadingInterval = null;
 let mascotInterval = null;
+let idleInterval = null;
+let frameIdx = 0;
 
-function startLoadingAnimation(ui, overlays, screen, modeColor) {
-  const { loadingIndicator } = overlays;
-  const { mascotEl } = ui;
-  const frames = ['-', '\\', '|', '/'];
-  let i = 0;
+function startIdleAnimation(ui, screen, mode) {
+  if (idleInterval) clearInterval(idleInterval);
   
-  loadingIndicator.show();
-  loadingIndicator.setFront();
-  
-  loadingInterval = setInterval(() => {
-    loadingIndicator.setContent(`\n  ${frames[i]} Thinking...  `);
-    i = (i + 1) % frames.length;
+  idleInterval = setInterval(() => {
+    if (loadingInterval) return;
+    
+    // Quick blink: Frame 1 then back to 0
+    ui.mascotEl.setContent(mode.mascot[1]);
     screen.render();
-  }, 200);
+    
+    setTimeout(() => {
+      if (loadingInterval) return;
+      ui.mascotEl.setContent(mode.mascot[0]);
+      screen.render();
+    }, 150);
+  }, 4000 + Math.random() * 4000);
+}
 
-  // Mascot pulsing
+function startLoadingAnimation(ui, overlays, screen, mode) {
+  if (idleInterval) { clearInterval(idleInterval); idleInterval = null; }
+  const { mascotEl } = ui;
+  const frames = mode.mascot;
+  const modeColor = mode.color;
+  
+  // Frame animation
+  if (frames.length > 1) {
+    loadingInterval = setInterval(() => {
+      frameIdx = (frameIdx + 1) % frames.length;
+      mascotEl.setContent(frames[frameIdx]);
+      screen.render();
+    }, 400); // Elegant, slow blink/twitch
+  }
+
+  // Mascot pulsing (Color change)
   let pulseDir = 1;
   let pulseRef = 0;
   mascotInterval = setInterval(() => {
     pulseRef += 0.1 * pulseDir;
     if (pulseRef >= 1 || pulseRef <= 0) pulseDir *= -1;
     
-    // Dim/Brighten mascot based on pulse
     if (pulseRef > 0.5) {
         mascotEl.style.fg = modeColor;
     } else {
         mascotEl.style.fg = C.dim;
     }
     screen.render();
-  }, 100);
+  }, 150);
 }
 
-function stopLoadingAnimation(ui, overlays, screen, modeColor) {
+function stopLoadingAnimation(ui, overlays, screen, mode) {
   if (loadingInterval) { clearInterval(loadingInterval); loadingInterval = null; }
   if (mascotInterval) { clearInterval(mascotInterval); mascotInterval = null; }
   
-  overlays.loadingIndicator.hide();
-  ui.mascotEl.style.fg = modeColor;
+  frameIdx = 0;
+  ui.mascotEl.setContent(mode.mascot[0]);
+  ui.mascotEl.style.fg = mode.color;
   screen.render();
+  
+  // Restart idle animation
+  startIdleAnimation(ui, screen, mode);
 }
 
-module.exports = { createOverlays, runBootSequence, startLoadingAnimation, stopLoadingAnimation };
+module.exports = { 
+  createOverlays, 
+  runBootSequence, 
+  startLoadingAnimation, 
+  stopLoadingAnimation,
+  startIdleAnimation
+};

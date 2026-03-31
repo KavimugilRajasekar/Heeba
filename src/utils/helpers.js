@@ -3,18 +3,36 @@ const { C } = require('../ui/theme');
 
 const MODES = {
   task: {
-    name: 'Dino', prompt: 'heeba-task', headerTitle: 'Task Mode',
-    mascot: '\n           __\n          / _)\n   .-^^^-/ /\n__/       /\n<__.|_|-|_|',
+    name: 'Dino',
+    prompt: 'heeba-task',
+    headerTitle: 'TASK MODE',
+    mascot: [
+      '\n                 __\n                / _)\n       _.----._/ /\n      /         /\n   __/ (  | (  |\n  /__.-\'|_|--|_|',
+      '\n                 __\n                / -)\n       _.----._/ /\n      /         /\n   __/ (  | (  |\n  /__.-\'|_|--|_|'
+    ],
     statusLines: 'Workspace : ~/current-project\nActivity  : Editing | Creating | Debugging',
     color: C.green,
-    tips: ['ask heeba to create a component', 'ask heeba to debug an error', 'ask heeba to design a feature']
+    tips: [
+      'Ask Heeba to create a component',
+      'Ask Heeba to debug an error',
+      'Ask Heeba to design a feature'
+    ]
   },
   auto: {
-    name: 'Cat', prompt: 'heeba-auto', headerTitle: 'Automation Mode',
-    mascot: '\n  /\\/\\_\\\n ( o.o )\n  > ^ <',
+    name: 'Cat',
+    prompt: 'heeba-auto',
+    headerTitle: 'AUTOMATION MODE',
+    mascot: [
+      '\n        /\\_/\\\n       ( o.o )\n        > ^ <', 
+      '\n        /\\_/\\\n       ( -.- )\n        > ^ <'
+    ],
     statusLines: 'Mode     : LLM-powered chat\nContext  : Conversation history maintained',
     color: C.yellow,
-    tips: ['Chat with Heeba AI', 'Ask about automation', 'Get help with scripts']
+    tips: [
+      'Chat with Heeba AI',
+      'Ask about automation',
+      'Get help with scripts'
+    ]
   }
 };
 
