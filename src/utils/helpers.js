@@ -21,7 +21,7 @@ const MODES = {
   },
   auto: {
     name: 'Cat',
-    prompt: 'heeba-auto',
+    prompt: '※',
     headerTitle: 'AUTOMATION MODE',
     mascot: [
       '\n        /\\_/\\\n       ( o.o )\n        > ^ <', 
