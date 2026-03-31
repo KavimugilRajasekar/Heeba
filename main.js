@@ -3,26 +3,45 @@
 const { DEFAULT_CONFIG, getAvailableModels } = require('./src/core/config');
 const { C } = require('./src/ui/theme');
 const { initScreen, createUI } = require('./src/ui/components');
-const { 
-  createOverlays, 
-  runBootSequence, 
-  startLoadingAnimation, 
+const {
+  createOverlays,
+  runBootSequence,
+  startLoadingAnimation,
   stopLoadingAnimation,
   startIdleAnimation
 } = require('./src/ui/animations');
 const { MODES } = require('./src/utils/helpers');
-const { 
-  queryLLM, 
-  cancelLLM, 
-  getLLMStatus, 
+const logger = require('./src/utils/logger');
+const {
+  queryLLM,
+  cancelLLM,
+  getLLMStatus,
   clearConversationHistory,
-  stopServer 
+  stopServer
 } = require('./src/core/engine');
 
-// ... (Rest of imports)
+// ======================
+// STATE
+// ======================
+let currentMode = 'task';
+let commandHistory = [];
+let historyIndex = -1;
+let lineCount = 0;
+let lastOutputWasCommand = false;
+const startTime = Date.now();
+const CONFIG = { ...DEFAULT_CONFIG };
 
-// ... (State and UI init)
+// Keyboard state
+let lastShiftPress = 0;
 
+// Initialize blessed
+const screen = initScreen();
+const UI = createUI(screen);
+const overlays = createOverlays(UI.container);
+
+// ======================
+// CLEANUP
+// ======================
 function cleanupAndExit() {
   stopServer();
   process.exit(0);
@@ -32,42 +51,46 @@ process.on('SIGINT', cleanupAndExit);
 process.on('SIGTERM', cleanupAndExit);
 process.on('exit', () => stopServer());
 
-// State
-let currentMode = 'task';
-let commandHistory = [];
-let historyIndex = -1;
-let lineCount = 0;
-const startTime = Date.now();
-const CONFIG = { ...DEFAULT_CONFIG };
-
-// Initialize blessed
-const screen = initScreen();
-const UI = createUI(screen);
-const overlays = createOverlays(UI.container);
-
 // ======================
 // UI FUNCTIONS
 // ======================
-
 function updateWelcomeCard() {
   const m = MODES[currentMode];
+  logger.debug('UI', `Updating welcome card: ${currentMode}`);
+
+  // Top bar - only update model name
+  UI.modelTag.setContent(CONFIG.model.replace('.gguf', ''));
+
+  // Welcome card header
   UI.modeIndicator.setContent(`● ${m.name.toUpperCase()}`);
   UI.modeIndicator.style.fg = m.color;
-  UI.cardTitle.setContent(`| Heeba : ${m.headerTitle}`);
+  UI.cardTitle.setContent(`Heeba ${m.headerTitle}`);
+  UI.cardHeaderRight.setContent(getLLMStatus() ? 'llama.cpp ●' : 'llama.cpp');
+
+  // Mascot
   UI.mascotEl.setContent(m.mascot[0]);
   UI.mascotEl.style.fg = m.color;
+
+  // Info
   UI.statusLinesEl.setContent(m.statusLines);
   UI.engineInfoEl.setContent(`Engine : llama.cpp (local)\nModel  : ${CONFIG.model}`);
-  UI.tipsText.setContent(m.tips.map(t => '> ' + t).join('\n'));
-  UI.promptText.setContent(`[${m.prompt}]`);
+  UI.tipsText.setContent(m.tips.join('   '));
+
+  // Input prompt
+  UI.promptText.setContent(`>`);
   UI.promptText.style.fg = m.color;
-  
-  // Start subtle idle animation (blinking)
+
+  // Footer status
+  UI.footerStatus.setContent('● ready');
+  UI.footerStatus.style.fg = C.green;
+
+  // Start idle animation
   startIdleAnimation(UI, screen, m);
 }
 
+// ChatGPT-like auto-scroll to bottom
 function autoScroll() {
-  UI.outputArea.setScroll(Infinity);
+  UI.outputArea.setScroll(999999); // Set to a very large number to scroll to bottom
   screen.render();
 }
 
@@ -79,42 +102,63 @@ function clearOutput() {
 
 function addOutput(text, className = '') {
   if (text == null || text === '') return;
-  
+
   const textStr = String(text);
-  const prefix = { command: `[${MODES[currentMode].prompt}] `, error: '[ERR] ', success: '[OK] ', info: '>> ', llm: '[AI] ' }[className] || '';
-  const color = { command: C.purple, error: C.red, success: C.green, info: C.cyan, llm: C.yellow }[className] || C.dim;
+  const prefix = {
+    command: `[${MODES[currentMode].prompt}] `,
+    error: '[ERR] ',
+    success: '[OK] ',
+    info: '>> ',
+    llm: '[AI] '
+  }[className] || '';
+  const color = {
+    command: C.purple,
+    error: C.red,
+    success: C.green,
+    info: C.cyan,
+    llm: C.yellow
+  }[className] || C.dim;
 
   textStr.split('\n').forEach(line => {
-    require('blessed').text({ 
-      parent: UI.outputArea, 
-      top: lineCount++, 
-      left: 0, 
-      width: '100%', 
-      content: prefix + line, 
-      fg: color 
+    require('blessed').text({
+      parent: UI.outputArea,
+      top: lineCount++,
+      left: 0,
+      width: '100%',
+      content: prefix + line,
+      fg: color
     });
   });
   autoScroll();
 }
 
-function addSpacer() { lineCount++; autoScroll(); }
+function addSpacer() {
+  lineCount++;
+  autoScroll();
+}
 
-function showLoading(show) { 
+function showLoading(show) {
   if (show) {
-    UI.promptText.setContent(`[thinking...]`);
+    UI.promptText.setContent(`>`);
     startLoadingAnimation(UI, overlays, screen, MODES[currentMode]);
   } else {
-    UI.promptText.setContent(`[${MODES[currentMode].prompt}]`);
+    UI.promptText.setContent(`>`);
     stopLoadingAnimation(UI, overlays, screen, MODES[currentMode]);
   }
+  UI.cardHeaderRight.setContent(show ? 'llama.cpp ●' : 'llama.cpp');
+  UI.footerStatus.setContent(show ? '● busy' : '● ready');
+  UI.footerStatus.style.fg = show ? C.yellow : C.green;
 }
 
 function switchMode(newMode) {
+  logger.info('MODE', `Switching: ${currentMode} → ${newMode}`);
+
   overlays.modeOverlayText.setContent(`Switching to ${MODES[newMode].name} mode...`);
   overlays.modeOverlayText.style.fg = MODES[newMode].color;
   overlays.modeOverlay.show();
   overlays.modeOverlay.setFront();
   screen.render();
+
   setTimeout(() => {
     overlays.modeOverlay.hide();
     currentMode = newMode;
@@ -127,10 +171,8 @@ function switchMode(newMode) {
 
 function openModelSelection() {
   const models = getAvailableModels();
-  
-  // Dynamic scanning indicator
   addOutput('Scanning engine/models/...', 'info');
-  
+
   if (models.length === 0) {
     addOutput('No models found in engine/models/', 'error');
     return;
@@ -140,12 +182,15 @@ function openModelSelection() {
   UI.modelList.setItems(models);
   UI.modelList.setLabel(` [ SELECT MODEL: ${models.length} FOUND ] `);
   UI.modelList.show();
-  
-  // Delay focus slightly to ensure the hide event has cleared the focus path
-  setTimeout(() => {
-    UI.modelList.focus();
-    screen.render();
-  }, 10);
+  UI.modelList.focus();
+  screen.render();
+}
+
+function closeModelSelection() {
+  UI.modelList.hide();
+  UI.inputContainer.show();
+  UI.inputBox.focus();
+  screen.render();
 }
 
 // ======================
@@ -163,16 +208,16 @@ async function processCommand(input) {
 
   if (trimmed === 'help') {
     return `Available Commands:
-  Shift+Space - Switch mode (DINO <-> CAT)
-  mode task   - Switch to DINO mode
-  mode auto   - Switch to CAT mode
-  models      - List available models
-  model <n>   - Select model by number
+  [S-Space]  - Switch mode (DINO <-> CAT)
+  mode task  - Switch to DINO mode
+  mode auto  - Switch to CAT mode
+  models     - List available models
+  model <n>  - Select model by number
   model <name> - Select model by name
-  clear       - Clear terminal output
-  info        - Show system information
-  cancel      - Cancel ongoing LLM request
-  help        - Show this help`;
+  clear      - Clear terminal output
+  info       - Show system information
+  cancel     - Cancel ongoing LLM request
+  help       - Show this help`;
   }
 
   if (trimmed === 'models') {
@@ -197,9 +242,9 @@ async function processCommand(input) {
       CONFIG.model = newModel;
       clearConversationHistory();
       updateWelcomeCard();
-      return `Model set to: ${newModel}\nConversation history cleared.`;
+      return `Model set to: ${newModel}`;
     }
-    return `Model not found: ${sel}\nUse "models" to see available models.`;
+    return `Model not found: ${sel}`;
   }
 
   if (trimmed === 'clear') {
@@ -233,42 +278,37 @@ Threads   : ${CONFIG.threads}`;
   if (currentMode === 'auto') {
     showLoading(true);
     addOutput('Thinking...', 'info');
-    
+
     let liveTextEl = null;
-    let fullResponse = '';
 
     try {
-      const response = await queryLLM(input, currentMode, CONFIG, (token) => {
+      await queryLLM(input, currentMode, CONFIG, (token) => {
         if (!liveTextEl) {
-            // Success: Switch from Thinking (Blink) to Talking (Mouth)
-            startLoadingAnimation(UI, overlays, screen, MODES[currentMode], true);
-            addSpacer();
-            liveTextEl = require('blessed').text({
-                parent: UI.outputArea,
-                top: lineCount++,
-                left: 0,
-                width: '100%',
-                content: '[AI] ',
-                fg: C.yellow
-            });
+          startLoadingAnimation(UI, overlays, screen, MODES[currentMode], true);
+          addSpacer();
+          liveTextEl = require('blessed').text({
+            parent: UI.outputArea,
+            top: lineCount++,
+            left: 0,
+            width: '100%',
+            content: '[AI] ',
+            fg: C.yellow
+          });
         }
         liveTextEl.setContent(liveTextEl.getContent() + token);
-        
-        // Auto-scroll logic (scroll to bottom as text grows)
         autoScroll();
       });
 
-      // Final stop: Return mascot to idle
       showLoading(false);
-      
-      // Cleanup and finalize line count
+
       if (liveTextEl) {
-          const actualLines = liveTextEl.getLines().length;
-          if (actualLines > 1) lineCount += (actualLines - 1);
+        const actualLines = liveTextEl.getLines().length;
+        if (actualLines > 1) lineCount += (actualLines - 1);
       }
       return '';
     } catch (err) {
       showLoading(false);
+      logger.error('ENGINE', err);
       return `LLM Error: ${err.message}`;
     }
   }
@@ -284,123 +324,215 @@ Threads   : ${CONFIG.threads}`;
 // INPUT HANDLING
 // ======================
 
-UI.inputBox.on('submit', async () => {
-  const command = UI.inputBox.getValue();
-  UI.inputBox.clearValue();
-  if (!command.trim()) { 
+function resizeInput() {
+  const text = UI.inputBox.getValue();
+  // Get numeric width, providing a safe fallback
+  const width = (typeof UI.inputBox.width === 'number' ? UI.inputBox.width : screen.width - 6) - 2;
+  
+  const bufferLines = text.split('\n');
+  let visualLines = 0;
+  bufferLines.forEach(line => {
+    // If empty line, it takes 1 row. If long, it wraps.
+    visualLines += Math.max(1, Math.ceil(line.length / Math.max(1, width)));
+  });
+
+  const newHeight = Math.min(12, visualLines); // Cap height at 12 lines
+  
+  if (UI.inputBox.height !== newHeight) {
+    UI.inputBox.height = newHeight;
+    UI.inputContainer.height = newHeight + 2; 
+    
+    // Recalculate outputArea height: 
+    // Start height: 12 (top) + 1 (bottom gap) + 3 (input) + 1 (footer) = 17
+    // Each extra input line adds +1 to negative offset
+    UI.outputArea.height = `100%-${16 + newHeight}`; 
+    screen.render();
+  }
+}
+
+// Handle submission via Enter (without shift)
+UI.inputBox.key('enter', async (ch, key) => {
+  if (key.shift) return;
+
+  const command = UI.inputBox.getValue().trim();
+  if (!command) {
+    UI.inputBox.clearValue();
+    UI.inputBox.height = 1;
+    UI.inputContainer.height = 3;
+    UI.outputArea.height = '100%-17';
     screen.render();
     setTimeout(() => { UI.inputBox.focus(); screen.render(); }, 50);
     return;
   }
+
+  UI.inputBox.clearValue();
+  
+  // Reset height after submission
+  UI.inputBox.height = 1;
+  UI.inputContainer.height = 3;
+  UI.outputArea.height = '100%-17';
   
   addOutput(command, 'command');
+  lastOutputWasCommand = true;
+
   const response = await processCommand(command);
   if (response) { addSpacer(); addOutput(response, 'response'); }
-  if (command.trim()) { commandHistory.push(command); historyIndex = commandHistory.length; }
+
+  if (command) {
+    commandHistory.push(command);
+    historyIndex = commandHistory.length;
+  }
+
   screen.render();
   setTimeout(() => { UI.inputBox.focus(); screen.render(); }, 50);
 });
 
-// Model list selection handlers
+// Watch for changes to resize the input box
+UI.inputBox.on('keypress', (ch, key) => {
+  // Use setImmediate to wait for the value to update in blessed
+  setImmediate(() => resizeInput());
+});
+
+// Manual cursor navigation helpers
+UI.inputBox.key('left', () => {
+  if (UI.inputBox._clines) {
+    // Basic navigation for blessed textarea
+    screen.focusOffset(-1);
+    screen.render();
+  }
+});
+
+UI.inputBox.key('right', () => {
+  if (UI.inputBox._clines) {
+    screen.focusOffset(1);
+    screen.render();
+  }
+});
+
 UI.modelList.on('select', (item) => {
   const newModel = (item.getText ? item.getText() : item.content).split('(')[0].trim();
   CONFIG.model = newModel;
   clearConversationHistory();
   updateWelcomeCard();
-  
-  UI.modelList.hide();
-  UI.inputContainer.show();
-  UI.inputBox.focus();
+  closeModelSelection();
   addSpacer();
   addOutput(`Model set to: ${newModel}`, 'success');
-  screen.render();
 });
 
-UI.modelList.key('escape', () => {
-  UI.modelList.hide();
-  UI.inputContainer.show();
-  UI.inputBox.focus();
-  screen.render();
-});
+// ======================
+// KEYBOARD HANDLING
+// ======================
 
-// Explicit arrow key handling for the list
-UI.modelList.key(['up', 'k'], () => {
-  UI.modelList.up();
-  screen.render();
-});
+// Model list navigation
+UI.modelList.key(['up', 'k'], () => { UI.modelList.up(); screen.render(); });
+UI.modelList.key(['down', 'j'], () => { UI.modelList.down(); screen.render(); });
+UI.modelList.key('escape', () => closeModelSelection());
 
-UI.modelList.key(['down', 'j'], () => {
-  UI.modelList.down();
-  screen.render();
-});
-
-// Manual Enter handler for bulletproof selection
 UI.modelList.key('enter', () => {
   const selectedIndex = UI.modelList.selected;
-  const items = UI.modelList.items; // This is an array of listitem elements
+  const items = UI.modelList.items;
   const item = items[selectedIndex];
   if (!item) return;
 
   const content = (item.getText ? item.getText() : item.content).split('(')[0].trim();
-  
   CONFIG.model = content;
   clearConversationHistory();
   updateWelcomeCard();
-  
-  UI.modelList.hide();
-  UI.inputContainer.show();
-  UI.inputBox.focus();
+  closeModelSelection();
   addSpacer();
   addOutput(`Model set to: ${content}`, 'success');
-  screen.render();
 });
 
+// Input history navigation
 UI.inputBox.key('up', () => {
-  if (historyIndex > 0) { historyIndex--; UI.inputBox.setValue(commandHistory[historyIndex]); screen.render(); }
+  // Only navigate history if we are in single-line mode or empty
+  if (UI.inputBox.getLines().length > 1 && UI.inputBox.getValue().trim() !== '') return;
+  
+  if (historyIndex > 0) {
+    historyIndex--;
+    const cmd = commandHistory[historyIndex];
+    UI.inputBox.setValue(cmd);
+    setImmediate(() => {
+      resizeInput();
+      screen.render();
+    });
+  }
 });
 
 UI.inputBox.key('down', () => {
-  if (historyIndex < commandHistory.length - 1) { 
-    historyIndex++; UI.inputBox.setValue(commandHistory[historyIndex]); 
-  } else { 
-    historyIndex = commandHistory.length; UI.inputBox.clearValue(); 
+  // Only navigate history if we are in single-line mode or empty
+  if (UI.inputBox.getLines().length > 1 && UI.inputBox.getValue().trim() !== '') return;
+
+  if (historyIndex < commandHistory.length - 1) {
+    historyIndex++;
+    const cmd = commandHistory[historyIndex];
+    UI.inputBox.setValue(cmd);
+  } else {
+    historyIndex = commandHistory.length;
+    UI.inputBox.clearValue();
   }
-  screen.render();
+  setImmediate(() => {
+    resizeInput();
+    screen.render();
+  });
 });
 
-// Mode switch (Shift+Space)
-screen.key(['S-space', 'S- '], () => {
-  switchMode(currentMode === 'task' ? 'auto' : 'task');
-});
+// ==============================================
+// MODE SWITCH - SHIFT+SPACE
+// ==============================================
 
-// Fallback for terminals that handle Shift+Space as S then Space
-let pendingSpace = false;
-screen.key('S', () => { 
-  if (UI.modelList.visible) return; // Ignore during selection
-  pendingSpace = true; 
-  setTimeout(() => { pendingSpace = false; }, 300); 
-});
-screen.key('space', () => {
-  if (pendingSpace) {
-    pendingSpace = false;
+// Direct Shift+Space combination
+screen.key('S-space', () => {
+  logger.debug('KEYBOARD', 'S-space detected');
+  if (!UI.modelList.visible) {
     switchMode(currentMode === 'task' ? 'auto' : 'task');
   }
 });
 
+// Space as fallback only if not typing
+screen.key('space', () => {
+  if (UI.modelList.visible) {
+    UI.modelList.down();
+    screen.render();
+  }
+});
+
+// Ctrl+g as universal fallback
+screen.key('C-g', () => {
+  logger.debug('KEYBOARD', 'Ctrl+g detected');
+  if (!UI.modelList.visible) {
+    switchMode(currentMode === 'task' ? 'auto' : 'task');
+  }
+});
+
+// ==============================================
+// GLOBAL KEYS
+// ==============================================
+
 screen.on('resize', () => { screen.render(); });
-screen.key(['escape', 'q', 'C-c'], () => { cancelLLM(); process.exit(0); });
+
+screen.key(['escape', 'q', 'C-c'], () => {
+  cancelLLM();
+  cleanupAndExit();
+});
 
 // ======================
 // START
 // ======================
 
 (async () => {
+  logger.info('APP', 'Starting Heeba Terminal');
+
   updateWelcomeCard();
   screen.render();
+
   await runBootSequence(overlays, UI, screen, CONFIG);
+
   addOutput('Heeba Terminal v1.0 - Online', 'success');
   addOutput('Engine: llama.cpp (local GGUF)', 'info');
   addOutput(`Model: ${CONFIG.model}`, 'info');
   addOutput('Type "help" for available commands', 'info');
   addSpacer();
+
+  logger.info('APP', 'Boot complete');
 })();
