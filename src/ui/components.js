@@ -65,13 +65,13 @@ function createUI(screen) {
   });
 
   const outputArea = blessed.box({
-    parent: container, top: 13, left: 1, width: '100%-2', height: '100%-19',
-    hidden: true, scrollable: true, alwaysScroll: false, bg: C.bg,
+    parent: container, top: 13, left: 1, width: '100%-2', height: '100%-18',
+    hidden: true, scrollable: true, alwaysScroll: true, bg: C.bg,
     scrollbar: STYLES.scrollbar, mouse: true
   });
 
   const inputContainer = blessed.box({
-    parent: container, bottom: 1, left: 1, width: '100%-2', height: 5,
+    parent: container, bottom: 0, left: 1, width: '100%-2', height: 5,
     hidden: true, bg: C.bg, border: STYLES.border
   });
 
@@ -84,19 +84,47 @@ function createUI(screen) {
   });
 
   const inputBox = blessed.textbox({
-    parent: inputContainer, top: 1, left: 18, width: '100%-22', height: 3,
+    parent: inputContainer, top: 1, left: 18, width: '100%-22', height: 1,
     style: { bg: C.bg, fg: C.fg }, inputOnFocus: true
   });
 
   const footer = blessed.text({
-    parent: container, bottom: 0, left: 1, width: '100%-2',
-    content: '  Shift+Space: Switch mode  •  "help" for commands  •  "q" to quit', fg: C.dark
+    parent: container, 
+    bottom: 0, 
+    left: 0, 
+    width: '100%',
+    align: 'center',
+    content: ' Shift+Space: Switch mode  •  "help" for commands  •  "q" to quit ', 
+    fg: C.dim,
+    style: { bg: C.bg } // Transparent background or matching BG
+  });
+
+  const modelList = blessed.list({
+    parent: container,
+    bottom: 0,
+    left: 1,
+    width: '100%-2',
+    height: 5,
+    hidden: true,
+    label: ' [ SELECT MODEL ] ',
+    tags: true,
+    keys: true,
+    vi: true,
+    mouse: true,
+    border: STYLES.border,
+    style: {
+      item: { fg: C.fg },
+      selected: { fg: C.cyan, bold: true, underline: true },
+      border: { fg: C.purple },
+      label: { fg: C.purple, bold: true }
+    },
+    scrollbar: STYLES.scrollbar
   });
 
   return {
     container, welcomeCard, modeIndicator, cardTitle, mascotEl, 
     statusLinesEl, engineInfoEl, tipsText, outputArea, inputContainer, 
-    promptText, inputBox, footer
+    promptText, inputBox, footer, modelList
   };
 }
 

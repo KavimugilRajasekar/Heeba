@@ -204,26 +204,35 @@ function startIdleAnimation(ui, screen, mode) {
   }, 4000 + Math.random() * 4000);
 }
 
-function startLoadingAnimation(ui, overlays, screen, mode) {
+function startLoadingAnimation(ui, overlays, screen, mode, isTalking = false) {
   if (idleInterval) { clearInterval(idleInterval); idleInterval = null; }
+  if (loadingInterval) { clearInterval(loadingInterval); loadingInterval = null; }
+  if (mascotInterval) { clearInterval(mascotInterval); mascotInterval = null; }
+  
   const { mascotEl } = ui;
   const frames = mode.mascot;
   const modeColor = mode.color;
   
+  // Animation state configuration
+  const targetFrame = isTalking ? 2 : 1; // Frame 2 (Talk) vs Frame 1 (Blink)
+  const animSpeed = isTalking ? 150 : 400; // Talking is faster/more energetic
+  
   // Frame animation
-  if (frames.length > 1) {
+  if (frames.length > 2) {
     loadingInterval = setInterval(() => {
-      frameIdx = (frameIdx + 1) % frames.length;
+      frameIdx = (frameIdx === 0) ? targetFrame : 0; // Toggle between Base and Action frame
       mascotEl.setContent(frames[frameIdx]);
       screen.render();
-    }, 400); // Elegant, slow blink/twitch
+    }, animSpeed);
   }
 
   // Mascot pulsing (Color change)
   let pulseDir = 1;
   let pulseRef = 0;
+  const pulseSpeed = isTalking ? 0.2 : 0.1; // Pulse faster during talking
+  
   mascotInterval = setInterval(() => {
-    pulseRef += 0.1 * pulseDir;
+    pulseRef += pulseSpeed * pulseDir;
     if (pulseRef >= 1 || pulseRef <= 0) pulseDir *= -1;
     
     if (pulseRef > 0.5) {

@@ -8,7 +8,8 @@ const MODES = {
     headerTitle: 'TASK MODE',
     mascot: [
       '\n                 __\n                / _)\n       _.----._/ /\n      /         /\n   __/ (  | (  |\n  /__.-\'|_|--|_|',
-      '\n                 __\n                / -)\n       _.----._/ /\n      /         /\n   __/ (  | (  |\n  /__.-\'|_|--|_|'
+      '\n                 __\n                / -)\n       _.----._/ /\n      /         /\n   __/ (  | (  |\n  /__.-\'|_|--|_|',
+      '\n                 __\n                / >)\n       _.----._/ /\n      /         /\n   __/ (  | (  |\n  /__.-\'|_|--|_|'
     ],
     statusLines: 'Workspace : ~/current-project\nActivity  : Editing | Creating | Debugging',
     color: C.green,
@@ -24,7 +25,8 @@ const MODES = {
     headerTitle: 'AUTOMATION MODE',
     mascot: [
       '\n        /\\_/\\\n       ( o.o )\n        > ^ <', 
-      '\n        /\\_/\\\n       ( -.- )\n        > ^ <'
+      '\n        /\\_/\\\n       ( -.- )\n        > ^ <',
+      '\n        /\\_/\\\n       ( o.o )\n        > o <'
     ],
     statusLines: 'Mode     : LLM-powered chat\nContext  : Conversation history maintained',
     color: C.yellow,

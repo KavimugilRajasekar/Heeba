@@ -66,13 +66,20 @@ function updateWelcomeCard() {
   startIdleAnimation(UI, screen, m);
 }
 
+function autoScroll() {
+  UI.outputArea.setScroll(Infinity);
+  screen.render();
+}
+
 function clearOutput() {
   UI.outputArea.children.forEach(c => c.destroy());
   lineCount = 0;
+  autoScroll();
 }
 
 function addOutput(text, className = '') {
   if (text == null || text === '') return;
+  
   const textStr = String(text);
   const prefix = { command: `[${MODES[currentMode].prompt}] `, error: '[ERR] ', success: '[OK] ', info: '>> ', llm: '[AI] ' }[className] || '';
   const color = { command: C.purple, error: C.red, success: C.green, info: C.cyan, llm: C.yellow }[className] || C.dim;
@@ -87,10 +94,10 @@ function addOutput(text, className = '') {
       fg: color 
     });
   });
-  screen.render();
+  autoScroll();
 }
 
-function addSpacer() { lineCount++; screen.render(); }
+function addSpacer() { lineCount++; autoScroll(); }
 
 function showLoading(show) { 
   if (show) {
@@ -116,6 +123,29 @@ function switchMode(newMode) {
     addSpacer();
     addOutput(`Switched to ${MODES[newMode].name} Mode`, 'success');
   }, 500);
+}
+
+function openModelSelection() {
+  const models = getAvailableModels();
+  
+  // Dynamic scanning indicator
+  addOutput('Scanning engine/models/...', 'info');
+  
+  if (models.length === 0) {
+    addOutput('No models found in engine/models/', 'error');
+    return;
+  }
+
+  UI.inputContainer.hide();
+  UI.modelList.setItems(models);
+  UI.modelList.setLabel(` [ SELECT MODEL: ${models.length} FOUND ] `);
+  UI.modelList.show();
+  
+  // Delay focus slightly to ensure the hide event has cleared the focus path
+  setTimeout(() => {
+    UI.modelList.focus();
+    screen.render();
+  }, 10);
 }
 
 // ======================
@@ -146,9 +176,8 @@ async function processCommand(input) {
   }
 
   if (trimmed === 'models') {
-    const models = getAvailableModels();
-    if (models.length === 0) return 'No models found in engine/models/';
-    return 'Available Models:\n' + models.map((m, i) => `  ${i + 1}. ${m}`).join('\n') + '\n\nUse "model <number>" or "model <filename>" to select.';
+    openModelSelection();
+    return '';
   }
 
   if (trimmed.startsWith('model ')) {
@@ -211,7 +240,8 @@ Threads   : ${CONFIG.threads}`;
     try {
       const response = await queryLLM(input, currentMode, CONFIG, (token) => {
         if (!liveTextEl) {
-            showLoading(false); // Hide spinner on first token
+            // Success: Switch from Thinking (Blink) to Talking (Mouth)
+            startLoadingAnimation(UI, overlays, screen, MODES[currentMode], true);
             addSpacer();
             liveTextEl = require('blessed').text({
                 parent: UI.outputArea,
@@ -224,11 +254,13 @@ Threads   : ${CONFIG.threads}`;
         }
         liveTextEl.setContent(liveTextEl.getContent() + token);
         
-        // Auto-scroll logic
-        UI.outputArea.scrollTo(UI.outputArea.getLines().length);
-        screen.render();
+        // Auto-scroll logic (scroll to bottom as text grows)
+        autoScroll();
       });
 
+      // Final stop: Return mascot to idle
+      showLoading(false);
+      
       // Cleanup and finalize line count
       if (liveTextEl) {
           const actualLines = liveTextEl.getLines().length;
@@ -269,6 +301,60 @@ UI.inputBox.on('submit', async () => {
   setTimeout(() => { UI.inputBox.focus(); screen.render(); }, 50);
 });
 
+// Model list selection handlers
+UI.modelList.on('select', (item) => {
+  const newModel = (item.getText ? item.getText() : item.content).split('(')[0].trim();
+  CONFIG.model = newModel;
+  clearConversationHistory();
+  updateWelcomeCard();
+  
+  UI.modelList.hide();
+  UI.inputContainer.show();
+  UI.inputBox.focus();
+  addSpacer();
+  addOutput(`Model set to: ${newModel}`, 'success');
+  screen.render();
+});
+
+UI.modelList.key('escape', () => {
+  UI.modelList.hide();
+  UI.inputContainer.show();
+  UI.inputBox.focus();
+  screen.render();
+});
+
+// Explicit arrow key handling for the list
+UI.modelList.key(['up', 'k'], () => {
+  UI.modelList.up();
+  screen.render();
+});
+
+UI.modelList.key(['down', 'j'], () => {
+  UI.modelList.down();
+  screen.render();
+});
+
+// Manual Enter handler for bulletproof selection
+UI.modelList.key('enter', () => {
+  const selectedIndex = UI.modelList.selected;
+  const items = UI.modelList.items; // This is an array of listitem elements
+  const item = items[selectedIndex];
+  if (!item) return;
+
+  const content = (item.getText ? item.getText() : item.content).split('(')[0].trim();
+  
+  CONFIG.model = content;
+  clearConversationHistory();
+  updateWelcomeCard();
+  
+  UI.modelList.hide();
+  UI.inputContainer.show();
+  UI.inputBox.focus();
+  addSpacer();
+  addOutput(`Model set to: ${content}`, 'success');
+  screen.render();
+});
+
 UI.inputBox.key('up', () => {
   if (historyIndex > 0) { historyIndex--; UI.inputBox.setValue(commandHistory[historyIndex]); screen.render(); }
 });
@@ -282,9 +368,18 @@ UI.inputBox.key('down', () => {
   screen.render();
 });
 
-// Mode switch (Shift+Space simulated by S then Space)
+// Mode switch (Shift+Space)
+screen.key(['S-space', 'S- '], () => {
+  switchMode(currentMode === 'task' ? 'auto' : 'task');
+});
+
+// Fallback for terminals that handle Shift+Space as S then Space
 let pendingSpace = false;
-screen.key('S', () => { pendingSpace = true; setTimeout(() => { pendingSpace = false; }, 300); });
+screen.key('S', () => { 
+  if (UI.modelList.visible) return; // Ignore during selection
+  pendingSpace = true; 
+  setTimeout(() => { pendingSpace = false; }, 300); 
+});
 screen.key('space', () => {
   if (pendingSpace) {
     pendingSpace = false;
