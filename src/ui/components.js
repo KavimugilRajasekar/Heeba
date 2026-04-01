@@ -111,16 +111,46 @@ function createUI(screen) {
     height: 10,
     hidden: true,
     bg: C.bg,
-    border: { type: 'line', fg: C.border },
-    padding: { right: 1 }
+    padding: { right: 0 }
+  });
+
+  // --- MANUAL PILLAR BORDERS ---
+  // Top Line
+  const topBorderLine = blessed.box({
+    parent: welcomeCard,
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: 1,
+    content: '◈' + '─'.repeat(200), // blessed will clip to size
+    fg: C.border,
+    wrap: false
+  });
+  const trCorner = blessed.text({
+    parent: topBorderLine, top: 0, right: 0, content: '◈', fg: C.border
+  });
+
+  // Bottom Line
+  const bottomBorderLine = blessed.box({
+    parent: welcomeCard,
+    bottom: 0,
+    left: 0,
+    width: '100%',
+    height: 1,
+    content: '◈' + '─'.repeat(200),
+    fg: C.border,
+    wrap: false
+  });
+  const brCorner = blessed.text({
+    parent: bottomBorderLine, top: 0, right: 0, content: '◈', fg: C.border
   });
 
   // Card header bar
   const cardHeaderBar = blessed.box({
     parent: welcomeCard,
-    top: 0,
+    top: 1, // Row immediately below top border
     left: 0,
-    width: '100%-1', // Leave 1 char gap for right border
+    width: '100%', // Use full width now that side borders are gone
     height: 1,
     bg: C.bg2
   });
@@ -147,9 +177,9 @@ function createUI(screen) {
   // Card body
   const cardBody = blessed.box({
     parent: welcomeCard,
-    top: 1,
+    top: 2, // Below header
     left: 0,
-    width: '100%-1', // Leave 1 char gap for right border
+    width: '100%', // Use full width now that side borders are gone
     height: 10 - 2 - 1, 
     bg: C.bg
   });
