@@ -18,7 +18,7 @@ function getAvailableModels() {
 
 const availableModels = getAvailableModels();
 const DEFAULT_CONFIG = {
-  model: availableModels.find(m => m === 'granite4350m.gguf') || availableModels[0] || 'granite4350m.gguf',
+  model: availableModels.find(m => m === 'granite4latest.gguf') || availableModels[0] || 'granite4latest.gguf',
   engine: path.join(process.cwd(), 'engine', 'inference-engine', 'llama-cli.exe'),
   contextLength: 2048,
   threads: 4,

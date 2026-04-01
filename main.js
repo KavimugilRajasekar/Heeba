@@ -1,6 +1,9 @@
 #!/usr/bin/env node
+const os = require('os');
+
 
 const { DEFAULT_CONFIG, getAvailableModels } = require('./src/core/config');
+const { loadHeebaConfig, getHeebaConfig } = require('./src/core/config-loader');
 const { C } = require('./src/ui/theme');
 const { initScreen, createUI } = require('./src/ui/components');
 const {
@@ -8,7 +11,9 @@ const {
   runBootSequence,
   startLoadingAnimation,
   stopLoadingAnimation,
-  startIdleAnimation
+  startIdleAnimation,
+  startTipsAnimation,
+  stopTipsAnimation
 } = require('./src/ui/animations');
 const { MODES } = require('./src/utils/helpers');
 const logger = require('./src/utils/logger');
@@ -17,19 +22,26 @@ const {
   cancelLLM,
   getLLMStatus,
   clearConversationHistory,
-  stopServer
+  stopServer,
+  getTotalTokensUsed
 } = require('./src/core/engine');
+const { parseCommandFromResponse, executeCommand } = require('./src/core/intent-executor');
+
+// Load heeba.json config on startup
+const heebaConfig = loadHeebaConfig();
+logger.info('CONFIG', `Loaded heeba.json for user: ${heebaConfig.user_profile.name}`);
 
 // ======================
 // STATE
 // ======================
-let currentMode = 'task';
+let currentMode = 'auto';
 let commandHistory = [];
 let historyIndex = -1;
-let lineCount = 0;
+let lineCount = 12; // Start after WelcomeCard (11 lines + 1 gap)
 let lastOutputWasCommand = false;
 const startTime = Date.now();
 const CONFIG = { ...DEFAULT_CONFIG };
+let isProcessingCommand = false;
 
 // Keyboard state
 let lastShiftPress = 0;
@@ -38,6 +50,50 @@ let lastShiftPress = 0;
 const screen = initScreen();
 const UI = createUI(screen);
 const overlays = createOverlays(UI.container);
+
+// ======================
+// STATS REFRESH
+// ======================
+let lastCpuUsage = process.cpuUsage();
+let lastCpuTime = Date.now();
+
+function refreshStats() {
+  try {
+    // RAM
+    const mem = process.memoryUsage();
+    const ramMB = Math.round(mem.rss / 1024 / 1024);
+    UI.ramTag.setContent(`RAM: ${ramMB}MB`);
+
+    // Uptime
+    const uptime = Math.floor(process.uptime());
+    const h = Math.floor(uptime / 3600);
+    const m = Math.floor((uptime % 3600) / 60);
+    const s = uptime % 60;
+    UI.uptimeTag.setContent(`UpTime: ${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+
+    // Tokens
+    UI.tokenTag.setContent(`Tokens: ${getTotalTokensUsed() || 0}`);
+
+    // CPU
+    const currentCpuUsage = process.cpuUsage(lastCpuUsage);
+    const currentTime = Date.now();
+    const timeDelta = (currentTime - lastCpuTime) * 1000; // to microseconds
+    
+    // CPU usage across all cores (approximate for this process)
+    const cpuPercent = Math.min(100, Math.round((currentCpuUsage.user + currentCpuUsage.system) / timeDelta * 100));
+    UI.cpuTag.setContent(`CPU: ${cpuPercent}%`);
+    
+    lastCpuUsage = process.cpuUsage();
+    lastCpuTime = currentTime;
+
+    screen.render();
+  } catch (err) {
+    // Silently fail to avoid UI crashes during rapid updates
+  }
+}
+
+setInterval(refreshStats, 1000);
+
 
 // ======================
 // CLEANUP
@@ -56,16 +112,21 @@ process.on('exit', () => stopServer());
 // ======================
 function updateWelcomeCard() {
   const m = MODES[currentMode];
+  const config = getHeebaConfig();
   logger.debug('UI', `Updating welcome card: ${currentMode}`);
 
-  // Top bar - only update model name
-  UI.modelTag.setContent(CONFIG.model.replace('.gguf', ''));
+  // Top bar updates
+  UI.modelTag.setContent(`SelectedModel: ${CONFIG.model.replace('.gguf', '')}`);
+  UI.topModeIndicator.setContent(`● ${m.name.toUpperCase()}`);
+  UI.topModeIndicator.style.fg = m.color;
 
   // Welcome card header
   UI.modeIndicator.setContent(`● ${m.name.toUpperCase()}`);
   UI.modeIndicator.style.fg = m.color;
   UI.cardTitle.setContent(`Heeba ${m.headerTitle}`);
-  UI.cardHeaderRight.setContent(getLLMStatus() ? 'llama.cpp ●' : 'llama.cpp');
+
+  // User name from config
+  UI.welcomeUserEl.setContent(`Welcome back, ${config.user_profile.name}`);
 
   // Mascot
   UI.mascotEl.setContent(m.mascot[0]);
@@ -84,8 +145,9 @@ function updateWelcomeCard() {
   UI.footerStatus.setContent('● ready');
   UI.footerStatus.style.fg = C.green;
 
-  // Start idle animation
+  // Start animations
   startIdleAnimation(UI, screen, m);
+  startTipsAnimation(UI, screen, m);
 }
 
 // ChatGPT-like auto-scroll to bottom
@@ -95,8 +157,11 @@ function autoScroll() {
 }
 
 function clearOutput() {
-  UI.outputArea.children.forEach(c => c.destroy());
-  lineCount = 0;
+  // Destroy all children except the WelcomeCard
+  UI.outputArea.children.forEach(c => {
+    if (c !== UI.welcomeCard) c.destroy();
+  });
+  lineCount = 12;
   autoScroll();
 }
 
@@ -145,7 +210,6 @@ function showLoading(show) {
     UI.promptText.setContent(`>`);
     stopLoadingAnimation(UI, overlays, screen, MODES[currentMode]);
   }
-  UI.cardHeaderRight.setContent(show ? 'llama.cpp ●' : 'llama.cpp');
   UI.footerStatus.setContent(show ? '● busy' : '● ready');
   UI.footerStatus.style.fg = show ? C.yellow : C.green;
 }
@@ -297,6 +361,8 @@ Threads   : ${CONFIG.threads}`;
     }, 150);
 
     let liveTextEl = null;
+    let fullResponse = '';
+    isProcessingCommand = true;
 
     try {
       await queryLLM(input, currentMode, CONFIG, (token) => {
@@ -321,6 +387,7 @@ Threads   : ${CONFIG.threads}`;
           });
         }
         liveTextEl.setContent(liveTextEl.getContent() + token);
+        fullResponse += token;
         autoScroll();
       });
 
@@ -330,12 +397,46 @@ Threads   : ${CONFIG.threads}`;
         const actualLines = liveTextEl.getLines().length;
         if (actualLines > 1) lineCount += (actualLines - 1);
       }
+
+      // Check for structured commands in LLM response
+      const command = parseCommandFromResponse(fullResponse);
+      if (command && command.action) {
+        // Command detected - clear the JSON output from chat and execute
+        if (liveTextEl) {
+          const oldLines = liveTextEl.getLines().length;
+          liveTextEl.destroy();
+          liveTextEl = null;
+          // Reset lineCount since we destroyed the LLM output
+          lineCount -= oldLines;
+          if (lineCount < 12) lineCount = 12;
+        }
+        addSpacer();
+
+        const ctx = { screen, UI };
+        const result = await executeCommand(command, ctx);
+        if (result && result.success) {
+          // Update UI after profile change
+          if (command.action === 'update_user_profile') {
+            updateWelcomeCard();
+            addOutput(`✓ Done! ${result.message}`, 'success');
+          } else {
+            addOutput(`✓ ${result.message}`, 'success');
+          }
+        } else if (result) {
+          addOutput(`✗ Failed: ${result.message}`, 'error');
+        }
+        return '';
+      }
+
       return '';
     } catch (err) {
       if (thinkingEl) { clearInterval(thinkingInterval); thinkingEl.destroy(); }
       showLoading(false);
       logger.error('ENGINE', err);
+      isProcessingCommand = false;
       return `LLM Error: ${err.message}`;
+    } finally {
+      isProcessingCommand = false;
     }
   }
 
@@ -351,10 +452,13 @@ Threads   : ${CONFIG.threads}`;
 // ======================
 
 function resizeInput() {
+  // Skip resize if we're processing a command
+  if (isProcessingCommand) return;
+
   const text = UI.inputBox.getValue();
   // Get numeric width, providing a safe fallback
   const width = (typeof UI.inputBox.width === 'number' ? UI.inputBox.width : screen.width - 6) - 2;
-  
+
   const bufferLines = text.split('\n');
   let visualLines = 0;
   bufferLines.forEach(line => {
@@ -363,15 +467,14 @@ function resizeInput() {
   });
 
   const newHeight = Math.min(12, visualLines); // Cap height at 12 lines
-  
+
   if (UI.inputBox.height !== newHeight) {
     UI.inputBox.height = newHeight;
-    UI.inputContainer.height = newHeight + 2; 
-    
-    // Recalculate outputArea height: 
-    // Start height: 12 (top) + 1 (bottom gap) + 3 (input) + 1 (footer) = 17
-    // Each extra input line adds +1 to negative offset
-    UI.outputArea.height = `100%-${16 + newHeight}`; 
+    UI.inputContainer.height = newHeight + 2;
+
+    // Recalculate outputArea height:
+    // Start height: 3 (top) + newHeight + 1 (footer) + 1 padding = 5 + newHeight
+    UI.outputArea.height = `100%-${5 + newHeight}`;
     screen.render();
   }
 }
@@ -385,19 +488,21 @@ UI.inputBox.key('enter', async (ch, key) => {
     UI.inputBox.clearValue();
     UI.inputBox.height = 1;
     UI.inputContainer.height = 3;
-    UI.outputArea.height = '100%-17';
+    // Offset calculation: Top(3) + Input(1) + Footer(1) + Padding(1) = 6
+    UI.outputArea.height = '100%-7';
     screen.render();
     setTimeout(() => { UI.inputBox.focus(); screen.render(); }, 50);
     return;
   }
 
   UI.inputBox.clearValue();
-  
+
   // Reset height after submission
   UI.inputBox.height = 1;
   UI.inputContainer.height = 3;
-  UI.outputArea.height = '100%-17';
-  
+  // Offset calculation: Top(3) + Input(1) + Footer(1) + Padding(1) = 6
+  UI.outputArea.height = '100%-7';
+
   addSpacer();
   addOutput(command, 'command');
   lastOutputWasCommand = true;
@@ -409,6 +514,15 @@ UI.inputBox.key('enter', async (ch, key) => {
     commandHistory.push(command);
     historyIndex = commandHistory.length;
   }
+
+  // Reset input field state completely
+  UI.inputBox.clearValue();
+  UI.inputBox.height = 1;
+  UI.inputContainer.height = 3;
+  UI.outputArea.height = '100%-7';
+  try {
+    UI.inputBox.setValue('');
+  } catch (e) {}
 
   screen.render();
   setTimeout(() => { UI.inputBox.focus(); screen.render(); }, 50);
@@ -555,7 +669,7 @@ screen.key(['escape', 'q', 'C-c'], () => {
 
   await runBootSequence(overlays, UI, screen, CONFIG);
 
-  addOutput('Heeba Terminal v1.0 - Online', 'success');
+  addOutput('Heeba | Code Space v1.0 - Online', 'success');
   addOutput('Engine: llama.cpp (local GGUF)', 'info');
   addOutput(`Model: ${CONFIG.model}`, 'info');
   addOutput('Type "help" for available commands', 'info');

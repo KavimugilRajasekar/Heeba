@@ -27,14 +27,16 @@ function createUI(screen) {
   const topBar = blessed.box({
     parent: container,
     top: 0,
-    left: 0,
-    width: '100%',
-    height: 1,
-    bg: C.bg2
+    left: 1,
+    width: '100%-2',
+    height: 3,
+    bg: C.bg2,
+    border: { type: 'line', fg: C.border },
+    padding: { right: 1 }
   });
 
   // App name badge - HEEBA
-  blessed.text({
+  const appBadge = blessed.text({
     parent: topBar,
     top: 0,
     left: 1,
@@ -43,44 +45,141 @@ function createUI(screen) {
     bold: true
   });
 
+  // Mode indicator in Top Bar
+  const topModeIndicator = blessed.text({
+    parent: topBar,
+    top: 0,
+    left: 11,
+    content: '● DINO',
+    fg: C.green,
+    bold: true
+  });
+
   // Separator
   blessed.text({
     parent: topBar,
     top: 0,
-    left: 11,
+    left: 20,
     content: '│',
     fg: C.border
   });
 
-  // Model name (right side)
+  // Model name
   const modelTag = blessed.text({
     parent: topBar,
     top: 0,
-    left: 13,
-    content: 'granite4350m',
+    left: 22,
+    content: 'SelectedModel: granite4350m',
     fg: C.dim
   });
 
+  // Vertical line separator
+  blessed.text({
+    parent: topBar,
+    top: 0,
+    right: 50,
+    content: '│',
+    fg: C.border
+  });
+
+  // System Stats (Right-aligned)
+  const tokenTag = blessed.text({
+    parent: topBar, top: 0, right: 2, content: 'Tokens: 0', fg: C.yellow
+  });
+
+  const uptimeTag = blessed.text({
+    parent: topBar, top: 0, right: 14, content: 'UpTime: 0:00:00', fg: C.dim
+  });
+
+  const ramTag = blessed.text({
+    parent: topBar, top: 0, right: 31, content: 'RAM: 0MB', fg: C.cyan
+  });
+
+  const cpuTag = blessed.text({
+    parent: topBar, top: 0, right: 42, content: 'CPU: 0%', fg: C.purple
+  });
+
+
   // =============================================
-  // MAIN WELCOME CARD
+  // OUTPUT AREA (Now contains WelcomeCard)
   // =============================================
-  const welcomeCard = blessed.box({
+  const outputArea = blessed.box({
     parent: container,
-    top: 2,
+    top: 3, // Immediately below topBar
     left: 1,
     width: '100%-2',
-    height: 9,
+    height: '100%-9', // Adjusted for input/footer
     hidden: true,
+    scrollable: true,
+    alwaysScroll: true,
+    scrollbar: STYLES.scrollbar,
+    mouse: true, // RE-ENABLED mouse scroll as requested
+    bg: C.bg
+  });
+
+  // =============================================
+  // MAIN WELCOME CARD (Nested inside outputArea)
+  // =============================================
+  const welcomeCard = blessed.box({
+    parent: outputArea,
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: 11,
+    hidden: false, // visible when outputArea shows up
     bg: C.bg,
-    border: { type: 'line', fg: C.border }
+    padding: { right: 0 }
+  });
+
+  // --- MANUAL PILLAR BORDERS ---
+  // Top Line
+  const topBorderLine = blessed.box({
+    parent: welcomeCard,
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: 1,
+    content: '◈' + '─'.repeat(200), // blessed will clip to size
+    fg: C.border,
+    wrap: false
+  });
+  const trCorner = blessed.text({
+    parent: topBorderLine, top: 0, right: 0, content: '◈', fg: C.border
+  });
+
+  // Bottom Line
+  const bottomBorderLine = blessed.box({
+    parent: welcomeCard,
+    bottom: 0,
+    left: 0,
+    width: '100%',
+    height: 1,
+    content: '◈' + '─'.repeat(200),
+    fg: C.border,
+    wrap: false
+  });
+  const brCorner = blessed.text({
+    parent: bottomBorderLine, top: 0, right: 0, content: '◈', fg: C.border
+  });
+
+  // Header separator line
+  const headerSeparator = blessed.box({
+    parent: welcomeCard,
+    top: 2,
+    left: 2,
+    width: '100%-4',
+    height: 1,
+    content: '─'.repeat(200),
+    fg: C.border,
+    wrap: false
   });
 
   // Card header bar
   const cardHeaderBar = blessed.box({
     parent: welcomeCard,
-    top: 0,
+    top: 1, // Row immediately below top border
     left: 0,
-    width: '100%',
+    width: '100%', // Use full width now that side borders are gone
     height: 1,
     bg: C.bg2
   });
@@ -102,21 +201,15 @@ function createUI(screen) {
     fg: C.dim
   });
 
-  const cardHeaderRight = blessed.text({
-    parent: cardHeaderBar,
-    top: 0,
-    right: 1,
-    content: 'llama.cpp',
-    fg: C.dark
-  });
+
 
   // Card body
   const cardBody = blessed.box({
     parent: welcomeCard,
-    top: 1,
+    top: 3, // Below header and separator
     left: 0,
-    width: '100%',
-    height: 7,
+    width: '100%', // Use full width now that side borders are gone
+    height: 7, 
     bg: C.bg
   });
 
@@ -130,6 +223,16 @@ function createUI(screen) {
     fg: C.green
   });
 
+  // Vertical separator between mascot and info
+  blessed.text({
+    parent: cardBody,
+    top: 0,
+    left: 23,
+    height: 7,
+    content: '│\n'.repeat(7),
+    fg: C.border
+  });
+
   // Right column: Info
   const infoBox = blessed.box({
     parent: cardBody,
@@ -140,7 +243,7 @@ function createUI(screen) {
     bg: C.bg
   });
 
-  blessed.text({
+  const welcomeUserEl = blessed.text({
     parent: infoBox,
     top: 0,
     left: 0,
@@ -194,25 +297,7 @@ function createUI(screen) {
   });
 
   // =============================================
-  // OUTPUT AREA (Chat-style scrolling)
-  // =============================================
-  const outputArea = blessed.box({
-    parent: container,
-    top: 12,
-    left: 1,
-    width: '100%-2',
-    height: '100%-17',
-    hidden: true,
-    scrollable: true,
-    alwaysScroll: true,
-    scrollbar: STYLES.scrollbar,
-    mouse: true,
-    // Ensure it scrolls to bottom on new content
-    bg: C.bg
-  });
-
-  // =============================================
-  // INPUT AREA
+  // INPUT AREA (Remains Fixed)
   // =============================================
   const inputContainer = blessed.box({
     parent: container,
@@ -275,14 +360,14 @@ function createUI(screen) {
     parent: bottomBar,
     top: 0,
     left: 1,
-    content: '[S-Space] mode',
+    content: '[Shift+Space] mode',
     fg: C.dim
   });
 
   blessed.text({
     parent: bottomBar,
     top: 0,
-    left: 17,
+    left: 20,
     content: '[↑↓] history',
     fg: C.dim
   });
@@ -336,11 +421,12 @@ function createUI(screen) {
     container,
     topBar,
     modelTag,
+    topModeIndicator,
     welcomeCard,
     modeIndicator,
     cardTitle,
-    cardHeaderRight,
     mascotEl,
+    welcomeUserEl,
     statusLinesEl,
     engineInfoEl,
     tipsText,
@@ -350,7 +436,11 @@ function createUI(screen) {
     inputBox,
     bottomBar,
     footerStatus,
-    modelList
+    modelList,
+    tokenTag,
+    uptimeTag,
+    ramTag,
+    cpuTag
   };
 }
 

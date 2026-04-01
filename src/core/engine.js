@@ -8,7 +8,10 @@ const { buildSystemPrompt } = require('../utils/helpers');
 let isLLMRunning = false;
 let serverProcess = null;
 let conversationHistory = [];
-const SERVER_PORT = 8080;
+const SERVER_PORT = 5786;
+
+let totalTokensUsed = 0;
+
 
 function ensureServerRunning(CONFIG) {
     return new Promise((resolve, reject) => {
@@ -93,6 +96,7 @@ async function queryLLM(userInput, mode, CONFIG, onToken) {
                                     const json = JSON.parse(line.replace('data:', '').trim());
                                     if (json.content) {
                                         fullResponse += json.content;
+                                        totalTokensUsed++; // Approximate token count
                                         onToken(json.content);
                                     }
                                 } catch (e) {}
@@ -161,4 +165,9 @@ function clearConversationHistory() {
     conversationHistory = [];
 }
 
-module.exports = { queryLLM, cancelLLM, getLLMStatus, clearConversationHistory, stopServer };
+function getTotalTokensUsed() {
+    return totalTokensUsed;
+}
+
+module.exports = { queryLLM, cancelLLM, getLLMStatus, clearConversationHistory, stopServer, getTotalTokensUsed };
+

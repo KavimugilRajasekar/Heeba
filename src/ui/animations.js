@@ -110,7 +110,7 @@ async function runBootSequence(overlays, ui, screen, CONFIG) {
     'Loading model: ' + CONFIG.model,
     'Warming up AI cores...',
     'Almost ready...',
-    'Heeba is now online!'
+    'Heeba | Code Space is now online!'
   ];
 
   const colors = [C.green, C.cyan, C.yellow, C.purple];
@@ -184,7 +184,10 @@ async function runBootSequence(overlays, ui, screen, CONFIG) {
 let loadingInterval = null;
 let mascotInterval = null;
 let idleInterval = null;
+let tipsInterval = null;
+let tipStepInterval = null;
 let frameIdx = 0;
+let tipIdx = 0;
 
 function startIdleAnimation(ui, screen, mode) {
   if (idleInterval) clearInterval(idleInterval);
@@ -257,10 +260,71 @@ function stopLoadingAnimation(ui, overlays, screen, mode) {
   startIdleAnimation(ui, screen, mode);
 }
 
+function startTipsAnimation(ui, screen, mode) {
+  if (tipsInterval) clearInterval(tipsInterval);
+  if (tipStepInterval) clearInterval(tipStepInterval);
+  if (!mode.tips || mode.tips.length === 0) return;
+
+  const { tipsText } = ui;
+  tipIdx = 0;
+  
+  // Set initial state
+  tipsText.setContent(mode.tips[tipIdx]);
+  tipsText.left = 5;
+  tipsText.top = 6;
+  screen.render();
+
+  tipsInterval = setInterval(() => {
+    if (tipStepInterval) clearInterval(tipStepInterval);
+    
+    const currentTip = mode.tips[tipIdx];
+    tipIdx = (tipIdx + 1) % mode.tips.length;
+    const nextTip = mode.tips[tipIdx];
+    
+    // Phase 1: Dissolve (Vanish characters from left to right - using padding to keep fixed positions)
+    let d = 0;
+    tipStepInterval = setInterval(() => {
+      if (d >= currentTip.length) {
+        clearInterval(tipStepInterval);
+        
+        // Phase 2: Materialize (Reveal new characters from left to right - standard typing)
+        let m = 0;
+        tipStepInterval = setInterval(() => {
+          if (m >= nextTip.length) {
+            tipsText.setContent(nextTip);
+            clearInterval(tipStepInterval);
+            tipStepInterval = null;
+            screen.render();
+          } else {
+            m++;
+            tipsText.setContent(nextTip.substring(0, m));
+            screen.render();
+          }
+        }, 30);
+        
+      } else {
+        d++;
+        // Replace vanished characters with spaces to maintain alignment of the remaining ones
+        tipsText.setContent(' '.repeat(d) + currentTip.substring(d));
+        screen.render();
+      }
+    }, 30);
+
+  }, 7000);
+}
+
+function stopTipsAnimation() {
+  if (tipsInterval) { clearInterval(tipsInterval); tipsInterval = null; }
+  if (tipStepInterval) { clearInterval(tipStepInterval); tipStepInterval = null; }
+}
+
+
 module.exports = { 
   createOverlays, 
   runBootSequence, 
   startLoadingAnimation, 
   stopLoadingAnimation,
-  startIdleAnimation
+  startIdleAnimation,
+  startTipsAnimation,
+  stopTipsAnimation
 };
