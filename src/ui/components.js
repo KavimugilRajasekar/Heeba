@@ -243,7 +243,7 @@ function createUI(screen) {
     bg: C.bg
   });
 
-  blessed.text({
+  const welcomeUserEl = blessed.text({
     parent: infoBox,
     top: 0,
     left: 0,
@@ -426,6 +426,7 @@ function createUI(screen) {
     modeIndicator,
     cardTitle,
     mascotEl,
+    welcomeUserEl,
     statusLinesEl,
     engineInfoEl,
     tipsText,
