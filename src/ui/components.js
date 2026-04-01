@@ -101,15 +101,32 @@ function createUI(screen) {
 
 
   // =============================================
-  // MAIN WELCOME CARD
+  // OUTPUT AREA (Now contains WelcomeCard)
   // =============================================
-  const welcomeCard = blessed.box({
+  const outputArea = blessed.box({
     parent: container,
-    top: 3,
+    top: 3, // Immediately below topBar
     left: 1,
     width: '100%-2',
-    height: 11,
+    height: '100%-9', // Adjusted for input/footer
     hidden: true,
+    scrollable: true,
+    alwaysScroll: true,
+    scrollbar: STYLES.scrollbar,
+    mouse: true, // RE-ENABLED mouse scroll as requested
+    bg: C.bg
+  });
+
+  // =============================================
+  // MAIN WELCOME CARD (Nested inside outputArea)
+  // =============================================
+  const welcomeCard = blessed.box({
+    parent: outputArea,
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: 11,
+    hidden: false, // visible when outputArea shows up
     bg: C.bg,
     padding: { right: 0 }
   });
@@ -280,25 +297,7 @@ function createUI(screen) {
   });
 
   // =============================================
-  // OUTPUT AREA (Chat-style scrolling)
-  // =============================================
-  const outputArea = blessed.box({
-    parent: container,
-    top: 14,
-    left: 1,
-    width: '100%-2',
-    height: '100%-19',
-    hidden: true,
-    scrollable: true,
-    alwaysScroll: true,
-    scrollbar: STYLES.scrollbar,
-    mouse: true,
-    // Ensure it scrolls to bottom on new content
-    bg: C.bg
-  });
-
-  // =============================================
-  // INPUT AREA
+  // INPUT AREA (Remains Fixed)
   // =============================================
   const inputContainer = blessed.box({
     parent: container,

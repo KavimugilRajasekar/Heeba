@@ -31,7 +31,7 @@ const {
 let currentMode = 'task';
 let commandHistory = [];
 let historyIndex = -1;
-let lineCount = 0;
+let lineCount = 12; // Start after WelcomeCard (11 lines + 1 gap)
 let lastOutputWasCommand = false;
 const startTime = Date.now();
 const CONFIG = { ...DEFAULT_CONFIG };
@@ -146,8 +146,11 @@ function autoScroll() {
 }
 
 function clearOutput() {
-  UI.outputArea.children.forEach(c => c.destroy());
-  lineCount = 0;
+  // Destroy all children except the WelcomeCard
+  UI.outputArea.children.forEach(c => {
+    if (c !== UI.welcomeCard) c.destroy();
+  });
+  lineCount = 12;
   autoScroll();
 }
 
@@ -419,8 +422,8 @@ function resizeInput() {
     UI.inputContainer.height = newHeight + 2; 
     
     // Recalculate outputArea height: 
-    // Start height: 14 (top) + 1 (Welcome height change) + 1 (bottom gap) + 3 (input) + 1 (footer) = 19
-    UI.outputArea.height = `100%-${16 + newHeight}`; 
+    // Start height: 3 (top) + newHeight + 1 (footer) + 1 padding = 5 + newHeight
+    UI.outputArea.height = `100%-${5 + newHeight}`; 
     screen.render();
   }
 }
@@ -434,7 +437,8 @@ UI.inputBox.key('enter', async (ch, key) => {
     UI.inputBox.clearValue();
     UI.inputBox.height = 1;
     UI.inputContainer.height = 3;
-    UI.outputArea.height = '100% - 19';
+    // Offset calculation: Top(3) + Input(1) + Footer(1) + Padding(1) = 6
+    UI.outputArea.height = '100%-7';
     screen.render();
     setTimeout(() => { UI.inputBox.focus(); screen.render(); }, 50);
     return;
@@ -445,7 +449,8 @@ UI.inputBox.key('enter', async (ch, key) => {
   // Reset height after submission
   UI.inputBox.height = 1;
   UI.inputContainer.height = 3;
-  UI.outputArea.height = '100% - 19';
+  // Offset calculation: Top(3) + Input(1) + Footer(1) + Padding(1) = 6
+  UI.outputArea.height = '100%-7';
   
   addSpacer();
   addOutput(command, 'command');
