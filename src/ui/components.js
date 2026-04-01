@@ -108,7 +108,7 @@ function createUI(screen) {
     top: 3,
     left: 1,
     width: '100%-2',
-    height: 10,
+    height: 11,
     hidden: true,
     bg: C.bg,
     padding: { right: 0 }
@@ -145,6 +145,18 @@ function createUI(screen) {
     parent: bottomBorderLine, top: 0, right: 0, content: '◈', fg: C.border
   });
 
+  // Header separator line
+  const headerSeparator = blessed.box({
+    parent: welcomeCard,
+    top: 2,
+    left: 2,
+    width: '100%-4',
+    height: 1,
+    content: '─'.repeat(200),
+    fg: C.border,
+    wrap: false
+  });
+
   // Card header bar
   const cardHeaderBar = blessed.box({
     parent: welcomeCard,
@@ -177,10 +189,10 @@ function createUI(screen) {
   // Card body
   const cardBody = blessed.box({
     parent: welcomeCard,
-    top: 2, // Below header
+    top: 3, // Below header and separator
     left: 0,
     width: '100%', // Use full width now that side borders are gone
-    height: 10 - 2 - 1, 
+    height: 7, 
     bg: C.bg
   });
 
@@ -192,6 +204,16 @@ function createUI(screen) {
     width: 20,
     content: '',
     fg: C.green
+  });
+
+  // Vertical separator between mascot and info
+  blessed.text({
+    parent: cardBody,
+    top: 0,
+    left: 23,
+    height: 7,
+    content: '│\n'.repeat(7),
+    fg: C.border
   });
 
   // Right column: Info
@@ -262,10 +284,10 @@ function createUI(screen) {
   // =============================================
   const outputArea = blessed.box({
     parent: container,
-    top: 13,
+    top: 14,
     left: 1,
     width: '100%-2',
-    height: '100%-18',
+    height: '100%-19',
     hidden: true,
     scrollable: true,
     alwaysScroll: true,

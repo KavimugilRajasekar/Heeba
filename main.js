@@ -419,8 +419,7 @@ function resizeInput() {
     UI.inputContainer.height = newHeight + 2; 
     
     // Recalculate outputArea height: 
-    // Start height: 12 (top) + 1 (bottom gap) + 3 (input) + 1 (footer) = 17
-    // Each extra input line adds +1 to negative offset
+    // Start height: 14 (top) + 1 (Welcome height change) + 1 (bottom gap) + 3 (input) + 1 (footer) = 19
     UI.outputArea.height = `100%-${16 + newHeight}`; 
     screen.render();
   }
@@ -435,7 +434,7 @@ UI.inputBox.key('enter', async (ch, key) => {
     UI.inputBox.clearValue();
     UI.inputBox.height = 1;
     UI.inputContainer.height = 3;
-    UI.outputArea.height = '100%-17';
+    UI.outputArea.height = '100% - 19';
     screen.render();
     setTimeout(() => { UI.inputBox.focus(); screen.render(); }, 50);
     return;
@@ -446,7 +445,7 @@ UI.inputBox.key('enter', async (ch, key) => {
   // Reset height after submission
   UI.inputBox.height = 1;
   UI.inputContainer.height = 3;
-  UI.outputArea.height = '100%-17';
+  UI.outputArea.height = '100% - 19';
   
   addSpacer();
   addOutput(command, 'command');
