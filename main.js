@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+const os = require('os');
+
 
 const { DEFAULT_CONFIG, getAvailableModels } = require('./src/core/config');
 const { C } = require('./src/ui/theme');
@@ -17,7 +19,8 @@ const {
   cancelLLM,
   getLLMStatus,
   clearConversationHistory,
-  stopServer
+  stopServer,
+  getTotalTokensUsed
 } = require('./src/core/engine');
 
 // ======================
@@ -38,6 +41,50 @@ let lastShiftPress = 0;
 const screen = initScreen();
 const UI = createUI(screen);
 const overlays = createOverlays(UI.container);
+
+// ======================
+// STATS REFRESH
+// ======================
+let lastCpuUsage = process.cpuUsage();
+let lastCpuTime = Date.now();
+
+function refreshStats() {
+  try {
+    // RAM
+    const mem = process.memoryUsage();
+    const ramMB = Math.round(mem.rss / 1024 / 1024);
+    UI.ramTag.setContent(`RAM: ${ramMB}MB`);
+
+    // Uptime
+    const uptime = Math.floor(process.uptime());
+    const h = Math.floor(uptime / 3600);
+    const m = Math.floor((uptime % 3600) / 60);
+    const s = uptime % 60;
+    UI.uptimeTag.setContent(`UpTime: ${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+
+    // Tokens
+    UI.tokenTag.setContent(`Tokens: ${getTotalTokensUsed() || 0}`);
+
+    // CPU
+    const currentCpuUsage = process.cpuUsage(lastCpuUsage);
+    const currentTime = Date.now();
+    const timeDelta = (currentTime - lastCpuTime) * 1000; // to microseconds
+    
+    // CPU usage across all cores (approximate for this process)
+    const cpuPercent = Math.min(100, Math.round((currentCpuUsage.user + currentCpuUsage.system) / timeDelta * 100));
+    UI.cpuTag.setContent(`CPU: ${cpuPercent}%`);
+    
+    lastCpuUsage = process.cpuUsage();
+    lastCpuTime = currentTime;
+
+    screen.render();
+  } catch (err) {
+    // Silently fail to avoid UI crashes during rapid updates
+  }
+}
+
+setInterval(refreshStats, 1000);
+
 
 // ======================
 // CLEANUP
@@ -555,7 +602,7 @@ screen.key(['escape', 'q', 'C-c'], () => {
 
   await runBootSequence(overlays, UI, screen, CONFIG);
 
-  addOutput('Heeba Terminal v1.0 - Online', 'success');
+  addOutput('Heeba | Code Space v1.0 - Online', 'success');
   addOutput('Engine: llama.cpp (local GGUF)', 'info');
   addOutput(`Model: ${CONFIG.model}`, 'info');
   addOutput('Type "help" for available commands', 'info');

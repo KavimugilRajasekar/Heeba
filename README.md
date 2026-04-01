@@ -52,7 +52,7 @@ npm start
 You can adjust system settings in `src/core/config.js`:
 -   **Threads**: Defaults to 4.
 -   **Context Length**: 2048 tokens.
--   **Port**: Server runs on `127.0.0.1:8080`.
+-   **Port**: Server runs on `127.0.0.1:5786`.
 
 ## Troubleshooting
 ### "The LLM feels stuck!"

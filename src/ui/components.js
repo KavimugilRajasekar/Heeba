@@ -61,6 +61,24 @@ function createUI(screen) {
     fg: C.dim
   });
 
+  // System Stats (Right-aligned)
+  const tokenTag = blessed.text({
+    parent: topBar, top: 0, right: 1, content: 'Tokens: 0', fg: C.yellow
+  });
+
+  const uptimeTag = blessed.text({
+    parent: topBar, top: 0, right: 13, content: 'UpTime: 0:00:00', fg: C.dim
+  });
+
+  const ramTag = blessed.text({
+    parent: topBar, top: 0, right: 30, content: 'RAM: 0MB', fg: C.cyan
+  });
+
+  const cpuTag = blessed.text({
+    parent: topBar, top: 0, right: 41, content: 'CPU: 0%', fg: C.purple
+  });
+
+
   // =============================================
   // MAIN WELCOME CARD
   // =============================================
@@ -275,14 +293,14 @@ function createUI(screen) {
     parent: bottomBar,
     top: 0,
     left: 1,
-    content: '[S-Space] mode',
+    content: '[Shift+Space] mode',
     fg: C.dim
   });
 
   blessed.text({
     parent: bottomBar,
     top: 0,
-    left: 17,
+    left: 20,
     content: '[↑↓] history',
     fg: C.dim
   });
@@ -350,7 +368,11 @@ function createUI(screen) {
     inputBox,
     bottomBar,
     footerStatus,
-    modelList
+    modelList,
+    tokenTag,
+    uptimeTag,
+    ramTag,
+    cpuTag
   };
 }
 

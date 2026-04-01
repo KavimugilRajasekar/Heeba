@@ -110,7 +110,7 @@ async function runBootSequence(overlays, ui, screen, CONFIG) {
     'Loading model: ' + CONFIG.model,
     'Warming up AI cores...',
     'Almost ready...',
-    'Heeba is now online!'
+    'Heeba | Code Space is now online!'
   ];
 
   const colors = [C.green, C.cyan, C.yellow, C.purple];
