@@ -29,12 +29,13 @@ function createUI(screen) {
     top: 0,
     left: 0,
     width: '100%',
-    height: 1,
-    bg: C.bg2
+    height: 3,
+    bg: C.bg2,
+    border: { type: 'line', fg: C.border }
   });
 
   // App name badge - HEEBA
-  blessed.text({
+  const appBadge = blessed.text({
     parent: topBar,
     top: 0,
     left: 1,
@@ -43,23 +44,43 @@ function createUI(screen) {
     bold: true
   });
 
+  // Mode indicator in Top Bar
+  const topModeIndicator = blessed.text({
+    parent: topBar,
+    top: 0,
+    left: 11,
+    content: '● DINO',
+    fg: C.green,
+    bold: true
+  });
+
   // Separator
   blessed.text({
     parent: topBar,
     top: 0,
-    left: 11,
+    left: 20,
     content: '│',
     fg: C.border
   });
 
-  // Model name (right side)
+  // Model name
   const modelTag = blessed.text({
     parent: topBar,
     top: 0,
-    left: 13,
-    content: 'granite4350m',
+    left: 22,
+    content: 'SelectedModel: granite4350m',
     fg: C.dim
   });
+
+  // Vertical line to separate left side from right side stats
+  blessed.text({
+    parent: topBar,
+    top: 0,
+    right: 50,
+    content: '│',
+    fg: C.border
+  });
+
 
   // System Stats (Right-aligned)
   const tokenTag = blessed.text({
@@ -84,10 +105,13 @@ function createUI(screen) {
   // =============================================
   const welcomeCard = blessed.box({
     parent: container,
-    top: 2,
-    left: 1,
-    width: '100%-2',
-    height: 9,
+    top: 2, // Adjusted back to 2 since topBar is 3-high? Wait.
+    // If topBar is height 3 and sits at top 0, it occupies rows 0, 1, 2.
+    // So current welcomeCard at top 3 is correct (sits at row 3).
+    top: 3,
+    left: 0,
+    width: '100%',
+    height: 10, // Increased height slightly for better spacing
     hidden: true,
     bg: C.bg,
     border: { type: 'line', fg: C.border }
@@ -120,13 +144,7 @@ function createUI(screen) {
     fg: C.dim
   });
 
-  const cardHeaderRight = blessed.text({
-    parent: cardHeaderBar,
-    top: 0,
-    right: 1,
-    content: 'llama.cpp',
-    fg: C.dark
-  });
+
 
   // Card body
   const cardBody = blessed.box({
@@ -216,10 +234,10 @@ function createUI(screen) {
   // =============================================
   const outputArea = blessed.box({
     parent: container,
-    top: 12,
+    top: 13,
     left: 1,
     width: '100%-2',
-    height: '100%-17',
+    height: '100%-18',
     hidden: true,
     scrollable: true,
     alwaysScroll: true,
@@ -354,10 +372,10 @@ function createUI(screen) {
     container,
     topBar,
     modelTag,
+    topModeIndicator,
     welcomeCard,
     modeIndicator,
     cardTitle,
-    cardHeaderRight,
     mascotEl,
     statusLinesEl,
     engineInfoEl,

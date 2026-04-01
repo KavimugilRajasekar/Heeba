@@ -10,7 +10,9 @@ const {
   runBootSequence,
   startLoadingAnimation,
   stopLoadingAnimation,
-  startIdleAnimation
+  startIdleAnimation,
+  startTipsAnimation,
+  stopTipsAnimation
 } = require('./src/ui/animations');
 const { MODES } = require('./src/utils/helpers');
 const logger = require('./src/utils/logger');
@@ -105,14 +107,15 @@ function updateWelcomeCard() {
   const m = MODES[currentMode];
   logger.debug('UI', `Updating welcome card: ${currentMode}`);
 
-  // Top bar - only update model name
-  UI.modelTag.setContent(CONFIG.model.replace('.gguf', ''));
+  // Top bar updates
+  UI.modelTag.setContent(`SelectedModel: ${CONFIG.model.replace('.gguf', '')}`);
+  UI.topModeIndicator.setContent(`● ${m.name.toUpperCase()}`);
+  UI.topModeIndicator.style.fg = m.color;
 
   // Welcome card header
   UI.modeIndicator.setContent(`● ${m.name.toUpperCase()}`);
   UI.modeIndicator.style.fg = m.color;
   UI.cardTitle.setContent(`Heeba ${m.headerTitle}`);
-  UI.cardHeaderRight.setContent(getLLMStatus() ? 'llama.cpp ●' : 'llama.cpp');
 
   // Mascot
   UI.mascotEl.setContent(m.mascot[0]);
@@ -131,8 +134,9 @@ function updateWelcomeCard() {
   UI.footerStatus.setContent('● ready');
   UI.footerStatus.style.fg = C.green;
 
-  // Start idle animation
+  // Start animations
   startIdleAnimation(UI, screen, m);
+  startTipsAnimation(UI, screen, m);
 }
 
 // ChatGPT-like auto-scroll to bottom
@@ -192,7 +196,6 @@ function showLoading(show) {
     UI.promptText.setContent(`>`);
     stopLoadingAnimation(UI, overlays, screen, MODES[currentMode]);
   }
-  UI.cardHeaderRight.setContent(show ? 'llama.cpp ●' : 'llama.cpp');
   UI.footerStatus.setContent(show ? '● busy' : '● ready');
   UI.footerStatus.style.fg = show ? C.yellow : C.green;
 }
