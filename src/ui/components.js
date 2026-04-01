@@ -27,11 +27,12 @@ function createUI(screen) {
   const topBar = blessed.box({
     parent: container,
     top: 0,
-    left: 0,
-    width: '100%',
+    left: 1,
+    width: '100%-2',
     height: 3,
     bg: C.bg2,
-    border: { type: 'line', fg: C.border }
+    border: { type: 'line', fg: C.border },
+    padding: { right: 1 }
   });
 
   // App name badge - HEEBA
@@ -72,7 +73,7 @@ function createUI(screen) {
     fg: C.dim
   });
 
-  // Vertical line to separate left side from right side stats
+  // Vertical line separator
   blessed.text({
     parent: topBar,
     top: 0,
@@ -81,22 +82,21 @@ function createUI(screen) {
     fg: C.border
   });
 
-
   // System Stats (Right-aligned)
   const tokenTag = blessed.text({
-    parent: topBar, top: 0, right: 1, content: 'Tokens: 0', fg: C.yellow
+    parent: topBar, top: 0, right: 2, content: 'Tokens: 0', fg: C.yellow
   });
 
   const uptimeTag = blessed.text({
-    parent: topBar, top: 0, right: 13, content: 'UpTime: 0:00:00', fg: C.dim
+    parent: topBar, top: 0, right: 14, content: 'UpTime: 0:00:00', fg: C.dim
   });
 
   const ramTag = blessed.text({
-    parent: topBar, top: 0, right: 30, content: 'RAM: 0MB', fg: C.cyan
+    parent: topBar, top: 0, right: 31, content: 'RAM: 0MB', fg: C.cyan
   });
 
   const cpuTag = blessed.text({
-    parent: topBar, top: 0, right: 41, content: 'CPU: 0%', fg: C.purple
+    parent: topBar, top: 0, right: 42, content: 'CPU: 0%', fg: C.purple
   });
 
 
@@ -105,16 +105,14 @@ function createUI(screen) {
   // =============================================
   const welcomeCard = blessed.box({
     parent: container,
-    top: 2, // Adjusted back to 2 since topBar is 3-high? Wait.
-    // If topBar is height 3 and sits at top 0, it occupies rows 0, 1, 2.
-    // So current welcomeCard at top 3 is correct (sits at row 3).
     top: 3,
-    left: 0,
-    width: '100%',
-    height: 10, // Increased height slightly for better spacing
+    left: 1,
+    width: '100%-2',
+    height: 10,
     hidden: true,
     bg: C.bg,
-    border: { type: 'line', fg: C.border }
+    border: { type: 'line', fg: C.border },
+    padding: { right: 1 }
   });
 
   // Card header bar
@@ -122,7 +120,7 @@ function createUI(screen) {
     parent: welcomeCard,
     top: 0,
     left: 0,
-    width: '100%',
+    width: '100%-1', // Leave 1 char gap for right border
     height: 1,
     bg: C.bg2
   });
@@ -151,8 +149,8 @@ function createUI(screen) {
     parent: welcomeCard,
     top: 1,
     left: 0,
-    width: '100%',
-    height: 7,
+    width: '100%-1', // Leave 1 char gap for right border
+    height: 10 - 2 - 1, 
     bg: C.bg
   });
 

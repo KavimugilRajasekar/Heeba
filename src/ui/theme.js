@@ -1,10 +1,10 @@
 // src/ui/theme.js
 
 const C = {
-  bg: '#0a0a0c',
-  bg2: '#111114',
-  bg3: '#18181c',
-  border: '#2a2a32',
+  bg: '#000000',
+  bg2: '#000000',
+  bg3: '#101010',
+  border: '#4c4c58',
   fg: '#ededef',
   dim: '#8b8b96',
   dark: '#5c5c66',
