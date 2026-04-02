@@ -50,4 +50,4 @@ npm-debug.log*
 *~
 .claude/
 
-.credentials.json
+credentials.json
