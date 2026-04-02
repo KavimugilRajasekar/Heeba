@@ -47,10 +47,14 @@ const startTime = Date.now();
 const CONFIG = { ...DEFAULT_CONFIG };
 let isProcessingCommand = false;
 
-// PromptPage Workspace State (Auto mode only)
-let pages = [];           // Array of PromptPage objects
-let currentPageIndex = -1; // Index of the active page (-1 = no pages)
-let userScrolledUp = false; // Track if user manually scrolled during streaming
+// Session/PromptPage Workspace State (Auto mode only)
+let sessions = [];              // Array of Session objects
+let currentSessionIndex = -1;  // Index of active session (-1 = none / at index page)
+let currentPageIndex = -1;     // Index of active page within session (-1 = index page)
+let userScrolledUp = false;     // Track if user manually scrolled during streaming
+
+// Virtual index page (not stored in sessions)
+const INDEX_PAGE_ID = 0;
 
 // Keyboard state
 let lastShiftPress = 0;
@@ -158,9 +162,12 @@ function updateWelcomeCard() {
   // Page indicator update
   updatePageIndicator();
 
-  // WelcomeCard visibility: hide if we have pages in auto mode
-  if (currentMode === 'auto' && pages.length > 0) {
-    UI.welcomeCard.hide();
+  // WelcomeCard visibility: show in auto mode to display sessions list
+  if (currentMode === 'auto') {
+    UI.welcomeCard.show();
+    UI.cardTitle.setContent('Heeba Sessions');
+    UI.modeIndicator.setContent('● SESSIONS');
+    UI.statusLinesEl.setContent(`${sessions.length} session${sessions.length !== 1 ? 's' : ''} · Enter to open`);
   } else {
     UI.welcomeCard.show();
   }
@@ -173,8 +180,14 @@ function updateWelcomeCard() {
 }
 
 function updatePageIndicator() {
-  if (currentMode === 'auto' && pages.length > 0) {
-    UI.pageIndicator.setContent(`Page ${currentPageIndex + 1}/${pages.length}`);
+  if (currentMode === 'auto' && sessions.length > 0) {
+    if (currentSessionIndex === -1) {
+      // At index page
+      UI.pageIndicator.setContent(`Sessions: ${sessions.length}`);
+    } else {
+      // Within a session
+      UI.pageIndicator.setContent(`Session ${currentSessionIndex + 1}/${sessions.length} | Page ${currentPageIndex + 1}/${sessions[currentSessionIndex].pages.length}`);
+    }
   } else {
     UI.pageIndicator.setContent('');
   }
@@ -249,13 +262,94 @@ function addSpacer() {
 // ======================
 
 /**
+ * Render the Index Page - session list below the WelcomeCard.
+ * WelcomeCard is already showing with "Heeba Sessions" title.
+ */
+function renderIndexPage() {
+  // Start below the WelcomeCard (which is 11 lines)
+  lineCount = 12;
+
+  if (sessions.length === 0) {
+    blessed.text({
+      parent: UI.outputArea,
+      top: lineCount++,
+      left: 0,
+      width: '100%',
+      content: '  No sessions yet. Start chatting to create your first session.',
+      fg: C.dim
+    });
+  } else {
+    sessions.forEach((session, idx) => {
+      const marker = idx === currentSessionIndex ? ' ●' : '';
+      const firstPrompt = session.pages.length > 0 ? session.pages[0].prompt : '(empty)';
+      const truncatedPrompt = firstPrompt.length > 45 ? firstPrompt.substring(0, 42) + '...' : firstPrompt;
+      const relativeTime = getRelativeTime(session.lastUpdated);
+
+      blessed.text({
+        parent: UI.outputArea,
+        top: lineCount++,
+        left: 0,
+        width: '100%',
+        content: `  ${idx + 1}. ${truncatedPrompt}${marker}`,
+        fg: C.cyan,
+        bold: true
+      });
+
+      blessed.text({
+        parent: UI.outputArea,
+        top: lineCount++,
+        left: 2,
+        width: '100%',
+        content: `     ${session.pages.length} exchange${session.pages.length !== 1 ? 's' : ''} · last updated ${relativeTime}`,
+        fg: C.dim
+      });
+      lineCount++; // spacer
+    });
+  }
+
+  lineCount++; // trailing spacer
+  updatePageIndicator();
+  requestRender();
+  autoScroll();
+}
+
+/**
+ * Get relative time string (e.g. "2m ago", "1h ago")
+ */
+function getRelativeTime(timestamp) {
+  const diffMs = Date.now() - timestamp;
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `${diffDay}d ago`;
+}
+
+/**
  * Render the active PromptPage into the outputArea.
  * Clears all dynamic content and rebuilds from the page data.
+ * For Index Page (sessionIndex=-1), shows the WelcomeCard with session list.
  */
 function renderActivePage() {
-  if (currentPageIndex < 0 || currentPageIndex >= pages.length) return;
+  if (currentSessionIndex === -1) {
+    // Show WelcomeCard with session list header
+    UI.welcomeCard.show();
+    UI.cardTitle.setContent('Heeba Sessions');
+    UI.modeIndicator.setContent('● SESSIONS');
+    UI.modeIndicator.style.fg = C.green;
+    UI.statusLinesEl.setContent(`${sessions.length} session${sessions.length !== 1 ? 's' : ''} · Enter to open`);
+    renderIndexPage();
+    return;
+  }
 
-  const page = pages[currentPageIndex];
+  if (currentSessionIndex < 0 || currentSessionIndex >= sessions.length) return;
+  const session = sessions[currentSessionIndex];
+  if (currentPageIndex < 0 || currentPageIndex >= session.pages.length) return;
+
+  const page = session.pages[currentPageIndex];
   clearDynamicContent();
   UI.welcomeCard.hide();
 
@@ -345,19 +439,47 @@ function renderActivePage() {
 }
 
 /**
- * Navigate to a specific page index.
+ * Navigate to a specific page index within a session.
+ * Also handles navigation to/from the index page.
+ * @param {number} sessionIdx - Session index (-1 for index page)
+ * @param {number} pageIdx - Page index within session (-1 for index page)
  */
-function navigateToPage(idx) {
-  if (idx < 0 || idx >= pages.length) return;
-  // Save current scroll offset
-  if (currentPageIndex >= 0 && currentPageIndex < pages.length) {
-    pages[currentPageIndex].scrollOffset = UI.outputArea.getScroll();
+function navigateToPage(sessionIdx, pageIdx) {
+  if (sessionIdx === -1) {
+    // Navigate to index page
+    if (currentSessionIndex >= 0 && currentSessionIndex < sessions.length) {
+      // Save scroll offset of current page before leaving
+      const session = sessions[currentSessionIndex];
+      if (currentPageIndex >= 0 && currentPageIndex < session.pages.length) {
+        session.pages[currentPageIndex].scrollOffset = UI.outputArea.getScroll();
+      }
+    }
+    currentSessionIndex = -1;
+    currentPageIndex = -1;
+    renderIndexPage();
+    return;
   }
-  currentPageIndex = idx;
+
+  if (sessionIdx < 0 || sessionIdx >= sessions.length) return;
+  const session = sessions[sessionIdx];
+  if (pageIdx < 0 || pageIdx >= session.pages.length) return;
+
+  // Save scroll offset of current page before leaving
+  if (currentSessionIndex >= 0 && currentSessionIndex < sessions.length) {
+    const prevSession = sessions[currentSessionIndex];
+    if (currentPageIndex >= 0 && currentPageIndex < prevSession.pages.length) {
+      prevSession.pages[currentPageIndex].scrollOffset = UI.outputArea.getScroll();
+    }
+  }
+
+  currentSessionIndex = sessionIdx;
+  currentPageIndex = pageIdx;
   renderActivePage();
+
   // Restore saved scroll offset
-  if (pages[currentPageIndex].scrollOffset) {
-    try { UI.outputArea.setScroll(pages[currentPageIndex].scrollOffset); } catch(e) {}
+  const page = sessions[currentSessionIndex].pages[currentPageIndex];
+  if (page.scrollOffset) {
+    try { UI.outputArea.setScroll(page.scrollOffset); } catch(e) {}
   }
 }
 
@@ -388,9 +510,9 @@ function switchMode(newMode) {
     currentMode = newMode;
     updateWelcomeCard();
 
-    // When switching to auto mode with existing pages, render the last page
-    if (newMode === 'auto' && pages.length > 0) {
-      renderActivePage();
+    // When switching to auto mode with existing sessions, render the index page
+    if (newMode === 'auto' && sessions.length > 0) {
+      navigateToPage(-1, -1);
     } else if (newMode === 'task') {
       // Task mode: restore traditional chat view with WelcomeCard
       clearDynamicContent();
@@ -491,7 +613,8 @@ async function processCommand(input) {
     clearOutput();
     if (currentMode === 'auto') {
       clearConversationHistory();
-      pages = [];
+      sessions = [];
+      currentSessionIndex = -1;
       currentPageIndex = -1;
       UI.welcomeCard.show();
       updatePageIndicator();
@@ -523,17 +646,33 @@ Threads   : ${CONFIG.threads}`;
   }
 
   if (currentMode === 'auto') {
-    // PromptPage Workspace: Create a new page for this prompt
+    // Session Workspace: Append to current session or create new one
+    let session;
+    if (currentSessionIndex === -1 || currentSessionIndex >= sessions.length) {
+      // Create new session
+      session = {
+        id: sessions.length + 1,
+        pages: [],
+        createdAt: Date.now(),
+        lastUpdated: Date.now()
+      };
+      sessions.push(session);
+      currentSessionIndex = sessions.length - 1;
+    } else {
+      session = sessions[currentSessionIndex];
+    }
+
     const newPage = {
-      id: pages.length + 1,
+      id: session.pages.length + 1,
       prompt: input,
       response: '',
       scrollOffset: 0,
       createdAt: Date.now(),
       _streaming: true
     };
-    pages.push(newPage);
-    currentPageIndex = pages.length - 1;
+    session.pages.push(newPage);
+    currentPageIndex = session.pages.length - 1;
+    session.lastUpdated = Date.now();
     userScrolledUp = false;
 
     // Hide WelcomeCard permanently after first prompt
@@ -891,19 +1030,37 @@ screen.key('C-g', () => {
 
 // Page navigation helper functions
 function goToPrevPage() {
-  if (currentMode === 'auto' && pages.length > 0 && currentPageIndex > 0) {
-    navigateToPage(currentPageIndex - 1);
+  if (currentMode !== 'auto' || sessions.length === 0) return;
+
+  if (currentSessionIndex === -1) {
+    // At index page - navigate to last session, last page
+    navigateToPage(sessions.length - 1, sessions[sessions.length - 1].pages.length - 1);
+    return;
+  }
+
+  const session = sessions[currentSessionIndex];
+  if (currentPageIndex > 0) {
+    navigateToPage(currentSessionIndex, currentPageIndex - 1);
   }
 }
 
 function goToNextPage() {
-  if (currentMode === 'auto' && pages.length > 0 && currentPageIndex < pages.length - 1) {
-    navigateToPage(currentPageIndex + 1);
+  if (currentMode !== 'auto' || sessions.length === 0) return;
+
+  if (currentSessionIndex === -1) {
+    // At index page - navigate to first session, first page
+    navigateToPage(0, 0);
+    return;
+  }
+
+  const session = sessions[currentSessionIndex];
+  if (currentPageIndex < session.pages.length - 1) {
+    navigateToPage(currentSessionIndex, currentPageIndex + 1);
   }
 }
 
 function openPageListIfAvailable() {
-  if (currentMode === 'auto' && pages.length > 0 && !UI.pageListView.visible) {
+  if (currentMode === 'auto' && sessions.length > 0 && !UI.pageListView.visible) {
     openPageList();
   }
 }
@@ -914,27 +1071,69 @@ UI.inputBox.key('C-left', goToPrevPage);
 screen.key('C-p', goToPrevPage);
 UI.inputBox.key('C-p', goToPrevPage);
 
-// Ctrl+Right / Ctrl+N: Next page
+// Ctrl+Right: Next page (Ctrl+N is used for new session)
 screen.key('C-right', goToNextPage);
 UI.inputBox.key('C-right', goToNextPage);
-screen.key('C-n', goToNextPage);
-UI.inputBox.key('C-n', goToNextPage);
 
 // Ctrl+L: Open page list view
 screen.key('C-l', openPageListIfAvailable);
 UI.inputBox.key('C-l', openPageListIfAvailable);
 
+// Ctrl+N: Start new session
+function startNewSession() {
+  if (currentMode !== 'auto') return;
+  if (UI.modelList.visible || UI.pageListView.visible) return;
+
+  // Create new session
+  const session = {
+    id: sessions.length + 1,
+    pages: [],
+    createdAt: Date.now(),
+    lastUpdated: Date.now()
+  };
+  sessions.push(session);
+  currentSessionIndex = sessions.length - 1;
+  currentPageIndex = -1;
+  userScrolledUp = false;
+
+  updatePageIndicator();
+
+  // Show the index page since new session has no pages yet
+  renderIndexPage();
+}
+
+screen.key('C-n', startNewSession);
+UI.inputBox.key('C-n', startNewSession);
+
 // Page list helpers
 function openPageList() {
   pauseScroll();
-  const items = pages.map((p, i) => {
-    const truncated = p.prompt.length > 50 ? p.prompt.substring(0, 47) + '...' : p.prompt;
-    const marker = i === currentPageIndex ? ' ●' : '';
-    return `  ${i + 1}. ${truncated}${marker}`;
-  });
-  UI.pageListView.setItems(items);
-  UI.pageListView.setLabel(` {bold}◆ PROMPT PAGES (${pages.length}) ◆{/bold} `);
-  UI.pageListView.select(currentPageIndex);
+
+  if (currentSessionIndex === -1) {
+    // At index page - show session list
+    const items = sessions.map((s, i) => {
+      const truncated = s.pages.length > 0 && s.pages[0].prompt.length > 50
+        ? s.pages[0].prompt.substring(0, 47) + '...'
+        : (s.pages.length > 0 ? s.pages[0].prompt : '(empty)');
+      const marker = i === currentSessionIndex ? ' ●' : '';
+      return `  ${i + 1}. ${truncated}${marker} [${s.pages.length} pages]`;
+    });
+    UI.pageListView.setItems(items);
+    UI.pageListView.setLabel(` {bold}◆ SESSIONS (${sessions.length}) ◆{/bold} `);
+    UI.pageListView.select(0);
+  } else {
+    // Within a session - show pages in that session
+    const session = sessions[currentSessionIndex];
+    const items = session.pages.map((p, i) => {
+      const truncated = p.prompt.length > 50 ? p.prompt.substring(0, 47) + '...' : p.prompt;
+      const marker = i === currentPageIndex ? ' ●' : '';
+      return `  ${i + 1}. ${truncated}${marker}`;
+    });
+    UI.pageListView.setItems(items);
+    UI.pageListView.setLabel(` {bold}◆ SESSION ${currentSessionIndex + 1} PAGES (${session.pages.length}) ◆{/bold} `);
+    UI.pageListView.select(currentPageIndex);
+  }
+
   UI.inputContainer.hide();
   UI.pageListView.show();
   UI.pageListView.focus();
@@ -952,7 +1151,13 @@ function closePageList() {
 // Page list event handlers
 UI.pageListView.on('select', (item, idx) => {
   closePageList();
-  navigateToPage(idx);
+  if (currentSessionIndex === -1) {
+    // Was at index - navigate to first page of selected session
+    navigateToPage(idx, 0);
+  } else {
+    // Was within a session - navigate to selected page in current session
+    navigateToPage(currentSessionIndex, idx);
+  }
 });
 
 UI.pageListView.key(['up', 'k'], () => { UI.pageListView.up(); requestRender(); });
@@ -979,8 +1184,8 @@ UI.outputArea.on('scroll', () => {
 // ==============================================
 
 screen.on('resize', () => {
-  // Re-render active page on resize for proper line wrapping  
-  if (currentMode === 'auto' && pages.length > 0 && currentPageIndex >= 0) {
+  // Re-render active page on resize for proper line wrapping
+  if (currentMode === 'auto' && sessions.length > 0 && currentSessionIndex >= 0) {
     renderActivePage();
   }
   requestRender();
@@ -991,7 +1196,7 @@ screen.key(['q', 'C-c'], () => {
   cleanupAndExit();
 });
 
-// Escape: Jump to latest page (Auto mode) or quit
+// Escape: Return to Index Page (Auto mode) or quit
 screen.key('escape', () => {
   if (UI.pageListView.visible) {
     closePageList();
@@ -1001,9 +1206,14 @@ screen.key('escape', () => {
     closeModelSelection();
     return;
   }
-  if (currentMode === 'auto' && pages.length > 0) {
-    // Jump to latest page
-    navigateToPage(pages.length - 1);
+  if (currentMode === 'auto') {
+    if (sessions.length > 0) {
+      // Return to Index Page
+      navigateToPage(-1, -1);
+    } else {
+      cancelLLM();
+      cleanupAndExit();
+    }
   } else {
     cancelLLM();
     cleanupAndExit();
