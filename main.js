@@ -274,6 +274,10 @@ function addSpacer() {
  * WelcomeCard is already showing with "Heeba Sessions" title.
  */
 function renderIndexPage() {
+  // Clear any stale dynamic content (session pages, old lists, etc.) before re-rendering.
+  // clearDynamicContent() preserves the WelcomeCard node.
+  clearDynamicContent();
+
   // Start below the WelcomeCard (which is 11 lines)
   lineCount = 12;
 
@@ -491,7 +495,8 @@ function navigateToPage(sessionIdx, pageIdx) {
     }
     currentSessionIndex = -1;
     currentPageIndex = -1;
-    renderIndexPage();
+    // Use renderActivePage() so the WelcomeCard is properly shown and configured.
+    renderActivePage();
     return;
   }
 
@@ -710,11 +715,11 @@ Threads   : ${CONFIG.threads}`;
     session.lastUpdated = Date.now();
     userScrolledUp = false;
 
-    // Hide WelcomeCard permanently after first prompt
+    // Hide WelcomeCard — full screen for chat
     UI.welcomeCard.hide();
     updatePageIndicator();
 
-    // Render the new page (shows the prompt + "Thinking...")
+    // Render the new page (prompt + "Thinking...")
     renderActivePage();
 
     showLoading(true);
@@ -776,7 +781,7 @@ Threads   : ${CONFIG.threads}`;
 
         if (!liveTextEl) {
           startLoadingAnimation(UI, overlays, screen, MODES[currentMode], true);
-          // Re-render the page fresh with response header
+          // Re-render the page fresh with response header.
           clearDynamicContent();
           lineCount = 1;
 
@@ -1119,22 +1124,15 @@ function startNewSession() {
   if (currentMode !== 'auto') return;
   if (UI.modelList.visible || UI.pageListView.visible) return;
 
-  // Create new session
-  const session = {
-    id: sessions.length + 1,
-    pages: [],
-    createdAt: Date.now(),
-    lastUpdated: Date.now()
-  };
-  sessions.push(session);
-  currentSessionIndex = sessions.length - 1;
+  // Navigate back to the index page. The new session object will be created
+  // automatically in processCommand() when the user sends their first prompt.
+  // This avoids creating a ghost empty session prematurely.
+  currentSessionIndex = -1;
   currentPageIndex = -1;
   userScrolledUp = false;
 
-  updatePageIndicator();
-
-  // Show the index page since new session has no pages yet
-  renderIndexPage();
+  // renderActivePage() handles showing the WelcomeCard + session list correctly.
+  renderActivePage();
 }
 
 screen.key('C-n', startNewSession);
