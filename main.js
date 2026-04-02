@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const os = require('os');
-
+const blessed = require('blessed');
 
 const { DEFAULT_CONFIG, getAvailableModels } = require('./src/core/config');
 const { loadHeebaConfig, getHeebaConfig } = require('./src/core/config-loader');
@@ -29,6 +29,7 @@ const {
 } = require('./src/core/engine');
 const { isVirtualModel } = require('./src/core/ollama-adapter');
 const { parseCommandFromResponse, executeCommand } = require('./src/core/intent-executor');
+const { renderMarkdown } = require('./src/ui/markdown-renderer');
 
 // Load heeba.json config on startup
 const heebaConfig = loadHeebaConfig();
@@ -45,6 +46,11 @@ let lastOutputWasCommand = false;
 const startTime = Date.now();
 const CONFIG = { ...DEFAULT_CONFIG };
 let isProcessingCommand = false;
+
+// PromptPage Workspace State (Auto mode only)
+let pages = [];           // Array of PromptPage objects
+let currentPageIndex = -1; // Index of the active page (-1 = no pages)
+let userScrolledUp = false; // Track if user manually scrolled during streaming
 
 // Keyboard state
 let lastShiftPress = 0;
@@ -149,11 +155,29 @@ function updateWelcomeCard() {
   UI.footerStatus.setContent('● ready');
   UI.footerStatus.style.fg = C.green;
 
+  // Page indicator update
+  updatePageIndicator();
+
+  // WelcomeCard visibility: hide if we have pages in auto mode
+  if (currentMode === 'auto' && pages.length > 0) {
+    UI.welcomeCard.hide();
+  } else {
+    UI.welcomeCard.show();
+  }
+
   // Start animations
   startIdleAnimation(UI, screen, m);
   startTipsAnimation(UI, screen, m);
 
   requestRender();
+}
+
+function updatePageIndicator() {
+  if (currentMode === 'auto' && pages.length > 0) {
+    UI.pageIndicator.setContent(`Page ${currentPageIndex + 1}/${pages.length}`);
+  } else {
+    UI.pageIndicator.setContent('');
+  }
 }
 
 // ChatGPT-like auto-scroll to bottom
@@ -168,6 +192,19 @@ function clearOutput() {
   });
   lineCount = 12;
   autoScroll();
+}
+
+/**
+ * Clear only dynamic content from outputArea (everything except welcomeCard).
+ * Used when switching between PromptPages.
+ */
+function clearDynamicContent() {
+  const toDestroy = [];
+  UI.outputArea.children.forEach(c => {
+    if (c !== UI.welcomeCard) toDestroy.push(c);
+  });
+  toDestroy.forEach(c => c.destroy());
+  lineCount = 0;
 }
 
 function addOutput(text, className = '') {
@@ -190,7 +227,7 @@ function addOutput(text, className = '') {
   }[className] || C.dim;
 
   textStr.split('\n').forEach(line => {
-    require('blessed').text({
+    blessed.text({
       parent: UI.outputArea,
       top: lineCount++,
       left: 0,
@@ -205,6 +242,123 @@ function addOutput(text, className = '') {
 function addSpacer() {
   lineCount++;
   autoScroll();
+}
+
+// ======================
+// PROMPT PAGE RENDERING
+// ======================
+
+/**
+ * Render the active PromptPage into the outputArea.
+ * Clears all dynamic content and rebuilds from the page data.
+ */
+function renderActivePage() {
+  if (currentPageIndex < 0 || currentPageIndex >= pages.length) return;
+
+  const page = pages[currentPageIndex];
+  clearDynamicContent();
+  UI.welcomeCard.hide();
+
+  // ── User prompt header ──
+  lineCount = 1;
+
+  // Prompt label
+  blessed.text({
+    parent: UI.outputArea,
+    top: lineCount++,
+    left: 0,
+    width: '100%',
+    content: `  ※ You`,
+    fg: C.purple,
+    bold: true
+  });
+
+  // Separator
+  blessed.text({
+    parent: UI.outputArea,
+    top: lineCount++,
+    left: 0,
+    width: '100%',
+    content: `  ${'─'.repeat(Math.max(20, (screen.width || 80) - 6))}`,
+    fg: C.border
+  });
+
+  // User prompt text (wrapped)
+  const promptLines = page.prompt.split('\n');
+  promptLines.forEach(pl => {
+    blessed.text({
+      parent: UI.outputArea,
+      top: lineCount++,
+      left: 0,
+      width: '100%',
+      content: `  ${pl}`,
+      fg: C.fg
+    });
+  });
+
+  lineCount++; // spacer
+
+  // ── LLM Response ──
+  if (page.response) {
+    // Response label
+    blessed.text({
+      parent: UI.outputArea,
+      top: lineCount++,
+      left: 0,
+      width: '100%',
+      content: `  ↪ Heeba`,
+      fg: C.yellow,
+      bold: true
+    });
+
+    // Separator
+    blessed.text({
+      parent: UI.outputArea,
+      top: lineCount++,
+      left: 0,
+      width: '100%',
+      content: `  ${'─'.repeat(Math.max(20, (screen.width || 80) - 6))}`,
+      fg: C.border
+    });
+
+    // Render markdown response
+    const termWidth = (typeof screen.width === 'number') ? screen.width : 80;
+    const mdLines = renderMarkdown(page.response, termWidth);
+
+    mdLines.forEach(ml => {
+      blessed.text({
+        parent: UI.outputArea,
+        top: lineCount++,
+        left: 0,
+        width: '100%',
+        content: ml.content,
+        fg: ml.fg,
+        bold: ml.bold
+      });
+    });
+  }
+
+  lineCount++; // trailing spacer
+  updatePageIndicator();
+  requestRender();
+  autoScroll();
+}
+
+/**
+ * Navigate to a specific page index.
+ */
+function navigateToPage(idx) {
+  if (idx < 0 || idx >= pages.length) return;
+  // Save current scroll offset
+  if (currentPageIndex >= 0 && currentPageIndex < pages.length) {
+    pages[currentPageIndex].scrollOffset = UI.outputArea.getScroll();
+  }
+  currentPageIndex = idx;
+  renderActivePage();
+  // Restore saved scroll offset
+  if (pages[currentPageIndex].scrollOffset) {
+    try { UI.outputArea.setScroll(pages[currentPageIndex].scrollOffset); } catch(e) {}
+  }
 }
 
 function showLoading(show) {
@@ -233,8 +387,21 @@ function switchMode(newMode) {
     overlays.modeOverlay.hide();
     currentMode = newMode;
     updateWelcomeCard();
-    addSpacer();
-    addOutput(`Switched to ${MODES[newMode].name} Mode`, 'success');
+
+    // When switching to auto mode with existing pages, render the last page
+    if (newMode === 'auto' && pages.length > 0) {
+      renderActivePage();
+    } else if (newMode === 'task') {
+      // Task mode: restore traditional chat view with WelcomeCard
+      clearDynamicContent();
+      lineCount = 12;
+      UI.welcomeCard.show();
+      addSpacer();
+      addOutput(`Switched to ${MODES[newMode].name} Mode`, 'success');
+    } else {
+      addSpacer();
+      addOutput(`Switched to ${MODES[newMode].name} Mode`, 'success');
+    }
     requestRender();
   }, 500);
 }
@@ -322,7 +489,14 @@ async function processCommand(input) {
 
   if (trimmed === 'clear') {
     clearOutput();
-    if (currentMode === 'auto') clearConversationHistory();
+    if (currentMode === 'auto') {
+      clearConversationHistory();
+      pages = [];
+      currentPageIndex = -1;
+      UI.welcomeCard.show();
+      updatePageIndicator();
+      lineCount = 12;
+    }
     return '';
   }
 
@@ -349,103 +523,144 @@ Threads   : ${CONFIG.threads}`;
   }
 
   if (currentMode === 'auto') {
+    // PromptPage Workspace: Create a new page for this prompt
+    const newPage = {
+      id: pages.length + 1,
+      prompt: input,
+      response: '',
+      scrollOffset: 0,
+      createdAt: Date.now(),
+      _streaming: true
+    };
+    pages.push(newPage);
+    currentPageIndex = pages.length - 1;
+    userScrolledUp = false;
+
+    // Hide WelcomeCard permanently after first prompt
+    UI.welcomeCard.hide();
+    updatePageIndicator();
+
+    // Render the new page (shows the prompt + "Thinking...")
+    renderActivePage();
+
     showLoading(true);
-    
-    // Create animated thinking indicator
+    isProcessingCommand = true;
+
+    // Create animated thinking indicator inside the page
     const thinkingFrames = ['○', '◎', '◉', '●', '◉', '◎'];
     let frame = 0;
-    const thinkingEl = require('blessed').text({
+    let thinkingEl = blessed.text({
       parent: UI.outputArea,
       top: lineCount,
       left: 0,
       width: '100%',
-      content: `${thinkingFrames[0]} Thinking...`,
+      content: `  ${thinkingFrames[0]} Thinking...`,
       fg: C.cyan
     });
-    
+    requestRender();
+
     const thinkingInterval = setInterval(() => {
       frame = (frame + 1) % thinkingFrames.length;
-      thinkingEl.setContent(`${thinkingFrames[frame]} Thinking...`);
-      requestRender();
+      if (thinkingEl) {
+        thinkingEl.setContent(`  ${thinkingFrames[frame]} Thinking...`);
+        requestRender();
+      }
     }, 150);
 
     let liveTextEl = null;
     let fullResponse = '';
-    isProcessingCommand = true;
+    let thinkingDestroyed = false;
 
     try {
       await queryLLM(input, currentMode, CONFIG, (token) => {
         // Destroy thinking indicator on first token
-        if (thinkingEl) {
+        if (!thinkingDestroyed && thinkingEl) {
           clearInterval(thinkingInterval);
           thinkingEl.destroy();
-          // Reset thinkingEl ref to prevent further calls
-          // (Actually, the lineCount will be overwritten by liveTextEl)
+          thinkingEl = null;
+          thinkingDestroyed = true;
         }
 
         if (!liveTextEl) {
           startLoadingAnimation(UI, overlays, screen, MODES[currentMode], true);
-          addSpacer();
-          liveTextEl = require('blessed').text({
+          // Re-render the page fresh with response header
+          clearDynamicContent();
+          lineCount = 1;
+
+          // User prompt section
+          blessed.text({ parent: UI.outputArea, top: lineCount++, left: 0, width: '100%', content: `  ※ You`, fg: C.purple, bold: true });
+          blessed.text({ parent: UI.outputArea, top: lineCount++, left: 0, width: '100%', content: `  ${'─'.repeat(Math.max(20, (screen.width || 80) - 6))}`, fg: C.border });
+          input.split('\n').forEach(pl => {
+            blessed.text({ parent: UI.outputArea, top: lineCount++, left: 0, width: '100%', content: `  ${pl}`, fg: C.fg });
+          });
+          lineCount++; // spacer
+
+          // Response header
+          blessed.text({ parent: UI.outputArea, top: lineCount++, left: 0, width: '100%', content: `  ↪ Heeba`, fg: C.yellow, bold: true });
+          blessed.text({ parent: UI.outputArea, top: lineCount++, left: 0, width: '100%', content: `  ${'─'.repeat(Math.max(20, (screen.width || 80) - 6))}`, fg: C.border });
+
+          // Live streaming element
+          liveTextEl = blessed.text({
             parent: UI.outputArea,
             top: lineCount++,
             left: 0,
             width: '100%',
-            content: '↪ ',
-            fg: C.yellow
+            content: '  ',
+            fg: C.fg
           });
         }
+
         liveTextEl.setContent(liveTextEl.getContent() + token);
         fullResponse += token;
-        // Use throttled scroll during streaming
-        requestScroll();
+
+        // Auto-scroll during streaming unless user manually scrolled up
+        if (!userScrolledUp) {
+          requestScroll();
+        }
         requestRender();
       });
 
       showLoading(false);
 
-      if (liveTextEl) {
-        const actualLines = liveTextEl.getLines().length;
-        if (actualLines > 1) lineCount += (actualLines - 1);
-      }
+      // Store final response in the page
+      newPage.response = fullResponse;
+      newPage._streaming = false;
+
+      // Re-render the page with proper markdown formatting
+      renderActivePage();
 
       // Check for structured commands in LLM response
       const command = parseCommandFromResponse(fullResponse);
       if (command && command.action) {
-        // Command detected - clear the JSON output from chat and execute
-        if (liveTextEl) {
-          const oldLines = liveTextEl.getLines().length;
-          liveTextEl.destroy();
-          liveTextEl = null;
-          // Reset lineCount since we destroyed the LLM output
-          lineCount -= oldLines;
-          if (lineCount < 12) lineCount = 12;
-        }
-        addSpacer();
-
         const ctx = { screen, UI };
         const result = await executeCommand(command, ctx);
         if (result && result.success) {
-          // Update UI after profile change
           if (command.action === 'update_user_profile') {
             updateWelcomeCard();
-            addOutput(`✓ Done! ${result.message}`, 'success');
-          } else {
-            addOutput(`✓ ${result.message}`, 'success');
           }
+          // Append command result to the page response
+          newPage.response += `\n\n---\n✓ ${result.message}`;
+          renderActivePage();
         } else if (result) {
-          addOutput(`✗ Failed: ${result.message}`, 'error');
+          newPage.response += `\n\n---\n✗ Failed: ${result.message}`;
+          renderActivePage();
         }
         return '';
       }
 
       return '';
     } catch (err) {
-      if (thinkingEl) { clearInterval(thinkingInterval); thinkingEl.destroy(); }
+      if (!thinkingDestroyed && thinkingEl) {
+        clearInterval(thinkingInterval);
+        thinkingEl.destroy();
+      }
       showLoading(false);
+      newPage._streaming = false;
+      newPage.response = `LLM Error: ${err.message}`;
+      renderActivePage();
       logger.error('ENGINE', err);
       isProcessingCommand = false;
-      return `LLM Error: ${err.message}`;
+      return '';
     } finally {
       isProcessingCommand = false;
     }
@@ -514,12 +729,16 @@ UI.inputBox.key('enter', async (ch, key) => {
   // Offset calculation: Top(3) + Input(1) + Footer(1) + Padding(1) = 6
   UI.outputArea.height = '100%-7';
 
-  addSpacer();
-  addOutput(command, 'command');
-  lastOutputWasCommand = true;
+  // In Auto mode, don't append to global chat — processCommand handles page rendering
+  if (currentMode !== 'auto') {
+    addSpacer();
+    addOutput(command, 'command');
+    lastOutputWasCommand = true;
+  }
 
   const response = await processCommand(command);
-  if (response) { addSpacer(); addOutput(response, 'response'); addSpacer(); }
+  if (response && currentMode !== 'auto') { addSpacer(); addOutput(response, 'response'); addSpacer(); }
+  // In auto mode, responses are handled within processCommand via PromptPage rendering
 
   if (command) {
     commandHistory.push(command);
@@ -626,7 +845,7 @@ UI.inputBox.key('down', () => {
 // Direct Shift+Space combination
 screen.key('S-space', () => {
   logger.debug('KEYBOARD', 'S-space detected');
-  if (!UI.modelList.visible) {
+  if (!UI.modelList.visible && !UI.pageListView.visible) {
     switchMode(currentMode === 'task' ? 'auto' : 'task');
   }
 });
@@ -642,8 +861,83 @@ screen.key('space', () => {
 // Ctrl+g as universal fallback
 screen.key('C-g', () => {
   logger.debug('KEYBOARD', 'Ctrl+g detected');
-  if (!UI.modelList.visible) {
+  if (!UI.modelList.visible && !UI.pageListView.visible) {
     switchMode(currentMode === 'task' ? 'auto' : 'task');
+  }
+});
+
+// ==============================================
+// PROMPT PAGE NAVIGATION (Auto mode)
+// ==============================================
+
+// Ctrl+Left: Previous page
+screen.key('C-left', () => {
+  if (currentMode === 'auto' && pages.length > 0 && currentPageIndex > 0) {
+    navigateToPage(currentPageIndex - 1);
+  }
+});
+
+// Ctrl+Right: Next page
+screen.key('C-right', () => {
+  if (currentMode === 'auto' && pages.length > 0 && currentPageIndex < pages.length - 1) {
+    navigateToPage(currentPageIndex + 1);
+  }
+});
+
+// Ctrl+L: Open page list view
+screen.key('C-l', () => {
+  if (currentMode === 'auto' && pages.length > 0 && !UI.pageListView.visible) {
+    openPageList();
+  }
+});
+
+// Page list helpers
+function openPageList() {
+  pauseScroll();
+  const items = pages.map((p, i) => {
+    const truncated = p.prompt.length > 50 ? p.prompt.substring(0, 47) + '...' : p.prompt;
+    const marker = i === currentPageIndex ? ' ●' : '';
+    return `  ${i + 1}. ${truncated}${marker}`;
+  });
+  UI.pageListView.setItems(items);
+  UI.pageListView.setLabel(` {bold}◆ PROMPT PAGES (${pages.length}) ◆{/bold} `);
+  UI.pageListView.select(currentPageIndex);
+  UI.inputContainer.hide();
+  UI.pageListView.show();
+  UI.pageListView.focus();
+  forceRender();
+}
+
+function closePageList() {
+  UI.pageListView.hide();
+  UI.inputContainer.show();
+  UI.inputBox.focus();
+  resumeScroll();
+  forceRender();
+}
+
+// Page list event handlers
+UI.pageListView.on('select', (item, idx) => {
+  closePageList();
+  navigateToPage(idx);
+});
+
+UI.pageListView.key(['up', 'k'], () => { UI.pageListView.up(); requestRender(); });
+UI.pageListView.key(['down', 'j'], () => { UI.pageListView.down(); requestRender(); });
+UI.pageListView.key('escape', () => closePageList());
+
+// Track user scroll during streaming
+UI.outputArea.on('scroll', () => {
+  if (isProcessingCommand && currentMode === 'auto') {
+    // If user scrolled away from the bottom, mark as scrolled up
+    const scrollHeight = UI.outputArea.getScrollHeight();
+    const currentScroll = UI.outputArea.getScroll();
+    const viewHeight = UI.outputArea.height;
+    if (scrollHeight - currentScroll > viewHeight + 2) {
+      userScrolledUp = true;
+    } else {
+      userScrolledUp = false;
+    }
   }
 });
 
@@ -651,11 +945,36 @@ screen.key('C-g', () => {
 // GLOBAL KEYS
 // ==============================================
 
-screen.on('resize', () => { requestRender(); });
+screen.on('resize', () => {
+  // Re-render active page on resize for proper line wrapping  
+  if (currentMode === 'auto' && pages.length > 0 && currentPageIndex >= 0) {
+    renderActivePage();
+  }
+  requestRender();
+});
 
-screen.key(['escape', 'q', 'C-c'], () => {
+screen.key(['q', 'C-c'], () => {
   cancelLLM();
   cleanupAndExit();
+});
+
+// Escape: Jump to latest page (Auto mode) or quit
+screen.key('escape', () => {
+  if (UI.pageListView.visible) {
+    closePageList();
+    return;
+  }
+  if (UI.modelList.visible) {
+    closeModelSelection();
+    return;
+  }
+  if (currentMode === 'auto' && pages.length > 0) {
+    // Jump to latest page
+    navigateToPage(pages.length - 1);
+  } else {
+    cancelLLM();
+    cleanupAndExit();
+  }
 });
 
 // ======================

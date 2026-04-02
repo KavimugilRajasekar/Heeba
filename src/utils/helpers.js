@@ -44,10 +44,12 @@ function buildSystemPrompt(mode) {
   const { user_profile, assistant_behavior, system_rules, output_format } = config;
   const identity = config.heeba_identity || {};
 
-  // Strict Plain Text Rule (requested by user)
-  const plainTextInstruction = `IMPORTANT: All your responses must be in simple PLAIN TEXT. Never use Markdown formatting. No bold (**text**), no headers (# text), no lists with symbols (- text), and no italics (*text*). Use only text, numbers, and basic punctuation.`;
+  // Format instruction depends on mode
+  const formatInstruction = mode === 'auto'
+    ? `IMPORTANT: Format your responses using Markdown for readability. Use headings (## Section), bullet points (- item), numbered lists (1. item), code blocks (\`\`\`lang), blockquotes (> text), and bold (**text**). Keep lines concise and well-structured with clear sections. Prefer short paragraphs over walls of text. Use fenced code blocks for any code or commands.`
+    : `IMPORTANT: All your responses must be in simple PLAIN TEXT. Never use Markdown formatting. No bold (**text**), no headers (# text), no lists with symbols (- text), and no italics (*text*). Use only text, numbers, and basic punctuation.`;
   const lines = [
-    plainTextInstruction,
+    formatInstruction,
     ``,
     `You are ${identity.name || 'Heeba'}, ${identity.description || 'an AI assistant'}.`,
     ``,
