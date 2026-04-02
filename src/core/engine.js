@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { buildSystemPrompt } = require('../utils/helpers');
+const { queryOllama, cancelOllama, getOllamaStatus, clearOllamaHistory, getOllamaTokens, isVirtualModel } = require('./ollama-adapter');
 
 let isLLMRunning = false;
 let serverProcess = null;
@@ -47,25 +48,38 @@ function ensureServerRunning(CONFIG) {
     });
 }
 
-async function queryLLM(userInput, mode, CONFIG, onToken) {
+async function queryLLM(userInput, mode, CONFIG, onToken, history = []) {
     if (isLLMRunning) throw new Error('LLM is already busy');
     isLLMRunning = true;
 
+    // Check if using virtual model (Ollama)
+    if (isVirtualModel(CONFIG.model)) {
+        try {
+            const response = await queryOllama(userInput, mode, CONFIG, onToken, history);
+            isLLMRunning = false;
+            return response;
+        } catch (err) {
+            isLLMRunning = false;
+            throw err;
+        }
+    }
+
+    // Original llama.cpp logic
     try {
         await ensureServerRunning(CONFIG);
         
         const systemPrompt = buildSystemPrompt(mode);
         let prompt;
-        if (mode === 'auto' && conversationHistory.length > 0) {
-            let history = conversationHistory.map(e => `USER: ${e.user}\nASST: ${e.assistant}`).join('\n');
-            prompt = `${systemPrompt}\n\n${history}\n\nUSER: ${userInput}\nASST:`;
+        if (mode === 'auto' && history.length > 0) {
+            let historyText = history.map(e => `USER: ${e.user}\nASST: ${e.assistant}`).join('\n');
+            prompt = `${systemPrompt}\n\n${historyText}\n\nUSER: ${userInput}\nASST:`;
         } else {
             prompt = `${systemPrompt}\n\nUSER: ${userInput}\nASST:`;
         }
 
         const postData = JSON.stringify({
             prompt: prompt,
-            n_predict: 100,
+            n_predict: 512, // Increased for better responses
             stop: ["USER:", "\nUSER"],
             stream: !!onToken
         });
@@ -96,7 +110,7 @@ async function queryLLM(userInput, mode, CONFIG, onToken) {
                                     const json = JSON.parse(line.replace('data:', '').trim());
                                     if (json.content) {
                                         fullResponse += json.content;
-                                        totalTokensUsed++; // Approximate token count
+                                        totalTokensUsed++; 
                                         onToken(json.content);
                                     }
                                 } catch (e) {}
@@ -117,11 +131,7 @@ async function queryLLM(userInput, mode, CONFIG, onToken) {
                             const json = JSON.parse(fullResponse);
                             finalContent = json.content.trim();
                         }
-
-                        if (mode === 'auto') {
-                            conversationHistory.push({ user: userInput, assistant: finalContent });
-                            if (conversationHistory.length > 10) conversationHistory.shift();
-                        }
+                        // Note: History is managed by caller now
                         resolve(finalContent);
                     } catch (e) {
                         reject(new Error('Invalid response from LLM server'));
@@ -145,7 +155,9 @@ async function queryLLM(userInput, mode, CONFIG, onToken) {
 }
 
 function cancelLLM() {
-    // With server mode, we don't necessarily kill the server, 
+    // Cancel Ollama if active
+    cancelOllama();
+    // With server mode, we don't necessarily kill the server,
     // but we can flag the UI to ignore the pending request.
     isLLMRunning = false;
 }
@@ -163,10 +175,11 @@ function getLLMStatus() {
 
 function clearConversationHistory() {
     conversationHistory = [];
+    clearOllamaHistory();
 }
 
 function getTotalTokensUsed() {
-    return totalTokensUsed;
+    return totalTokensUsed + getOllamaTokens();
 }
 
 module.exports = { queryLLM, cancelLLM, getLLMStatus, clearConversationHistory, stopServer, getTotalTokensUsed };

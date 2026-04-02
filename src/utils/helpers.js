@@ -44,8 +44,13 @@ function buildSystemPrompt(mode) {
   const { user_profile, assistant_behavior, system_rules, output_format } = config;
   const identity = config.heeba_identity || {};
 
-  // Build the system prompt from heeba.json configuration
+  // Format instruction depends on mode
+  const formatInstruction = mode === 'auto'
+    ? `IMPORTANT: Format your responses using Markdown for readability. Use headings (## Section), bullet points (- item), numbered lists (1. item), code blocks (\`\`\`lang), blockquotes (> text), and bold (**text**). Keep lines concise and well-structured with clear sections. Prefer short paragraphs over walls of text. Use fenced code blocks for any code or commands.`
+    : `IMPORTANT: All your responses must be in simple PLAIN TEXT. Never use Markdown formatting. No bold (**text**), no headers (# text), no lists with symbols (- text), and no italics (*text*). Use only text, numbers, and basic punctuation.`;
   const lines = [
+    formatInstruction,
+    ``,
     `You are ${identity.name || 'Heeba'}, ${identity.description || 'an AI assistant'}.`,
     ``,
     `=== IDENTITY ===`,
@@ -93,7 +98,9 @@ function buildSystemPrompt(mode) {
   lines.push(``);
   lines.push(`2. For task requests (code generation, debugging, file analysis):`);
   lines.push(`   Output a JSON command for BackendLogic in this exact format:`);
-  lines.push(`   { "action": "backend_function_name", "parameters": { "key": "value" } }`);
+  lines.push(`   { "action": "actual_action_name_from_intent_routing", "parameters": { "relevant_key": "value" } }`);
+  lines.push(``);
+  lines.push(`Note: The "action" must match one of the actions defined in the INTENT ROUTING section above (e.g., "update_user_profile", "generate_code", etc.).`);
   lines.push(``);
 
   // Add system rules

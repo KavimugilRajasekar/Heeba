@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 const os = require('os');
-
+const blessed = require('blessed');
 
 const { DEFAULT_CONFIG, getAvailableModels } = require('./src/core/config');
 const { loadHeebaConfig, getHeebaConfig } = require('./src/core/config-loader');
 const { C } = require('./src/ui/theme');
 const { initScreen, createUI } = require('./src/ui/components');
+const { requestRender, forceRender } = require('./src/ui/render-manager');
+const { requestScroll, scrollNow, pauseScroll, resumeScroll } = require('./src/ui/scroll-manager');
 const {
   createOverlays,
   runBootSequence,
@@ -25,7 +27,9 @@ const {
   stopServer,
   getTotalTokensUsed
 } = require('./src/core/engine');
+const { isVirtualModel } = require('./src/core/ollama-adapter');
 const { parseCommandFromResponse, executeCommand } = require('./src/core/intent-executor');
+const { renderMarkdown } = require('./src/ui/markdown-renderer');
 
 // Load heeba.json config on startup
 const heebaConfig = loadHeebaConfig();
@@ -42,6 +46,82 @@ let lastOutputWasCommand = false;
 const startTime = Date.now();
 const CONFIG = { ...DEFAULT_CONFIG };
 let isProcessingCommand = false;
+
+// Session/PromptPage Workspace State (Auto mode only)
+let sessions = [];              // Array of Session objects
+let currentSessionIndex = -1;  // Index of active session (-1 = none / at index page)
+let currentPageId = null;      // ID of active page node within session
+let userScrolledUp = false;     // Track if user manually scrolled during streaming
+
+/**
+ * Reconstruction: Get array of pages from root to specific pageId
+ */
+function getPathToPage(session, pageId) {
+  if (!session || !pageId || !session.pages[pageId]) return [];
+  const path = [];
+  let curr = session.pages[pageId];
+  while (curr) {
+    path.unshift(curr);
+    curr = curr.parentId ? session.pages[curr.parentId] : null;
+  }
+  return path;
+}
+
+/**
+ * Branching: Get sister branches (other children of same parent)
+ */
+function getBrotherPages(session, pageId) {
+  if (!session || !pageId || !session.pages[pageId]) return { index: 0, total: 1, list: [] };
+  const parentId = session.pages[pageId].parentId;
+  const brothers = parentId ? session.pages[parentId].children : [session.rootPageId];
+  return {
+    index: brothers.indexOf(pageId),
+    total: brothers.length,
+    list: brothers
+  };
+}
+
+/**
+ * Heuristic Token Counting: (Characters / 4) is a reliable cross-model estimation.
+ */
+function estimateTokens(text) {
+  if (!text) return 0;
+  // Standard heuristic: 1 token ≈ 4 characters for English text
+  return Math.max(1, Math.ceil(text.length / 4));
+}
+
+/**
+ * Path Analytics: Sum all tokens from root to target page
+ */
+function calculatePathTokens(session, pageId) {
+  const path = getPathToPage(session, pageId);
+  return path.reduce((sum, p) => sum + (p.tokens || 0), 0);
+}
+
+/**
+ * Helper: Find the last page in a linear path starting from a node
+ */
+function findLeafId(session, pageId) {
+  let currId = pageId;
+  while (session.pages[currId] && session.pages[currId].children.length > 0) {
+    // Always follow the first child by default for navigation
+    currId = session.pages[currId].children[0];
+  }
+  return currId;
+}
+
+// Virtual index page (not stored in sessions)
+const INDEX_PAGE_ID = 0;
+
+// Session header animation state
+let sessionHeaderInterval = null;
+const SESSION_HEADER_FRAMES = ['✧', '✦', '★', '✦', '✧'];
+let sessionHeaderFrameIdx = 0;
+
+// Root icon glimmer animation
+let rootIconInterval = null;
+const ROOT_ICON_FRAMES = ['◇', '◈', '◇', '◈', '◇'];
+let rootIconFrameIdx = 0;
 
 // Keyboard state
 let lastShiftPress = 0;
@@ -86,7 +166,7 @@ function refreshStats() {
     lastCpuUsage = process.cpuUsage();
     lastCpuTime = currentTime;
 
-    screen.render();
+    requestRender();
   } catch (err) {
     // Silently fail to avoid UI crashes during rapid updates
   }
@@ -133,8 +213,9 @@ function updateWelcomeCard() {
   UI.mascotEl.style.fg = m.color;
 
   // Info
+  const isVirtual = isVirtualModel(CONFIG.model);
   UI.statusLinesEl.setContent(m.statusLines);
-  UI.engineInfoEl.setContent(`Engine : llama.cpp (local)\nModel  : ${CONFIG.model}`);
+  UI.engineInfoEl.setContent(`Engine : ${isVirtual ? 'Ollama (Online)' : 'llama.cpp (local)'}\nModel  : ${CONFIG.model}`);
   UI.tipsText.setContent(m.tips.join('   '));
 
   // Input prompt
@@ -145,15 +226,32 @@ function updateWelcomeCard() {
   UI.footerStatus.setContent('● ready');
   UI.footerStatus.style.fg = C.green;
 
+  // Page indicator update
+  updatePageIndicator();
+
+  // WelcomeCard visibility: show in auto mode to display sessions list
+  if (currentMode === 'auto') {
+    UI.welcomeCard.show();
+    UI.cardTitle.setContent('Sessions');
+    UI.modeIndicator.setContent(`${SESSION_HEADER_FRAMES[0]} Heeba`);
+    UI.modeIndicator.style.fg = C.green;
+    UI.statusLinesEl.setContent(`${sessions.length} session${sessions.length !== 1 ? 's' : ''} · Enter to open`);
+    startSessionHeaderAnimation();
+  } else {
+    UI.welcomeCard.show();
+    stopSessionHeaderAnimation();
+  }
+
   // Start animations
   startIdleAnimation(UI, screen, m);
   startTipsAnimation(UI, screen, m);
+
+  requestRender();
 }
 
 // ChatGPT-like auto-scroll to bottom
 function autoScroll() {
-  UI.outputArea.setScroll(999999); // Set to a very large number to scroll to bottom
-  screen.render();
+  requestScroll();
 }
 
 function clearOutput() {
@@ -165,6 +263,19 @@ function clearOutput() {
   autoScroll();
 }
 
+/**
+ * Clear only dynamic content from outputArea (everything except welcomeCard).
+ * Used when switching between PromptPages.
+ */
+function clearDynamicContent() {
+  const toDestroy = [];
+  UI.outputArea.children.forEach(c => {
+    if (c !== UI.welcomeCard) toDestroy.push(c);
+  });
+  toDestroy.forEach(c => c.destroy());
+  lineCount = 0;
+}
+
 function addOutput(text, className = '') {
   if (text == null || text === '') return;
 
@@ -174,7 +285,7 @@ function addOutput(text, className = '') {
     error: '[ERR] ',
     success: '↬ ',
     info: '',
-    llm: '↪ '
+    llm: '⁜ '
   }[className] || '';
   const color = {
     command: C.purple,
@@ -185,7 +296,7 @@ function addOutput(text, className = '') {
   }[className] || C.dim;
 
   textStr.split('\n').forEach(line => {
-    require('blessed').text({
+    blessed.text({
       parent: UI.outputArea,
       top: lineCount++,
       left: 0,
@@ -202,7 +313,392 @@ function addSpacer() {
   autoScroll();
 }
 
-function showLoading(show) {
+// ======================
+// PROMPT PAGE RENDERING
+// ======================
+
+/**
+ * Render the Index Page - session list below the WelcomeCard.
+ * WelcomeCard is already showing with "Heeba Sessions" title.
+ */
+function renderPageRecursive(session, pageId, prefix = '', isLast = true) {
+  const page = session.pages[pageId];
+  if (!page) return;
+
+  const marker = pageId === currentPageId ? ' ●' : '';
+  const branchChar = isLast ? '└─' : '├─';
+  const childPrefix = prefix + (isLast ? '   ' : '│  ');
+
+  const contentTrunc = page.prompt.length > 40 ? page.prompt.substring(0, 37) + '...' : page.prompt;
+  const leftSide = `${prefix}${branchChar} "${contentTrunc}"${marker}`;
+  
+  // Render the left side (Branch + Prompt)
+  blessed.text({
+    parent: UI.outputArea,
+    top: lineCount++,
+    left: 0,
+    width: '100%',
+    content: leftSide,
+    fg: pageId === currentPageId ? C.yellow : C.dim,
+    bold: pageId === currentPageId
+  });
+
+  // Render the connector and Token Count on the far right if tokens exist
+  if (page.tokens) {
+    const termWidth = (typeof screen.width === 'number') ? screen.width : 80;
+    const tokenLabel = `(${page.tokens} tks)`;
+    const padding = termWidth - leftSide.length - tokenLabel.length - 6; // margin buffer
+    
+    if (padding > 2) {
+      const dots = '─'.repeat(padding);
+      blessed.text({
+        parent: UI.outputArea,
+        top: lineCount - 1,
+        left: leftSide.length + 2,
+        content: dots,
+        fg: '#1a1a1a' // ultra-dark / 'lightest contrast' possible
+      });
+    }
+
+    blessed.text({
+      parent: UI.outputArea,
+      top: lineCount - 1,
+      right: 2,
+      content: tokenLabel,
+      fg: pageId === currentPageId ? C.yellow : C.dark,
+      bold: pageId === currentPageId
+    });
+  }
+
+  const children = page.children || [];
+  children.forEach((childId, idx) => {
+    renderPageRecursive(session, childId, childPrefix, idx === children.length - 1);
+  });
+}
+
+function renderIndexPage() {
+  clearDynamicContent();
+  lineCount = 12;
+
+  if (sessions.length === 0) {
+    blessed.text({
+      parent: UI.outputArea,
+      top: lineCount++,
+      left: 0,
+      width: '100%',
+      content: '  No sessions yet — type a prompt below to start.',
+      fg: C.dim
+    });
+  } else {
+    // Root tip of the tree (Animated)
+    UI.rootIconEl = blessed.text({
+      parent: UI.outputArea,
+      top: lineCount++,
+      left: 0,
+      width: '100%',
+      content: `  ${ROOT_ICON_FRAMES[rootIconFrameIdx]}`,
+      fg: C.green
+    });
+
+    sessions.forEach((session, idx) => {
+      const isLastSession = idx === sessions.length - 1;
+      const isCurrent = idx === currentSessionIndex;
+      const sessionBranch = isLastSession ? '└─' : '├─';
+      const recursivePrefix = isLastSession ? '     ' : '  │  ';
+
+      const firstPrompt = session.rootPageId && session.pages[session.rootPageId] 
+        ? session.pages[session.rootPageId].prompt 
+        : '(empty)';
+      const displayTitle = session.name || firstPrompt;
+      const titleTrunc = displayTitle.length > 44 ? displayTitle.substring(0, 41) + '...' : displayTitle;
+      const marker = isCurrent ? ' ●' : '';
+      const relTime = getRelativeTime(session.lastUpdated);
+
+      // Session branch line
+      blessed.text({
+        parent: UI.outputArea,
+        top: lineCount++,
+        left: 0,
+        width: '100%',
+        content: `  ${sessionBranch} ${idx + 1}  "${titleTrunc}"${marker}`,
+        fg: isCurrent ? C.yellow : C.cyan,
+        bold: isCurrent
+      });
+
+      blessed.text({
+        parent: UI.outputArea,
+        top: lineCount - 1,
+        right: 2,
+        content: relTime,
+        fg: C.dark
+      });
+
+      if (session.rootPageId) {
+        renderPageRecursive(session, session.rootPageId, recursivePrefix, true);
+      }
+
+      if (!isLastSession) {
+        blessed.text({
+          parent: UI.outputArea,
+          top: lineCount++,
+          left: 0,
+          width: '100%',
+          content: '  │',
+          fg: C.border
+        });
+      }
+    });
+  }
+
+  lineCount++;
+  updatePageIndicator();
+  requestRender();
+  autoScroll();
+}
+
+/**
+ * Get relative time string (e.g. "2m ago", "1h ago")
+ */
+function getRelativeTime(timestamp) {
+  const diffMs = Date.now() - timestamp;
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `${diffDay}d ago`;
+}
+
+/**
+ * Start the animated session header (⁛ Heeba with rotating symbols)
+ */
+function startSessionHeaderAnimation() {
+  if (sessionHeaderInterval) return; // Already running
+
+  sessionHeaderInterval = setInterval(() => {
+    sessionHeaderFrameIdx = (sessionHeaderFrameIdx + 1) % SESSION_HEADER_FRAMES.length;
+    UI.modeIndicator.setContent(`${SESSION_HEADER_FRAMES[sessionHeaderFrameIdx]} Heeba`);
+    requestRender();
+  }, 220);
+}
+
+/**
+ * Stop the animated session header
+ */
+function stopSessionHeaderAnimation() {
+  if (sessionHeaderInterval) {
+    clearInterval(sessionHeaderInterval);
+    sessionHeaderInterval = null;
+  }
+}
+
+/**
+ * Start the animated root glimmer (✧, ✦, ★, ✦, ✧)
+ */
+function startRootIconAnimation() {
+  if (rootIconInterval) return;
+
+  rootIconInterval = setInterval(() => {
+    rootIconFrameIdx = (rootIconFrameIdx + 1) % ROOT_ICON_FRAMES.length;
+    if (UI.rootIconEl) {
+      UI.rootIconEl.setContent(`  ${ROOT_ICON_FRAMES[rootIconFrameIdx]}`);
+      requestRender();
+    }
+  }, 350); // Slightly slower for a 'glowing' effect
+}
+
+/**
+ * Stop the animated root glimmer
+ */
+function stopRootIconAnimation() {
+  if (rootIconInterval) {
+    clearInterval(rootIconInterval);
+    rootIconInterval = null;
+    UI.rootIconEl = null; // Clear ref
+  }
+}
+
+/**
+ * Render the active PromptPage into the outputArea.
+ * Clears all dynamic content and rebuilds from the page data.
+ * For Index Page (sessionIndex=-1), shows the WelcomeCard with session list.
+ */
+function renderActivePage() {
+  if (currentSessionIndex === -1) {
+    // Show WelcomeCard with session list header
+    UI.welcomeCard.show();
+    UI.cardTitle.setContent('Sessions');
+    UI.modeIndicator.setContent(`${SESSION_HEADER_FRAMES[0]} Heeba`);
+    UI.modeIndicator.style.fg = C.green;
+    UI.statusLinesEl.setContent(`${sessions.length} session${sessions.length !== 1 ? 's' : ''} · Enter to open`);
+    startSessionHeaderAnimation();
+    startRootIconAnimation(); // <── Start Root Animation here
+    renderIndexPage();
+    return;
+  }
+
+  if (currentSessionIndex < 0 || currentSessionIndex >= sessions.length) return;
+  const session = sessions[currentSessionIndex];
+  if (!currentPageId || !session.pages[currentPageId]) return;
+
+  // Stop header and root animations when viewing a session page
+  stopSessionHeaderAnimation();
+  stopRootIconAnimation(); // <── Stop Root Animation here
+  clearDynamicContent();
+  UI.welcomeCard.hide();
+  lineCount = 1;
+
+  // Render ONLY the current active page node
+  const page = session.pages[currentPageId];
+  
+  // ── User prompt ──
+  blessed.text({
+    parent: UI.outputArea,
+    top: lineCount++,
+    left: 0,
+    width: '100%',
+    content: `  ※ You`,
+    fg: C.purple,
+    bold: true
+  });
+
+  blessed.text({
+    parent: UI.outputArea,
+    top: lineCount++,
+    left: 0,
+    width: '100%',
+    content: `  ${'─'.repeat(Math.max(20, (screen.width || 80) - 6))}`,
+    fg: C.border
+  });
+
+  page.prompt.split('\n').forEach(pl => {
+    blessed.text({
+      parent: UI.outputArea,
+      top: lineCount++,
+      left: 0,
+      width: '100%',
+      content: `  ${pl}`,
+      fg: C.fg
+    });
+  });
+
+  lineCount++; // spacer
+
+  // ── LLM Response ──
+  if (page.response) {
+    blessed.text({
+      parent: UI.outputArea,
+      top: lineCount++,
+      left: 0,
+      width: '100%',
+      content: `  ⁜ Heeba`,
+      fg: C.yellow,
+      bold: true
+    });
+
+    blessed.text({
+      parent: UI.outputArea,
+      top: lineCount++,
+      left: 0,
+      width: '100%',
+      content: `  ${'─'.repeat(Math.max(20, (screen.width || 80) - 6))}`,
+      fg: C.border
+    });
+
+    const termWidth = (typeof screen.width === 'number') ? screen.width : 80;
+    const mdLines = renderMarkdown(page.response, termWidth);
+    mdLines.forEach(ml => {
+      blessed.text({
+        parent: UI.outputArea,
+        top: lineCount++,
+        left: 0,
+        width: '100%',
+        content: ml.content,
+        fg: ml.fg,
+        bold: ml.bold
+      });
+    });
+  }
+
+  updatePageIndicator();
+  requestRender();
+  autoScroll();
+}
+
+function updatePageIndicator() {
+  if (currentSessionIndex === -1) {
+    UI.pageIndicator.setContent(' Sessions ');
+    return;
+  }
+  const session = sessions[currentSessionIndex];
+  if (!currentPageId || !session.pages[currentPageId]) return;
+
+  const path = getPathToPage(session, currentPageId);
+  const brothers = getBrotherPages(session, currentPageId);
+  const totalTokens = calculatePathTokens(session, currentPageId);
+  
+  let label = ` Page ${path.length} `;
+  if (brothers.total > 1) {
+    label += `[Branch ${brothers.index + 1}/${brothers.total}] `;
+  }
+  
+  // Context Usage Meter
+  const limit = CONFIG.contextLength || 4096;
+  const usage = Math.round((totalTokens / limit) * 100);
+  label += `| Context: ${totalTokens} / ${limit} (${usage}%) `;
+
+  UI.pageIndicator.setContent(label);
+  
+  // Visual Alert: change colors based on context usage
+  if (usage > 90) UI.pageIndicator.style.fg = C.red;
+  else if (usage > 70) UI.pageIndicator.style.fg = C.yellow;
+  else UI.pageIndicator.style.fg = C.green;
+
+  requestRender();
+}
+
+/**
+ * Branch Switching: Switch between parallel branches (Shift + Left/Right)
+ */
+function switchBranch(direction) {
+  if (currentSessionIndex === -1) return;
+  const session = sessions[currentSessionIndex];
+  if (!currentPageId || !session.pages[currentPageId]) return;
+
+  const brothers = getBrotherPages(session, currentPageId);
+  if (brothers.total <= 1) return; // No other branches here
+
+  let nextIdx = (brothers.index + direction) % brothers.total;
+  if (nextIdx < 0) nextIdx = brothers.total - 1;
+
+  currentPageId = brothers.list[nextIdx];
+  // If we switch to a branch, the path might end elsewhere, but findLeafId helps
+  // Actually, we usually want to stay at the same depth.
+  renderActivePage();
+}
+
+/**
+ * Navigate to a specific page ID within a session.
+ * @param {number} sessionIdx - Session index (-1 for index page)
+ * @param {string} pageId - Page node ID
+ */
+function navigateToPage(sessionIdx, pageId) {
+  if (sessionIdx === -1) {
+    currentSessionIndex = -1;
+    currentPageId = null;
+    renderActivePage();
+    setTimeout(() => { UI.inputBox.focus(); }, 30);
+    return;
+  }
+
+  if (sessionIdx < 0 || sessionIdx >= sessions.length) return;
+  currentSessionIndex = sessionIdx;
+  currentPageId = pageId || sessions[sessionIdx].rootPageId;
+  
+  renderActivePage();
+}function showLoading(show) {
   if (show) {
     UI.promptText.setContent(`>`);
     startLoadingAnimation(UI, overlays, screen, MODES[currentMode]);
@@ -212,6 +708,7 @@ function showLoading(show) {
   }
   UI.footerStatus.setContent(show ? '● busy' : '● ready');
   UI.footerStatus.style.fg = show ? C.yellow : C.green;
+  requestRender();
 }
 
 function switchMode(newMode) {
@@ -221,24 +718,42 @@ function switchMode(newMode) {
   overlays.modeOverlayText.style.fg = MODES[newMode].color;
   overlays.modeOverlay.show();
   overlays.modeOverlay.setFront();
-  screen.render();
+  forceRender();
 
   setTimeout(() => {
     overlays.modeOverlay.hide();
     currentMode = newMode;
     updateWelcomeCard();
-    screen.render();
-    addSpacer();
-    addOutput(`Switched to ${MODES[newMode].name} Mode`, 'success');
+
+    // When switching to auto mode with existing sessions, render the index page
+    if (newMode === 'auto' && sessions.length > 0) {
+      navigateToPage(-1, -1);
+    } else if (newMode === 'task') {
+      // Task mode: restore traditional chat view with WelcomeCard
+      clearDynamicContent();
+      lineCount = 12;
+      UI.welcomeCard.show();
+      addSpacer();
+      addOutput(`Switched to ${MODES[newMode].name} Mode`, 'success');
+    } else {
+      addSpacer();
+      addOutput(`Switched to ${MODES[newMode].name} Mode`, 'success');
+    }
+    requestRender();
   }, 500);
 }
 
 function openModelSelection() {
   const models = getAvailableModels();
-  addOutput('Scanning engine/models/...', 'info');
+  if (currentMode !== 'auto') {
+    addOutput('Scanning engine/models/...', 'info');
+  }
+  pauseScroll();
 
   if (models.length === 0) {
-    addOutput('No models found in engine/models/', 'error');
+    if (currentMode !== 'auto') {
+      addOutput('No models found in engine/models/', 'error');
+    }
     return;
   }
 
@@ -247,14 +762,15 @@ function openModelSelection() {
   UI.modelList.setLabel(` [ SELECT MODEL: ${models.length} FOUND ] `);
   UI.modelList.show();
   UI.modelList.focus();
-  screen.render();
+  forceRender();
 }
 
 function closeModelSelection() {
   UI.modelList.hide();
   UI.inputContainer.show();
   UI.inputBox.focus();
-  screen.render();
+  resumeScroll();
+  forceRender();
 }
 
 // ======================
@@ -306,6 +822,9 @@ async function processCommand(input) {
       CONFIG.model = newModel;
       clearConversationHistory();
       updateWelcomeCard();
+      if (currentMode !== 'auto') {
+        addSpacer(); 
+      }
       return `Model set to: ${newModel}`;
     }
     return `Model not found: ${sel}`;
@@ -313,7 +832,12 @@ async function processCommand(input) {
 
   if (trimmed === 'clear') {
     clearOutput();
-    if (currentMode === 'auto') clearConversationHistory();
+    if (currentMode === 'auto') {
+      clearConversationHistory();
+      UI.welcomeCard.show();
+      updatePageIndicator();
+      lineCount = 12;
+    }
     return '';
   }
 
@@ -340,101 +864,239 @@ Threads   : ${CONFIG.threads}`;
   }
 
   if (currentMode === 'auto') {
-    showLoading(true);
+    // Session Workspace: Branching Tree Logic
+    let session;
+    if (currentSessionIndex === -1 || currentSessionIndex >= sessions.length) {
+      // Create new session
+      session = {
+        id: Date.now().toString(36),
+        name: null,
+        pages: {}, // Dictionary of page nodes: { id: { prompt, response, parentId, children: [] } }
+        rootPageId: null,
+        createdAt: Date.now(),
+        lastUpdated: Date.now()
+      };
+      sessions.push(session);
+      currentSessionIndex = sessions.length - 1;
+      currentPageId = null; 
+    } else {
+      session = sessions[currentSessionIndex];
+    }
+
+    const newPageId = Math.random().toString(36).substring(2, 9);
+    const newPage = {
+      id: newPageId,
+      prompt: input,
+      response: '',
+      parentId: currentPageId, // Points to where we branched from
+      children: [],
+      scrollOffset: 0,
+      createdAt: Date.now(),
+      _streaming: true
+    };
+
+    // Add to session 
+    session.pages[newPageId] = newPage;
     
-    // Create animated thinking indicator
+    // Wire up parent/child relationship
+    if (!session.rootPageId) {
+      session.rootPageId = newPageId;
+    } else if (currentPageId && session.pages[currentPageId]) {
+      session.pages[currentPageId].children.push(newPageId);
+    }
+
+    // Set as active
+    currentPageId = newPageId;
+    session.lastUpdated = Date.now();
+    userScrolledUp = false;
+
+    // Build History from current branch path (excluding the new prompt itself)
+    const historyPath = getPathToPage(session, newPage.parentId);
+    const llmHistory = historyPath.map(p => ({
+      user: p.prompt,
+      assistant: p.response
+    }));
+
+    // Hide WelcomeCard — full screen for chat
+    UI.welcomeCard.hide();
+    updatePageIndicator();
+
+    // Render the new page (prompt + "Thinking...")
+    renderActivePage();
+
+    showLoading(true);
+    isProcessingCommand = true;
+
+    // Response header (shown before thinking starts)
+    blessed.text({
+      parent: UI.outputArea,
+      top: lineCount++,
+      left: 0,
+      width: '100%',
+      content: `  ⁜ Heeba`,
+      fg: C.yellow,
+      bold: true
+    });
+    blessed.text({
+      parent: UI.outputArea,
+      top: lineCount++,
+      left: 0,
+      width: '100%',
+      content: `  ${'─'.repeat(Math.max(20, (screen.width || 80) - 6))}`,
+      fg: C.border
+    });
+
+    // Create animated thinking indicator inside the page (below response header)
     const thinkingFrames = ['○', '◎', '◉', '●', '◉', '◎'];
     let frame = 0;
-    const thinkingEl = require('blessed').text({
+    let thinkingEl = blessed.text({
       parent: UI.outputArea,
       top: lineCount,
       left: 0,
       width: '100%',
-      content: `${thinkingFrames[0]} Thinking...`,
+      content: `  ${thinkingFrames[0]} Thinking...`,
       fg: C.cyan
     });
-    
+    requestRender();
+
     const thinkingInterval = setInterval(() => {
       frame = (frame + 1) % thinkingFrames.length;
-      thinkingEl.setContent(`${thinkingFrames[frame]} Thinking...`);
-      screen.render();
+      if (thinkingEl) {
+        thinkingEl.setContent(`  ${thinkingFrames[frame]} Thinking...`);
+        requestRender();
+      }
     }, 150);
 
     let liveTextEl = null;
     let fullResponse = '';
-    isProcessingCommand = true;
+    let thinkingDestroyed = false;
 
     try {
       await queryLLM(input, currentMode, CONFIG, (token) => {
         // Destroy thinking indicator on first token
-        if (thinkingEl) {
+        if (!thinkingDestroyed && thinkingEl) {
           clearInterval(thinkingInterval);
           thinkingEl.destroy();
-          // Reset thinkingEl ref to prevent further calls
-          // (Actually, the lineCount will be overwritten by liveTextEl)
+          thinkingEl = null;
+          thinkingDestroyed = true;
         }
 
         if (!liveTextEl) {
           startLoadingAnimation(UI, overlays, screen, MODES[currentMode], true);
-          addSpacer();
-          liveTextEl = require('blessed').text({
+          // Re-render the page fresh with response header.
+          clearDynamicContent();
+          lineCount = 1;
+
+          // User prompt section
+          blessed.text({ parent: UI.outputArea, top: lineCount++, left: 0, width: '100%', content: `  ※ You`, fg: C.purple, bold: true });
+          blessed.text({ parent: UI.outputArea, top: lineCount++, left: 0, width: '100%', content: `  ${'─'.repeat(Math.max(20, (screen.width || 80) - 6))}`, fg: C.border });
+          input.split('\n').forEach(pl => {
+            blessed.text({ parent: UI.outputArea, top: lineCount++, left: 0, width: '100%', content: `  ${pl}`, fg: C.fg });
+          });
+          lineCount++; // spacer
+
+          // Response header
+          blessed.text({ parent: UI.outputArea, top: lineCount++, left: 0, width: '100%', content: `  ⁜ Heeba`, fg: C.yellow, bold: true });
+          blessed.text({ parent: UI.outputArea, top: lineCount++, left: 0, width: '100%', content: `  ${'─'.repeat(Math.max(20, (screen.width || 80) - 6))}`, fg: C.border });
+
+          // Live streaming element
+          liveTextEl = blessed.text({
             parent: UI.outputArea,
             top: lineCount++,
             left: 0,
             width: '100%',
-            content: '↪ ',
-            fg: C.yellow
+            content: '  ',
+            fg: C.fg
           });
         }
+
         liveTextEl.setContent(liveTextEl.getContent() + token);
         fullResponse += token;
-        autoScroll();
-      });
+
+        // Auto-scroll during streaming unless user manually scrolled up
+        if (!userScrolledUp) {
+          requestScroll();
+        }
+        requestRender();
+      }, llmHistory);
 
       showLoading(false);
 
-      if (liveTextEl) {
-        const actualLines = liveTextEl.getLines().length;
-        if (actualLines > 1) lineCount += (actualLines - 1);
+      // Finalize token count for this Page Node
+      newPage._streaming = false;
+      newPage.response = fullResponse;
+      newPage.tokens = estimateTokens(newPage.prompt + newPage.response);
+
+      // If this is the root node and session has no name, use the first prompt
+      if (!session.name && session.rootPageId === newPageId) {
+        session.name = newPage.prompt.substring(0, 30);
       }
+
+      // Re-render the page with proper markdown formatting
+      renderActivePage();
+      // Restore input focus so the I-beam cursor is visible again immediately
+      setTimeout(() => { UI.inputBox.focus(); }, 30);
 
       // Check for structured commands in LLM response
       const command = parseCommandFromResponse(fullResponse);
       if (command && command.action) {
-        // Command detected - clear the JSON output from chat and execute
-        if (liveTextEl) {
-          const oldLines = liveTextEl.getLines().length;
-          liveTextEl.destroy();
-          liveTextEl = null;
-          // Reset lineCount since we destroyed the LLM output
-          lineCount -= oldLines;
-          if (lineCount < 12) lineCount = 12;
-        }
-        addSpacer();
-
-        const ctx = { screen, UI };
+        // Build rich context: give the handler the live session and re-render callbacks
+        const ctx = {
+          screen,
+          UI,
+          currentSession: (currentSessionIndex >= 0 && currentSessionIndex < sessions.length)
+            ? sessions[currentSessionIndex]
+            : null,
+          onSessionRenamed: (newName) => {
+            // Update WelcomeCard header to reflect the new name immediately
+            UI.cardTitle.setContent(newName);
+            requestRender();
+          },
+          onSessionDeleted: () => {
+            // Remove this session from the array
+            if (currentSessionIndex >= 0 && currentSessionIndex < sessions.length) {
+              sessions.splice(currentSessionIndex, 1);
+            }
+            // Reset to index page
+            currentSessionIndex = -1;
+            currentPageId       = null;
+            userScrolledUp      = false;
+            // Re-render the index page (WelcomeCard + updated tree)
+            renderActivePage();
+            setTimeout(() => { UI.inputBox.focus(); }, 30);
+          }
+        };
         const result = await executeCommand(command, ctx);
         if (result && result.success) {
-          // Update UI after profile change
           if (command.action === 'update_user_profile') {
             updateWelcomeCard();
-            addOutput(`✓ Done! ${result.message}`, 'success');
-          } else {
-            addOutput(`✓ ${result.message}`, 'success');
           }
+          // Append command result to the page response
+          newPage.response += `\n\n---\n\u2713 ${result.message}`;
+          renderActivePage();
         } else if (result) {
-          addOutput(`✗ Failed: ${result.message}`, 'error');
+          newPage.response += `\n\n---\n\u2717 Failed: ${result.message}`;
+          renderActivePage();
         }
+        setTimeout(() => { UI.inputBox.focus(); }, 30);
         return '';
       }
 
       return '';
     } catch (err) {
-      if (thinkingEl) { clearInterval(thinkingInterval); thinkingEl.destroy(); }
+      if (!thinkingDestroyed && thinkingEl) {
+        clearInterval(thinkingInterval);
+        thinkingEl.destroy();
+      }
       showLoading(false);
+      newPage._streaming = false;
+      newPage.response = `LLM Error: ${err.message}`;
+      renderActivePage();
+      // Restore cursor on error path too
+      setTimeout(() => { UI.inputBox.focus(); }, 30);
       logger.error('ENGINE', err);
       isProcessingCommand = false;
-      return `LLM Error: ${err.message}`;
+      return '';
     } finally {
       isProcessingCommand = false;
     }
@@ -475,7 +1137,7 @@ function resizeInput() {
     // Recalculate outputArea height:
     // Start height: 3 (top) + newHeight + 1 (footer) + 1 padding = 5 + newHeight
     UI.outputArea.height = `100%-${5 + newHeight}`;
-    screen.render();
+    requestRender();
   }
 }
 
@@ -490,8 +1152,8 @@ UI.inputBox.key('enter', async (ch, key) => {
     UI.inputContainer.height = 3;
     // Offset calculation: Top(3) + Input(1) + Footer(1) + Padding(1) = 6
     UI.outputArea.height = '100%-7';
-    screen.render();
-    setTimeout(() => { UI.inputBox.focus(); screen.render(); }, 50);
+    requestRender();
+    setTimeout(() => { UI.inputBox.focus(); }, 50);
     return;
   }
 
@@ -503,12 +1165,16 @@ UI.inputBox.key('enter', async (ch, key) => {
   // Offset calculation: Top(3) + Input(1) + Footer(1) + Padding(1) = 6
   UI.outputArea.height = '100%-7';
 
-  addSpacer();
-  addOutput(command, 'command');
-  lastOutputWasCommand = true;
+  // In Auto mode, don't append to global chat — processCommand handles page rendering
+  if (currentMode !== 'auto') {
+    addSpacer();
+    addOutput(command, 'command');
+    lastOutputWasCommand = true;
+  }
 
   const response = await processCommand(command);
-  if (response) { addSpacer(); addOutput(response, 'response'); addSpacer(); }
+  if (response && currentMode !== 'auto') { addSpacer(); addOutput(response, 'response'); addSpacer(); }
+  // In auto mode, responses are handled within processCommand via PromptPage rendering
 
   if (command) {
     commandHistory.push(command);
@@ -524,8 +1190,8 @@ UI.inputBox.key('enter', async (ch, key) => {
     UI.inputBox.setValue('');
   } catch (e) {}
 
-  screen.render();
-  setTimeout(() => { UI.inputBox.focus(); screen.render(); }, 50);
+  requestRender();
+  setTimeout(() => { UI.inputBox.focus(); }, 50);
 });
 
 // Watch for changes to resize the input box
@@ -539,25 +1205,34 @@ UI.inputBox.key('left', () => {
   if (UI.inputBox._clines) {
     // Basic navigation for blessed textarea
     screen.focusOffset(-1);
-    screen.render();
+    requestRender();
   }
 });
 
 UI.inputBox.key('right', () => {
   if (UI.inputBox._clines) {
     screen.focusOffset(1);
-    screen.render();
+    requestRender();
   }
 });
 
 UI.modelList.on('select', (item) => {
-  const newModel = (item.getText ? item.getText() : item.content).split('(')[0].trim();
+  const content = (item.getText ? item.getText() : item.content);
+  // Strip tags if any, then strip (Online) label
+  const newModel = content.split('{')[0].split('(')[0].trim();
+  
   CONFIG.model = newModel;
   clearConversationHistory();
   updateWelcomeCard();
   closeModelSelection();
-  addSpacer();
-  addOutput(`Model set to: ${newModel}`, 'success');
+  
+  if (currentMode !== 'auto') {
+    addSpacer();
+    addOutput(`Model set to: ${newModel}`, 'success');
+  } else if (currentSessionIndex === -1) {
+    // Refresh the index page tree/header to show the new model
+    renderActivePage();
+  }
 });
 
 // ======================
@@ -565,37 +1240,24 @@ UI.modelList.on('select', (item) => {
 // ======================
 
 // Model list navigation
-UI.modelList.key(['up', 'k'], () => { UI.modelList.up(); screen.render(); });
-UI.modelList.key(['down', 'j'], () => { UI.modelList.down(); screen.render(); });
+UI.modelList.key(['up', 'k'], () => { UI.modelList.up(); requestRender(); });
+UI.modelList.key(['down', 'j'], () => { UI.modelList.down(); requestRender(); });
 UI.modelList.key('escape', () => closeModelSelection());
 
-UI.modelList.key('enter', () => {
-  const selectedIndex = UI.modelList.selected;
-  const items = UI.modelList.items;
-  const item = items[selectedIndex];
-  if (!item) return;
-
-  const content = (item.getText ? item.getText() : item.content).split('(')[0].trim();
-  CONFIG.model = content;
-  clearConversationHistory();
-  updateWelcomeCard();
-  closeModelSelection();
-  addSpacer();
-  addOutput(`Model set to: ${content}`, 'success');
-});
+// Redundant enter handler removed to prevent double-execution crashes
 
 // Input history navigation
 UI.inputBox.key('up', () => {
   // Only navigate history if we are in single-line mode or empty
   if (UI.inputBox.getLines().length > 1 && UI.inputBox.getValue().trim() !== '') return;
-  
+
   if (historyIndex > 0) {
     historyIndex--;
     const cmd = commandHistory[historyIndex];
     UI.inputBox.setValue(cmd);
     setImmediate(() => {
       resizeInput();
-      screen.render();
+      requestRender();
     });
   }
 });
@@ -614,7 +1276,7 @@ UI.inputBox.key('down', () => {
   }
   setImmediate(() => {
     resizeInput();
-    screen.render();
+    requestRender();
   });
 });
 
@@ -625,7 +1287,7 @@ UI.inputBox.key('down', () => {
 // Direct Shift+Space combination
 screen.key('S-space', () => {
   logger.debug('KEYBOARD', 'S-space detected');
-  if (!UI.modelList.visible) {
+  if (!UI.modelList.visible && !UI.pageListView.visible) {
     switchMode(currentMode === 'task' ? 'auto' : 'task');
   }
 });
@@ -634,15 +1296,185 @@ screen.key('S-space', () => {
 screen.key('space', () => {
   if (UI.modelList.visible) {
     UI.modelList.down();
-    screen.render();
+    requestRender();
   }
 });
 
 // Ctrl+g as universal fallback
 screen.key('C-g', () => {
   logger.debug('KEYBOARD', 'Ctrl+g detected');
-  if (!UI.modelList.visible) {
+  if (!UI.modelList.visible && !UI.pageListView.visible) {
     switchMode(currentMode === 'task' ? 'auto' : 'task');
+  }
+});
+
+// ==============================================
+// PROMPT PAGE NAVIGATION (Auto mode)
+// ==============================================
+
+// Page navigation helper functions
+function goToPrevPage() {
+  if (currentSessionIndex === -1) return;
+  const session = sessions[currentSessionIndex];
+  if (!currentPageId || !session.pages[currentPageId]) return;
+
+  const parentId = session.pages[currentPageId].parentId;
+  if (parentId) {
+    currentPageId = parentId;
+    renderActivePage();
+  } else {
+    // Return to index
+    navigateToPage(-1, null);
+  }
+}
+
+function goToNextPage() {
+  if (currentMode !== 'auto' || sessions.length === 0) return;
+
+  if (currentSessionIndex === -1) {
+    // At index page - navigate to first session's root
+    navigateToPage(0, null);
+    return;
+  }
+
+  const session = sessions[currentSessionIndex];
+  if (!currentPageId || !session.pages[currentPageId]) return;
+
+  const children = session.pages[currentPageId].children;
+  if (children && children.length > 0) {
+    currentPageId = children[0];
+    renderActivePage();
+  }
+}
+
+function openPageListIfAvailable() {
+  if (currentMode === 'auto' && sessions.length > 0 && !UI.pageListView.visible) {
+    openPageList();
+  }
+}
+
+// Ctrl+Left / Ctrl+P: Previous page (bound on both screen AND inputBox)
+screen.key('C-left', goToPrevPage);
+UI.inputBox.key('C-left', goToPrevPage);
+screen.key('C-p', goToPrevPage);
+UI.inputBox.key('C-p', goToPrevPage);
+
+// Ctrl+Right: Next page (Ctrl+N is used for new session)
+screen.key('C-right', goToNextPage);
+UI.inputBox.key('C-right', goToNextPage);
+
+// Ctrl+L: Open page list view
+screen.key('C-l', openPageListIfAvailable);
+UI.inputBox.key('C-l', openPageListIfAvailable);
+
+// Ctrl+N: Start new session
+function startNewSession() {
+  if (currentMode !== 'auto') return;
+  if (UI.modelList.visible || UI.pageListView.visible) return;
+
+  // Navigate back to the index page. The new session object will be created
+  // automatically in processCommand() when the user sends their first prompt.
+  // This avoids creating a ghost empty session prematurely.
+  currentSessionIndex = -1;
+  currentPageId = null;
+  userScrolledUp = false;
+
+  // renderActivePage() handles showing the WelcomeCard + session list correctly.
+  renderActivePage();
+  // Restore cursor so the user can immediately type for a new chat.
+  setTimeout(() => { UI.inputBox.focus(); }, 30);
+}
+
+// Nav: Shift + Left/Right for branch switching
+screen.key('S-left', () => switchBranch(-1));
+UI.inputBox.key('S-left', () => switchBranch(-1));
+screen.key('S-right', () => switchBranch(1));
+UI.inputBox.key('S-right', () => switchBranch(1));
+
+screen.key('C-n', startNewSession);
+UI.inputBox.key('C-n', startNewSession);
+
+// Page list helpers
+function openPageList() {
+  pauseScroll();
+
+  if (currentSessionIndex === -1) {
+    // At index page - show session list
+    const items = sessions.map((s, i) => {
+      const rootPage = s.pages[s.rootPageId];
+      const prompt = rootPage ? rootPage.prompt : '(empty)';
+      const truncated = prompt.length > 50 ? prompt.substring(0, 47) + '...' : prompt;
+      const marker = i === currentSessionIndex ? ' ●' : '';
+      return `  ${i + 1}. ${s.name || truncated}${marker}`;
+    });
+    UI.pageListView.setItems(items);
+    UI.pageListView.setLabel(` {bold}◆ SESSIONS (${sessions.length}) ◆{/bold} `);
+    UI.pageListView.select(0);
+  } else {
+    // Within a session - show the CURRENT PATH (branch)
+    const session = sessions[currentSessionIndex];
+    const path = getPathToPage(session, currentPageId);
+    
+    const items = path.map((p, i) => {
+      const truncated = p.prompt.length > 50 ? p.prompt.substring(0, 47) + '...' : p.prompt;
+      const marker = p.id === currentPageId ? ' ●' : '';
+      return `  ${i + 1}. ${truncated}${marker}`;
+    });
+    
+    UI.pageListView.setItems(items);
+    UI.pageListView.setLabel(` {bold}◆ BRANCH PATH (${path.length} steps) ◆{/bold} `);
+    
+    // Select the current step in path
+    const currentStepIdx = path.findIndex(p => p.id === currentPageId);
+    UI.pageListView.select(currentStepIdx >= 0 ? currentStepIdx : 0);
+  }
+
+  UI.inputContainer.hide();
+  UI.pageListView.show();
+  UI.pageListView.focus();
+  forceRender();
+}
+
+function closePageList() {
+  UI.pageListView.hide();
+  UI.inputContainer.show();
+  UI.inputBox.focus();
+  resumeScroll();
+  forceRender();
+}
+
+// Page list event handlers
+UI.pageListView.on('select', (item, idx) => {
+  closePageList();
+  if (currentSessionIndex === -1) {
+    // Navigate to root of selected session
+    navigateToPage(idx, null);
+  } else {
+    // Navigate to selected page in the current branch path
+    const session = sessions[currentSessionIndex];
+    const path = getPathToPage(session, currentPageId);
+    if (path[idx]) {
+      navigateToPage(currentSessionIndex, path[idx].id);
+    }
+  }
+});
+
+UI.pageListView.key(['up', 'k'], () => { UI.pageListView.up(); requestRender(); });
+UI.pageListView.key(['down', 'j'], () => { UI.pageListView.down(); requestRender(); });
+UI.pageListView.key('escape', () => closePageList());
+
+// Track user scroll during streaming
+UI.outputArea.on('scroll', () => {
+  if (isProcessingCommand && currentMode === 'auto') {
+    // If user scrolled away from the bottom, mark as scrolled up
+    const scrollHeight = UI.outputArea.getScrollHeight();
+    const currentScroll = UI.outputArea.getScroll();
+    const viewHeight = UI.outputArea.height;
+    if (scrollHeight - currentScroll > viewHeight + 2) {
+      userScrolledUp = true;
+    } else {
+      userScrolledUp = false;
+    }
   }
 });
 
@@ -650,11 +1482,41 @@ screen.key('C-g', () => {
 // GLOBAL KEYS
 // ==============================================
 
-screen.on('resize', () => { screen.render(); });
+screen.on('resize', () => {
+  // Re-render active page on resize for proper line wrapping
+  if (currentMode === 'auto' && sessions.length > 0 && currentSessionIndex >= 0) {
+    renderActivePage();
+  }
+  requestRender();
+});
 
-screen.key(['escape', 'q', 'C-c'], () => {
+screen.key(['q', 'C-c'], () => {
   cancelLLM();
   cleanupAndExit();
+});
+
+// Escape: Return to Index Page (Auto mode) or quit
+screen.key('escape', () => {
+  if (UI.pageListView.visible) {
+    closePageList();
+    return;
+  }
+  if (UI.modelList.visible) {
+    closeModelSelection();
+    return;
+  }
+  if (currentMode === 'auto') {
+    if (sessions.length > 0) {
+      // Return to Index Page
+      navigateToPage(-1, -1);
+    } else {
+      cancelLLM();
+      cleanupAndExit();
+    }
+  } else {
+    cancelLLM();
+    cleanupAndExit();
+  }
 });
 
 // ======================
@@ -665,15 +1527,21 @@ screen.key(['escape', 'q', 'C-c'], () => {
   logger.info('APP', 'Starting Heeba Terminal');
 
   updateWelcomeCard();
-  screen.render();
+  forceRender();
 
   await runBootSequence(overlays, UI, screen, CONFIG);
 
-  addOutput('Heeba | Code Space v1.0 - Online', 'success');
-  addOutput('Engine: llama.cpp (local GGUF)', 'info');
-  addOutput(`Model: ${CONFIG.model}`, 'info');
-  addOutput('Type "help" for available commands', 'info');
-  addSpacer();
+  // In Auto mode, suppress boot messages since session history takes that space
+  if (currentMode !== 'auto') {
+    addOutput('Heeba | Code Space v1.0 - Online', 'success');
+    addOutput('Engine: llama.cpp (local GGUF)', 'info');
+    addOutput(`Model: ${CONFIG.model}`, 'info');
+    addOutput('Type "help" for available commands', 'info');
+    addSpacer();
+  } else {
+    // In auto mode, show session index page
+    navigateToPage(-1, -1);
+  }
 
   logger.info('APP', 'Boot complete');
 })();

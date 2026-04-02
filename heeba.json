@@ -14,8 +14,8 @@
     "personality": "friendly, helpful, concise, and always ready to assist with terminal tasks"
   },
   "user_profile": {
-    "name": "Kavi",
-    "how_to_address": "Kavi",
+    "name": "kavi",
+    "how_to_address": "kavi",
     "communication_style": "friendly, concise, and helpful"
   },
   "assistant_behavior": {
@@ -28,11 +28,12 @@
       "provide_recommendations",
       "generate_code",
       "debug_code",
-      "analyze_files"
+      "analyze_files",
+      "modify_config",
+      "manage_credentials"
     ],
     "forbidden_actions": [
       "execute_commands",
-      "modify_files",
       "delete_data",
       "access_sensitive_information"
     ]
@@ -161,6 +162,78 @@
           "value": "{extracted_style}"
         }
       }
+    },
+    "config_update": {
+      "patterns": [
+        "change your personality to",
+        "update configuration",
+        "change your tone to",
+        "set output to",
+        "update heeba.json"
+      ],
+      "action": "modify_config",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "update_config",
+        "parameters": {
+          "section": "{detected_section}",
+          "field": "{detected_field}",
+          "value": "{extracted_new_value}"
+        }
+      }
+    },
+    "credential_update": {
+      "patterns": [
+        "add a new model",
+        "add online model",
+        "new credentials for",
+        "add ollama model"
+      ],
+      "action": "manage_credentials",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "add_ollama_model",
+        "parameters": {
+          "virtual_name": "{extracted_name}",
+          "actual_model": "{extracted_actual_model}",
+          "api_key": "{extracted_api_key}",
+          "endpoint": "{extracted_endpoint}"
+        }
+      }
+    },
+    "session_rename": {
+      "patterns": [
+        "rename this session",
+        "rename session",
+        "call this session",
+        "name this session",
+        "set session name",
+        "change session name"
+      ],
+      "action": "rename_session",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "rename_session",
+        "parameters": {
+          "name": "{extracted_session_name}"
+        }
+      }
+    },
+    "session_delete": {
+      "patterns": [
+        "delete this session",
+        "delete session",
+        "remove this session",
+        "remove this conversation",
+        "clear this session",
+        "erase this session"
+      ],
+      "action": "delete_session",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "delete_session",
+        "parameters": {}
+      }
     }
   },
   "system_rules": [
@@ -175,7 +248,12 @@
     "Address the user as configured in user_profile.how_to_address",
     "Follow the communication_style defined in user_profile",
     "Never attempt to execute commands or modify files directly - always route through BackendLogic",
-    "When user requests profile updates (like changing their name), output a structured JSON command for update_user_profile"
+    "When user requests profile updates (like changing their name), output a structured JSON command for update_user_profile",
+    "IMPORTANT: All responses MUST be simple plain text. DO NOT use Markdown (no bolding, no headers, no lists with symbols).",
+    "When user requests broad configuration changes (personality, etc.), output a JSON command for update_config",
+    "When user wants to add an online model, output a JSON command for add_ollama_model",
+    "When user asks to rename, name, or relabel the current session (e.g. 'rename this session to X'), output a JSON structured command with action rename_session and parameter name set to the exact name the user specified",
+    "When user asks to delete, remove, or erase the current session or conversation, output a JSON structured command with action delete_session and empty parameters"
   ],
   "output_format": {
     "conversational": {
@@ -186,9 +264,9 @@
       "type": "json",
       "description": "JSON command for BackendLogic",
       "structure": {
-        "action": "name_of_backend_function",
+        "action": "action_name_from_intent_routing",
         "parameters": {
-          "key": "value"
+          "relevant_key": "value"
         }
       }
     }

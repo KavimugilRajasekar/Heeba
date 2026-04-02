@@ -49,3 +49,5 @@ npm-debug.log*
 *.swo
 *~
 .claude/
+
+credentials.json

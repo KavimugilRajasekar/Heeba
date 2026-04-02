@@ -1,6 +1,8 @@
 // src/ui/components.js
 const blessed = require('blessed');
 const { C, STYLES } = require('./theme');
+const { requestRender, forceRender, initRenderManager } = require('./render-manager');
+const { requestScroll, scrollNow, initScrollManager, pauseScroll, resumeScroll } = require('./scroll-manager');
 
 function initScreen() {
   return blessed.screen({
@@ -17,6 +19,13 @@ function initScreen() {
 }
 
 function createUI(screen) {
+  // Initialize managers with screen reference
+  initRenderManager(screen);
+  initScrollManager(() => {
+    outputArea.setScroll(999999);
+    try { screen.render(); } catch (e) {}
+  });
+
   const container = blessed.box({
     parent: screen, top: 0, left: 0, width: '100%', height: '100%', bg: C.bg
   });
@@ -71,6 +80,15 @@ function createUI(screen) {
     left: 22,
     content: 'SelectedModel: granite4350m',
     fg: C.dim
+  });
+
+  // Page indicator (Auto mode workspace)
+  const pageIndicator = blessed.text({
+    parent: topBar,
+    top: 0,
+    right: 52,
+    content: '',
+    fg: C.cyan
   });
 
   // Vertical line separator
@@ -209,7 +227,7 @@ function createUI(screen) {
     top: 3, // Below header and separator
     left: 0,
     width: '100%', // Use full width now that side borders are gone
-    height: 7, 
+    height: 7,
     bg: C.bg
   });
 
@@ -360,22 +378,30 @@ function createUI(screen) {
     parent: bottomBar,
     top: 0,
     left: 1,
-    content: '[Shift+Space] mode',
+    content: '[S-Space] mode',
     fg: C.dim
   });
 
   blessed.text({
     parent: bottomBar,
     top: 0,
-    left: 20,
-    content: '[↑↓] history',
+    left: 16,
+    content: '[C-P/N] pages',
     fg: C.dim
   });
 
   blessed.text({
     parent: bottomBar,
     top: 0,
-    left: 33,
+    left: 30,
+    content: '[C-L] list',
+    fg: C.dim
+  });
+
+  blessed.text({
+    parent: bottomBar,
+    top: 0,
+    left: 41,
     content: '[q] quit',
     fg: C.dim
   });
@@ -417,11 +443,38 @@ function createUI(screen) {
     scrollbar: STYLES.scrollbar
   });
 
+  // =============================================
+  // PAGE LIST VIEW (Ctrl+L modal for PromptPages)
+  // =============================================
+  const pageListView = blessed.list({
+    parent: container,
+    top: 'center',
+    left: 'center',
+    width: '60%',
+    height: 15,
+    hidden: true,
+    label: ' {bold}◆ PROMPT PAGES ◆{/bold} ',
+    tags: true,
+    keys: true,
+    vi: true,
+    mouse: true,
+    border: { type: 'line', fg: C.cyan },
+    style: {
+      item: { fg: C.fg },
+      selected: { fg: C.bg, bg: C.cyan, bold: true },
+      border: { fg: C.cyan },
+      label: { fg: C.cyan, bold: true },
+      bg: C.bg
+    },
+    scrollbar: STYLES.scrollbar
+  });
+
   return {
     container,
     topBar,
     modelTag,
     topModeIndicator,
+    pageIndicator,
     welcomeCard,
     modeIndicator,
     cardTitle,
@@ -437,10 +490,18 @@ function createUI(screen) {
     bottomBar,
     footerStatus,
     modelList,
+    pageListView,
     tokenTag,
     uptimeTag,
     ramTag,
-    cpuTag
+    cpuTag,
+    // Expose managers for external control
+    requestRender,
+    forceRender,
+    requestScroll,
+    scrollNow,
+    pauseScroll,
+    resumeScroll
   };
 }
 

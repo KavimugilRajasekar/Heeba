@@ -58,7 +58,7 @@ Heeba automatically detects user intent (e.g., code generation, debugging, profi
 ### Installation
 ```powershell
 # Clone the repository
-git clone https://github.com/USER/Heeba.git
+git clone https://github.com/kavimugilrajasekar/Heeba.git
 cd Heeba
 
 # Install dependencies

@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getHeebaConfig, reloadConfig } = require('./config-loader');
+const { testOllamaConnection } = require('./ollama-adapter');
 
 // Command handlers map
 const commandHandlers = {
@@ -58,6 +59,105 @@ const commandHandlers = {
       success: true,
       message: `File analysis queued: ${params.file_path || 'No path'}`
     };
+  },
+
+  update_config: async (params) => {
+    const config = getHeebaConfig();
+    const { section, field, value } = params;
+
+    if (!section || !field || value === undefined) {
+      return { success: false, message: 'Missing section, field, or value' };
+    }
+
+    try {
+      if (config[section] && typeof config[section] === 'object') {
+        config[section][field] = value;
+      } else if (section === 'root') {
+        config[field] = value;
+      } else {
+        // Create section if it doesn't exist
+        config[section] = { [field]: value };
+      }
+
+      const configPath = path.join(process.cwd(), 'heeba.json');
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+      reloadConfig();
+      return { success: true, message: `Updated config: [${section}].${field} = ${value}` };
+    } catch (err) {
+      return { success: false, message: `Failed to update config: ${err.message}` };
+    }
+  },
+
+  rename_session: async (params, context) => {
+    const { name } = params;
+    if (!name || !name.trim()) {
+      return { success: false, message: 'No session name provided.' };
+    }
+    const trimmedName = name.trim();
+
+    // context.currentSession is the live session object from main.js
+    if (!context.currentSession) {
+      return { success: false, message: 'No active session to rename.' };
+    }
+
+    context.currentSession.name = trimmedName;
+
+    // Fire callback so main.js can re-render the Index Page tree
+    if (typeof context.onSessionRenamed === 'function') {
+      context.onSessionRenamed(trimmedName);
+    }
+
+    return { success: true, message: `Session renamed to "${trimmedName}"` };
+  },
+
+  delete_session: async (params, context) => {
+    if (!context.currentSession) {
+      return { success: false, message: 'No active session to delete.' };
+    }
+
+    // Fire callback — main.js removes the session from the array and navigates back
+    if (typeof context.onSessionDeleted === 'function') {
+      context.onSessionDeleted();
+    }
+
+    return { success: true, message: 'Session deleted.' };
+  },
+
+  add_ollama_model: async (params) => {
+    const { virtual_name, actual_model, api_key, endpoint } = params;
+
+    if (!virtual_name || !actual_model || !api_key || !endpoint) {
+      return { success: false, message: 'Missing model details (name, key, or endpoint)' };
+    }
+
+    // Step 1: Test connection
+    const test = await testOllamaConnection(api_key, endpoint, actual_model);
+    if (!test.success) {
+      return { success: false, message: `Connection test failed: ${test.message}` };
+    }
+
+    // Step 2: Load and update credentials.json
+    try {
+      const credPath = path.join(process.cwd(), 'credentials.json');
+      let credentials = { ollama: { api_key, endpoint, models: [] } };
+      
+      if (fs.existsSync(credPath)) {
+        credentials = JSON.parse(fs.readFileSync(credPath, 'utf8'));
+      }
+
+      // Add or update model
+      const existingIdx = credentials.ollama.models.findIndex(m => m.virtual_name === virtual_name);
+      if (existingIdx >= 0) {
+        credentials.ollama.models[existingIdx] = { virtual_name, actual_model };
+      } else {
+        credentials.ollama.models.push({ virtual_name, actual_model });
+      }
+
+      fs.writeFileSync(credPath, JSON.stringify(credentials, null, 2), 'utf8');
+      return { success: true, message: `Model "${virtual_name}" added and verified!` };
+    } catch (err) {
+      return { success: false, message: `Failed to save credentials: ${err.message}` };
+    }
   }
 };
 

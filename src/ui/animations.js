@@ -1,6 +1,7 @@
 // src/ui/animations.js
 const blessed = require('blessed');
 const { C, STYLES } = require('./theme');
+const { requestRender, forceRender } = require('./render-manager');
 
 function createOverlays(container) {
   // Boot animation box
@@ -101,7 +102,7 @@ async function runBootSequence(overlays, ui, screen, CONFIG) {
   const { welcomeCard, outputArea, inputContainer, inputBox } = ui;
 
   bootAnimBox.show();
-  screen.render();
+  requestRender();
 
   const bootMessages = [
     'Initializing neural pathways...',
@@ -178,7 +179,7 @@ async function runBootSequence(overlays, ui, screen, CONFIG) {
   outputArea.show();
   inputContainer.show();
   inputBox.focus();
-  screen.render();
+  forceRender();
 }
 
 let loadingInterval = null;
@@ -191,18 +192,18 @@ let tipIdx = 0;
 
 function startIdleAnimation(ui, screen, mode) {
   if (idleInterval) clearInterval(idleInterval);
-  
+
   idleInterval = setInterval(() => {
     if (loadingInterval) return;
-    
+
     // Quick blink: Frame 1 then back to 0
     ui.mascotEl.setContent(mode.mascot[1]);
-    screen.render();
-    
+    requestRender();
+
     setTimeout(() => {
       if (loadingInterval) return;
       ui.mascotEl.setContent(mode.mascot[0]);
-      screen.render();
+      requestRender();
     }, 150);
   }, 4000 + Math.random() * 4000);
 }
@@ -225,7 +226,7 @@ function startLoadingAnimation(ui, overlays, screen, mode, isTalking = false) {
     loadingInterval = setInterval(() => {
       frameIdx = (frameIdx === 0) ? targetFrame : 0; // Toggle between Base and Action frame
       mascotEl.setContent(frames[frameIdx]);
-      screen.render();
+      requestRender();
     }, animSpeed);
   }
 
@@ -237,25 +238,25 @@ function startLoadingAnimation(ui, overlays, screen, mode, isTalking = false) {
   mascotInterval = setInterval(() => {
     pulseRef += pulseSpeed * pulseDir;
     if (pulseRef >= 1 || pulseRef <= 0) pulseDir *= -1;
-    
+
     if (pulseRef > 0.5) {
         mascotEl.style.fg = modeColor;
     } else {
         mascotEl.style.fg = C.dim;
     }
-    screen.render();
+    requestRender();
   }, 150);
 }
 
 function stopLoadingAnimation(ui, overlays, screen, mode) {
   if (loadingInterval) { clearInterval(loadingInterval); loadingInterval = null; }
   if (mascotInterval) { clearInterval(mascotInterval); mascotInterval = null; }
-  
+
   frameIdx = 0;
   ui.mascotEl.setContent(mode.mascot[0]);
   ui.mascotEl.style.fg = mode.color;
-  screen.render();
-  
+  requestRender();
+
   // Restart idle animation
   startIdleAnimation(ui, screen, mode);
 }
@@ -272,21 +273,21 @@ function startTipsAnimation(ui, screen, mode) {
   tipsText.setContent(mode.tips[tipIdx]);
   tipsText.left = 5;
   tipsText.top = 6;
-  screen.render();
+  requestRender();
 
   tipsInterval = setInterval(() => {
     if (tipStepInterval) clearInterval(tipStepInterval);
-    
+
     const currentTip = mode.tips[tipIdx];
     tipIdx = (tipIdx + 1) % mode.tips.length;
     const nextTip = mode.tips[tipIdx];
-    
+
     // Phase 1: Dissolve (Vanish characters from left to right - using padding to keep fixed positions)
     let d = 0;
     tipStepInterval = setInterval(() => {
       if (d >= currentTip.length) {
         clearInterval(tipStepInterval);
-        
+
         // Phase 2: Materialize (Reveal new characters from left to right - standard typing)
         let m = 0;
         tipStepInterval = setInterval(() => {
@@ -294,19 +295,19 @@ function startTipsAnimation(ui, screen, mode) {
             tipsText.setContent(nextTip);
             clearInterval(tipStepInterval);
             tipStepInterval = null;
-            screen.render();
+            requestRender();
           } else {
             m++;
             tipsText.setContent(nextTip.substring(0, m));
-            screen.render();
+            requestRender();
           }
         }, 30);
-        
+
       } else {
         d++;
         // Replace vanished characters with spaces to maintain alignment of the remaining ones
         tipsText.setContent(' '.repeat(d) + currentTip.substring(d));
-        screen.render();
+        requestRender();
       }
     }, 30);
 
