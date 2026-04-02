@@ -82,6 +82,23 @@ function getBrotherPages(session, pageId) {
 }
 
 /**
+ * Heuristic Token Counting: (Characters / 4) is a reliable cross-model estimation.
+ */
+function estimateTokens(text) {
+  if (!text) return 0;
+  // Standard heuristic: 1 token ≈ 4 characters for English text
+  return Math.max(1, Math.ceil(text.length / 4));
+}
+
+/**
+ * Path Analytics: Sum all tokens from root to target page
+ */
+function calculatePathTokens(session, pageId) {
+  const path = getPathToPage(session, pageId);
+  return path.reduce((sum, p) => sum + (p.tokens || 0), 0);
+}
+
+/**
  * Helper: Find the last page in a linear path starting from a node
  */
 function findLeafId(session, pageId) {
@@ -308,16 +325,45 @@ function renderPageRecursive(session, pageId, prefix = '', isLast = true) {
   const childPrefix = prefix + (isLast ? '   ' : '│  ');
 
   const contentTrunc = page.prompt.length > 40 ? page.prompt.substring(0, 37) + '...' : page.prompt;
-
+  const leftSide = `${prefix}${branchChar} "${contentTrunc}"${marker}`;
+  
+  // Render the left side (Branch + Prompt)
   blessed.text({
     parent: UI.outputArea,
     top: lineCount++,
     left: 0,
     width: '100%',
-    content: `${prefix}${branchChar} "${contentTrunc}"${marker}`,
+    content: leftSide,
     fg: pageId === currentPageId ? C.yellow : C.dim,
     bold: pageId === currentPageId
   });
+
+  // Render the connector and Token Count on the far right if tokens exist
+  if (page.tokens) {
+    const termWidth = (typeof screen.width === 'number') ? screen.width : 80;
+    const tokenLabel = `(${page.tokens} tks)`;
+    const padding = termWidth - leftSide.length - tokenLabel.length - 6; // margin buffer
+    
+    if (padding > 2) {
+      const dots = '─'.repeat(padding);
+      blessed.text({
+        parent: UI.outputArea,
+        top: lineCount - 1,
+        left: leftSide.length + 2,
+        content: dots,
+        fg: '#1a1a1a' // ultra-dark / 'lightest contrast' possible
+      });
+    }
+
+    blessed.text({
+      parent: UI.outputArea,
+      top: lineCount - 1,
+      right: 2,
+      content: tokenLabel,
+      fg: pageId === currentPageId ? C.yellow : C.dark,
+      bold: pageId === currentPageId
+    });
+  }
 
   const children = page.children || [];
   children.forEach((childId, idx) => {
@@ -339,7 +385,7 @@ function renderIndexPage() {
       fg: C.dim
     });
   } else {
-    // ── Tree Root ──
+    // Root tip of the tree
     blessed.text({
       parent: UI.outputArea,
       top: lineCount++,
@@ -558,13 +604,25 @@ function updatePageIndicator() {
 
   const path = getPathToPage(session, currentPageId);
   const brothers = getBrotherPages(session, currentPageId);
+  const totalTokens = calculatePathTokens(session, currentPageId);
   
   let label = ` Page ${path.length} `;
   if (brothers.total > 1) {
     label += `[Branch ${brothers.index + 1}/${brothers.total}] `;
   }
   
+  // Context Usage Meter
+  const limit = CONFIG.contextLength || 4096;
+  const usage = Math.round((totalTokens / limit) * 100);
+  label += `| Context: ${totalTokens} / ${limit} (${usage}%) `;
+
   UI.pageIndicator.setContent(label);
+  
+  // Visual Alert: change colors based on context usage
+  if (usage > 90) UI.pageIndicator.style.fg = C.red;
+  else if (usage > 70) UI.pageIndicator.style.fg = C.yellow;
+  else UI.pageIndicator.style.fg = C.green;
+
   requestRender();
 }
 
@@ -931,9 +989,15 @@ Threads   : ${CONFIG.threads}`;
 
       showLoading(false);
 
-      // Store final response in the page
-      newPage.response = fullResponse;
+      // Finalize token count for this Page Node
       newPage._streaming = false;
+      newPage.response = fullResponse;
+      newPage.tokens = estimateTokens(newPage.prompt + newPage.response);
+
+      // If this is the root node and session has no name, use the first prompt
+      if (!session.name && session.rootPageId === newPageId) {
+        session.name = newPage.prompt.substring(0, 30);
+      }
 
       // Re-render the page with proper markdown formatting
       renderActivePage();
