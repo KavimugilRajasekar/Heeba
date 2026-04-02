@@ -56,6 +56,11 @@ let userScrolledUp = false;     // Track if user manually scrolled during stream
 // Virtual index page (not stored in sessions)
 const INDEX_PAGE_ID = 0;
 
+// Session header animation state
+let sessionHeaderInterval = null;
+const SESSION_HEADER_FRAMES = ['⁛', '⁘', '⁙', '⁘', '⁛'];
+let sessionHeaderFrameIdx = 0;
+
 // Keyboard state
 let lastShiftPress = 0;
 
@@ -165,11 +170,14 @@ function updateWelcomeCard() {
   // WelcomeCard visibility: show in auto mode to display sessions list
   if (currentMode === 'auto') {
     UI.welcomeCard.show();
-    UI.cardTitle.setContent('Heeba Sessions');
-    UI.modeIndicator.setContent('● SESSIONS');
+    UI.cardTitle.setContent('Sessions');
+    UI.modeIndicator.setContent(`${SESSION_HEADER_FRAMES[0]} Heeba`);
+    UI.modeIndicator.style.fg = C.green;
     UI.statusLinesEl.setContent(`${sessions.length} session${sessions.length !== 1 ? 's' : ''} · Enter to open`);
+    startSessionHeaderAnimation();
   } else {
     UI.welcomeCard.show();
+    stopSessionHeaderAnimation();
   }
 
   // Start animations
@@ -329,6 +337,29 @@ function getRelativeTime(timestamp) {
 }
 
 /**
+ * Start the animated session header (⁛ Heeba with rotating symbols)
+ */
+function startSessionHeaderAnimation() {
+  if (sessionHeaderInterval) return; // Already running
+
+  sessionHeaderInterval = setInterval(() => {
+    sessionHeaderFrameIdx = (sessionHeaderFrameIdx + 1) % SESSION_HEADER_FRAMES.length;
+    UI.modeIndicator.setContent(`${SESSION_HEADER_FRAMES[sessionHeaderFrameIdx]} Heeba`);
+    requestRender();
+  }, 220);
+}
+
+/**
+ * Stop the animated session header
+ */
+function stopSessionHeaderAnimation() {
+  if (sessionHeaderInterval) {
+    clearInterval(sessionHeaderInterval);
+    sessionHeaderInterval = null;
+  }
+}
+
+/**
  * Render the active PromptPage into the outputArea.
  * Clears all dynamic content and rebuilds from the page data.
  * For Index Page (sessionIndex=-1), shows the WelcomeCard with session list.
@@ -337,10 +368,11 @@ function renderActivePage() {
   if (currentSessionIndex === -1) {
     // Show WelcomeCard with session list header
     UI.welcomeCard.show();
-    UI.cardTitle.setContent('Heeba Sessions');
-    UI.modeIndicator.setContent('● SESSIONS');
+    UI.cardTitle.setContent('Sessions');
+    UI.modeIndicator.setContent(`${SESSION_HEADER_FRAMES[0]} Heeba`);
     UI.modeIndicator.style.fg = C.green;
     UI.statusLinesEl.setContent(`${sessions.length} session${sessions.length !== 1 ? 's' : ''} · Enter to open`);
+    startSessionHeaderAnimation();
     renderIndexPage();
     return;
   }
@@ -348,6 +380,9 @@ function renderActivePage() {
   if (currentSessionIndex < 0 || currentSessionIndex >= sessions.length) return;
   const session = sessions[currentSessionIndex];
   if (currentPageIndex < 0 || currentPageIndex >= session.pages.length) return;
+
+  // Stop header animation when viewing a session page
+  stopSessionHeaderAnimation();
 
   const page = session.pages[currentPageIndex];
   clearDynamicContent();
@@ -1232,11 +1267,17 @@ screen.key('escape', () => {
 
   await runBootSequence(overlays, UI, screen, CONFIG);
 
-  addOutput('Heeba | Code Space v1.0 - Online', 'success');
-  addOutput('Engine: llama.cpp (local GGUF)', 'info');
-  addOutput(`Model: ${CONFIG.model}`, 'info');
-  addOutput('Type "help" for available commands', 'info');
-  addSpacer();
+  // In Auto mode, suppress boot messages since session history takes that space
+  if (currentMode !== 'auto') {
+    addOutput('Heeba | Code Space v1.0 - Online', 'success');
+    addOutput('Engine: llama.cpp (local GGUF)', 'info');
+    addOutput(`Model: ${CONFIG.model}`, 'info');
+    addOutput('Type "help" for available commands', 'info');
+    addSpacer();
+  } else {
+    // In auto mode, show session index page
+    navigateToPage(-1, -1);
+  }
 
   logger.info('APP', 'Boot complete');
 })();
