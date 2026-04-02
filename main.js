@@ -6,6 +6,8 @@ const { DEFAULT_CONFIG, getAvailableModels } = require('./src/core/config');
 const { loadHeebaConfig, getHeebaConfig } = require('./src/core/config-loader');
 const { C } = require('./src/ui/theme');
 const { initScreen, createUI } = require('./src/ui/components');
+const { requestRender, forceRender } = require('./src/ui/render-manager');
+const { requestScroll, scrollNow, pauseScroll, resumeScroll } = require('./src/ui/scroll-manager');
 const {
   createOverlays,
   runBootSequence,
@@ -25,6 +27,7 @@ const {
   stopServer,
   getTotalTokensUsed
 } = require('./src/core/engine');
+const { isVirtualModel } = require('./src/core/ollama-adapter');
 const { parseCommandFromResponse, executeCommand } = require('./src/core/intent-executor');
 
 // Load heeba.json config on startup
@@ -86,7 +89,7 @@ function refreshStats() {
     lastCpuUsage = process.cpuUsage();
     lastCpuTime = currentTime;
 
-    screen.render();
+    requestRender();
   } catch (err) {
     // Silently fail to avoid UI crashes during rapid updates
   }
@@ -133,8 +136,9 @@ function updateWelcomeCard() {
   UI.mascotEl.style.fg = m.color;
 
   // Info
+  const isVirtual = isVirtualModel(CONFIG.model);
   UI.statusLinesEl.setContent(m.statusLines);
-  UI.engineInfoEl.setContent(`Engine : llama.cpp (local)\nModel  : ${CONFIG.model}`);
+  UI.engineInfoEl.setContent(`Engine : ${isVirtual ? 'Ollama (Online)' : 'llama.cpp (local)'}\nModel  : ${CONFIG.model}`);
   UI.tipsText.setContent(m.tips.join('   '));
 
   // Input prompt
@@ -148,12 +152,13 @@ function updateWelcomeCard() {
   // Start animations
   startIdleAnimation(UI, screen, m);
   startTipsAnimation(UI, screen, m);
+
+  requestRender();
 }
 
 // ChatGPT-like auto-scroll to bottom
 function autoScroll() {
-  UI.outputArea.setScroll(999999); // Set to a very large number to scroll to bottom
-  screen.render();
+  requestScroll();
 }
 
 function clearOutput() {
@@ -212,6 +217,7 @@ function showLoading(show) {
   }
   UI.footerStatus.setContent(show ? '● busy' : '● ready');
   UI.footerStatus.style.fg = show ? C.yellow : C.green;
+  requestRender();
 }
 
 function switchMode(newMode) {
@@ -221,21 +227,22 @@ function switchMode(newMode) {
   overlays.modeOverlayText.style.fg = MODES[newMode].color;
   overlays.modeOverlay.show();
   overlays.modeOverlay.setFront();
-  screen.render();
+  forceRender();
 
   setTimeout(() => {
     overlays.modeOverlay.hide();
     currentMode = newMode;
     updateWelcomeCard();
-    screen.render();
     addSpacer();
     addOutput(`Switched to ${MODES[newMode].name} Mode`, 'success');
+    requestRender();
   }, 500);
 }
 
 function openModelSelection() {
   const models = getAvailableModels();
   addOutput('Scanning engine/models/...', 'info');
+  pauseScroll();
 
   if (models.length === 0) {
     addOutput('No models found in engine/models/', 'error');
@@ -247,14 +254,15 @@ function openModelSelection() {
   UI.modelList.setLabel(` [ SELECT MODEL: ${models.length} FOUND ] `);
   UI.modelList.show();
   UI.modelList.focus();
-  screen.render();
+  forceRender();
 }
 
 function closeModelSelection() {
   UI.modelList.hide();
   UI.inputContainer.show();
   UI.inputBox.focus();
-  screen.render();
+  resumeScroll();
+  forceRender();
 }
 
 // ======================
@@ -306,6 +314,7 @@ async function processCommand(input) {
       CONFIG.model = newModel;
       clearConversationHistory();
       updateWelcomeCard();
+      addSpacer(); 
       return `Model set to: ${newModel}`;
     }
     return `Model not found: ${sel}`;
@@ -357,7 +366,7 @@ Threads   : ${CONFIG.threads}`;
     const thinkingInterval = setInterval(() => {
       frame = (frame + 1) % thinkingFrames.length;
       thinkingEl.setContent(`${thinkingFrames[frame]} Thinking...`);
-      screen.render();
+      requestRender();
     }, 150);
 
     let liveTextEl = null;
@@ -388,7 +397,9 @@ Threads   : ${CONFIG.threads}`;
         }
         liveTextEl.setContent(liveTextEl.getContent() + token);
         fullResponse += token;
-        autoScroll();
+        // Use throttled scroll during streaming
+        requestScroll();
+        requestRender();
       });
 
       showLoading(false);
@@ -475,7 +486,7 @@ function resizeInput() {
     // Recalculate outputArea height:
     // Start height: 3 (top) + newHeight + 1 (footer) + 1 padding = 5 + newHeight
     UI.outputArea.height = `100%-${5 + newHeight}`;
-    screen.render();
+    requestRender();
   }
 }
 
@@ -490,8 +501,8 @@ UI.inputBox.key('enter', async (ch, key) => {
     UI.inputContainer.height = 3;
     // Offset calculation: Top(3) + Input(1) + Footer(1) + Padding(1) = 6
     UI.outputArea.height = '100%-7';
-    screen.render();
-    setTimeout(() => { UI.inputBox.focus(); screen.render(); }, 50);
+    requestRender();
+    setTimeout(() => { UI.inputBox.focus(); }, 50);
     return;
   }
 
@@ -524,8 +535,8 @@ UI.inputBox.key('enter', async (ch, key) => {
     UI.inputBox.setValue('');
   } catch (e) {}
 
-  screen.render();
-  setTimeout(() => { UI.inputBox.focus(); screen.render(); }, 50);
+  requestRender();
+  setTimeout(() => { UI.inputBox.focus(); }, 50);
 });
 
 // Watch for changes to resize the input box
@@ -539,19 +550,22 @@ UI.inputBox.key('left', () => {
   if (UI.inputBox._clines) {
     // Basic navigation for blessed textarea
     screen.focusOffset(-1);
-    screen.render();
+    requestRender();
   }
 });
 
 UI.inputBox.key('right', () => {
   if (UI.inputBox._clines) {
     screen.focusOffset(1);
-    screen.render();
+    requestRender();
   }
 });
 
 UI.modelList.on('select', (item) => {
-  const newModel = (item.getText ? item.getText() : item.content).split('(')[0].trim();
+  const content = (item.getText ? item.getText() : item.content);
+  // Strip tags if any, then strip (Online) label
+  const newModel = content.split('{')[0].split('(')[0].trim();
+  
   CONFIG.model = newModel;
   clearConversationHistory();
   updateWelcomeCard();
@@ -565,37 +579,24 @@ UI.modelList.on('select', (item) => {
 // ======================
 
 // Model list navigation
-UI.modelList.key(['up', 'k'], () => { UI.modelList.up(); screen.render(); });
-UI.modelList.key(['down', 'j'], () => { UI.modelList.down(); screen.render(); });
+UI.modelList.key(['up', 'k'], () => { UI.modelList.up(); requestRender(); });
+UI.modelList.key(['down', 'j'], () => { UI.modelList.down(); requestRender(); });
 UI.modelList.key('escape', () => closeModelSelection());
 
-UI.modelList.key('enter', () => {
-  const selectedIndex = UI.modelList.selected;
-  const items = UI.modelList.items;
-  const item = items[selectedIndex];
-  if (!item) return;
-
-  const content = (item.getText ? item.getText() : item.content).split('(')[0].trim();
-  CONFIG.model = content;
-  clearConversationHistory();
-  updateWelcomeCard();
-  closeModelSelection();
-  addSpacer();
-  addOutput(`Model set to: ${content}`, 'success');
-});
+// Redundant enter handler removed to prevent double-execution crashes
 
 // Input history navigation
 UI.inputBox.key('up', () => {
   // Only navigate history if we are in single-line mode or empty
   if (UI.inputBox.getLines().length > 1 && UI.inputBox.getValue().trim() !== '') return;
-  
+
   if (historyIndex > 0) {
     historyIndex--;
     const cmd = commandHistory[historyIndex];
     UI.inputBox.setValue(cmd);
     setImmediate(() => {
       resizeInput();
-      screen.render();
+      requestRender();
     });
   }
 });
@@ -614,7 +615,7 @@ UI.inputBox.key('down', () => {
   }
   setImmediate(() => {
     resizeInput();
-    screen.render();
+    requestRender();
   });
 });
 
@@ -634,7 +635,7 @@ screen.key('S-space', () => {
 screen.key('space', () => {
   if (UI.modelList.visible) {
     UI.modelList.down();
-    screen.render();
+    requestRender();
   }
 });
 
@@ -650,7 +651,7 @@ screen.key('C-g', () => {
 // GLOBAL KEYS
 // ==============================================
 
-screen.on('resize', () => { screen.render(); });
+screen.on('resize', () => { requestRender(); });
 
 screen.key(['escape', 'q', 'C-c'], () => {
   cancelLLM();
@@ -665,7 +666,7 @@ screen.key(['escape', 'q', 'C-c'], () => {
   logger.info('APP', 'Starting Heeba Terminal');
 
   updateWelcomeCard();
-  screen.render();
+  forceRender();
 
   await runBootSequence(overlays, UI, screen, CONFIG);
 

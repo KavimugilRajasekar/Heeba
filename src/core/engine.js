@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { buildSystemPrompt } = require('../utils/helpers');
+const { queryOllama, cancelOllama, getOllamaStatus, clearOllamaHistory, getOllamaTokens, isVirtualModel } = require('./ollama-adapter');
 
 let isLLMRunning = false;
 let serverProcess = null;
@@ -51,6 +52,19 @@ async function queryLLM(userInput, mode, CONFIG, onToken) {
     if (isLLMRunning) throw new Error('LLM is already busy');
     isLLMRunning = true;
 
+    // Check if using virtual model (Ollama)
+    if (isVirtualModel(CONFIG.model)) {
+        try {
+            const response = await queryOllama(userInput, mode, CONFIG, onToken);
+            isLLMRunning = false;
+            return response;
+        } catch (err) {
+            isLLMRunning = false;
+            throw err;
+        }
+    }
+
+    // Original llama.cpp logic
     try {
         await ensureServerRunning(CONFIG);
         
@@ -145,7 +159,9 @@ async function queryLLM(userInput, mode, CONFIG, onToken) {
 }
 
 function cancelLLM() {
-    // With server mode, we don't necessarily kill the server, 
+    // Cancel Ollama if active
+    cancelOllama();
+    // With server mode, we don't necessarily kill the server,
     // but we can flag the UI to ignore the pending request.
     isLLMRunning = false;
 }
@@ -163,10 +179,11 @@ function getLLMStatus() {
 
 function clearConversationHistory() {
     conversationHistory = [];
+    clearOllamaHistory();
 }
 
 function getTotalTokensUsed() {
-    return totalTokensUsed;
+    return totalTokensUsed + getOllamaTokens();
 }
 
 module.exports = { queryLLM, cancelLLM, getLLMStatus, clearConversationHistory, stopServer, getTotalTokensUsed };

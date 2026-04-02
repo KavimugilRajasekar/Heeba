@@ -1,6 +1,8 @@
 // src/ui/components.js
 const blessed = require('blessed');
 const { C, STYLES } = require('./theme');
+const { requestRender, forceRender, initRenderManager } = require('./render-manager');
+const { requestScroll, scrollNow, initScrollManager, pauseScroll, resumeScroll } = require('./scroll-manager');
 
 function initScreen() {
   return blessed.screen({
@@ -17,6 +19,13 @@ function initScreen() {
 }
 
 function createUI(screen) {
+  // Initialize managers with screen reference
+  initRenderManager(screen);
+  initScrollManager(() => {
+    outputArea.setScroll(999999);
+    try { screen.render(); } catch (e) {}
+  });
+
   const container = blessed.box({
     parent: screen, top: 0, left: 0, width: '100%', height: '100%', bg: C.bg
   });
@@ -209,7 +218,7 @@ function createUI(screen) {
     top: 3, // Below header and separator
     left: 0,
     width: '100%', // Use full width now that side borders are gone
-    height: 7, 
+    height: 7,
     bg: C.bg
   });
 
@@ -440,7 +449,14 @@ function createUI(screen) {
     tokenTag,
     uptimeTag,
     ramTag,
-    cpuTag
+    cpuTag,
+    // Expose managers for external control
+    requestRender,
+    forceRender,
+    requestScroll,
+    scrollNow,
+    pauseScroll,
+    resumeScroll
   };
 }
 
