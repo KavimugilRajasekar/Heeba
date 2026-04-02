@@ -88,6 +88,41 @@ const commandHandlers = {
     }
   },
 
+  rename_session: async (params, context) => {
+    const { name } = params;
+    if (!name || !name.trim()) {
+      return { success: false, message: 'No session name provided.' };
+    }
+    const trimmedName = name.trim();
+
+    // context.currentSession is the live session object from main.js
+    if (!context.currentSession) {
+      return { success: false, message: 'No active session to rename.' };
+    }
+
+    context.currentSession.name = trimmedName;
+
+    // Fire callback so main.js can re-render the Index Page tree
+    if (typeof context.onSessionRenamed === 'function') {
+      context.onSessionRenamed(trimmedName);
+    }
+
+    return { success: true, message: `Session renamed to "${trimmedName}"` };
+  },
+
+  delete_session: async (params, context) => {
+    if (!context.currentSession) {
+      return { success: false, message: 'No active session to delete.' };
+    }
+
+    // Fire callback — main.js removes the session from the array and navigates back
+    if (typeof context.onSessionDeleted === 'function') {
+      context.onSessionDeleted();
+    }
+
+    return { success: true, message: 'Session deleted.' };
+  },
+
   add_ollama_model: async (params) => {
     const { virtual_name, actual_model, api_key, endpoint } = params;
 

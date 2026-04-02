@@ -200,6 +200,40 @@
           "endpoint": "{extracted_endpoint}"
         }
       }
+    },
+    "session_rename": {
+      "patterns": [
+        "rename this session",
+        "rename session",
+        "call this session",
+        "name this session",
+        "set session name",
+        "change session name"
+      ],
+      "action": "rename_session",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "rename_session",
+        "parameters": {
+          "name": "{extracted_session_name}"
+        }
+      }
+    },
+    "session_delete": {
+      "patterns": [
+        "delete this session",
+        "delete session",
+        "remove this session",
+        "remove this conversation",
+        "clear this session",
+        "erase this session"
+      ],
+      "action": "delete_session",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "delete_session",
+        "parameters": {}
+      }
     }
   },
   "system_rules": [
@@ -217,7 +251,9 @@
     "When user requests profile updates (like changing their name), output a structured JSON command for update_user_profile",
     "IMPORTANT: All responses MUST be simple plain text. DO NOT use Markdown (no bolding, no headers, no lists with symbols).",
     "When user requests broad configuration changes (personality, etc.), output a JSON command for update_config",
-    "When user wants to add an online model, output a JSON command for add_ollama_model"
+    "When user wants to add an online model, output a JSON command for add_ollama_model",
+    "When user asks to rename, name, or relabel the current session (e.g. 'rename this session to X'), output a JSON structured command with action rename_session and parameter name set to the exact name the user specified",
+    "When user asks to delete, remove, or erase the current session or conversation, output a JSON structured command with action delete_session and empty parameters"
   ],
   "output_format": {
     "conversational": {

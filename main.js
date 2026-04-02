@@ -298,7 +298,9 @@ function renderIndexPage() {
       const pageIndentLine = isLastSession ? '   ' : '│  ';  // vertical pipe for non-last
 
       const firstPrompt   = session.pages.length > 0 ? session.pages[0].prompt : '(empty)';
-      const titleTrunc    = firstPrompt.length > 44 ? firstPrompt.substring(0, 41) + '...' : firstPrompt;
+      // Use custom session.name if set, otherwise fall back to the first prompt
+      const displayTitle  = session.name || firstPrompt;
+      const titleTrunc    = displayTitle.length > 44 ? displayTitle.substring(0, 41) + '...' : displayTitle;
       const marker        = isCurrent ? ' ●' : '';
       const relTime       = getRelativeTime(session.lastUpdated);
 
@@ -882,17 +884,42 @@ Threads   : ${CONFIG.threads}`;
       // Check for structured commands in LLM response
       const command = parseCommandFromResponse(fullResponse);
       if (command && command.action) {
-        const ctx = { screen, UI };
+        // Build rich context: give the handler the live session and re-render callbacks
+        const ctx = {
+          screen,
+          UI,
+          currentSession: (currentSessionIndex >= 0 && currentSessionIndex < sessions.length)
+            ? sessions[currentSessionIndex]
+            : null,
+          onSessionRenamed: (newName) => {
+            // Update WelcomeCard header to reflect the new name immediately
+            UI.cardTitle.setContent(newName);
+            requestRender();
+          },
+          onSessionDeleted: () => {
+            // Remove this session from the array
+            if (currentSessionIndex >= 0 && currentSessionIndex < sessions.length) {
+              sessions.splice(currentSessionIndex, 1);
+            }
+            // Reset to index page
+            currentSessionIndex = -1;
+            currentPageIndex    = -1;
+            userScrolledUp      = false;
+            // Re-render the index page (WelcomeCard + updated tree)
+            renderActivePage();
+            setTimeout(() => { UI.inputBox.focus(); }, 30);
+          }
+        };
         const result = await executeCommand(command, ctx);
         if (result && result.success) {
           if (command.action === 'update_user_profile') {
             updateWelcomeCard();
           }
           // Append command result to the page response
-          newPage.response += `\n\n---\n✓ ${result.message}`;
+          newPage.response += `\n\n---\n\u2713 ${result.message}`;
           renderActivePage();
         } else if (result) {
-          newPage.response += `\n\n---\n✗ Failed: ${result.message}`;
+          newPage.response += `\n\n---\n\u2717 Failed: ${result.message}`;
           renderActivePage();
         }
         setTimeout(() => { UI.inputBox.focus(); }, 30);
