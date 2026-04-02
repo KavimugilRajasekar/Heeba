@@ -386,7 +386,7 @@ function createUI(screen) {
     parent: bottomBar,
     top: 0,
     left: 16,
-    content: '[C-←→] pages',
+    content: '[C-P/N] pages',
     fg: C.dim
   });
 

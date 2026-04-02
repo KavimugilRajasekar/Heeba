@@ -216,7 +216,7 @@ function addOutput(text, className = '') {
     error: '[ERR] ',
     success: '↬ ',
     info: '',
-    llm: '↪ '
+    llm: '⁜ '
   }[className] || '';
   const color = {
     command: C.purple,
@@ -306,7 +306,7 @@ function renderActivePage() {
       top: lineCount++,
       left: 0,
       width: '100%',
-      content: `  ↪ Heeba`,
+      content: `  ⁜ Heeba`,
       fg: C.yellow,
       bold: true
     });
@@ -546,7 +546,26 @@ Threads   : ${CONFIG.threads}`;
     showLoading(true);
     isProcessingCommand = true;
 
-    // Create animated thinking indicator inside the page
+    // Response header (shown before thinking starts)
+    blessed.text({
+      parent: UI.outputArea,
+      top: lineCount++,
+      left: 0,
+      width: '100%',
+      content: `  ⁜ Heeba`,
+      fg: C.yellow,
+      bold: true
+    });
+    blessed.text({
+      parent: UI.outputArea,
+      top: lineCount++,
+      left: 0,
+      width: '100%',
+      content: `  ${'─'.repeat(Math.max(20, (screen.width || 80) - 6))}`,
+      fg: C.border
+    });
+
+    // Create animated thinking indicator inside the page (below response header)
     const thinkingFrames = ['○', '◎', '◉', '●', '◉', '◎'];
     let frame = 0;
     let thinkingEl = blessed.text({
@@ -596,7 +615,7 @@ Threads   : ${CONFIG.threads}`;
           lineCount++; // spacer
 
           // Response header
-          blessed.text({ parent: UI.outputArea, top: lineCount++, left: 0, width: '100%', content: `  ↪ Heeba`, fg: C.yellow, bold: true });
+          blessed.text({ parent: UI.outputArea, top: lineCount++, left: 0, width: '100%', content: `  ⁜ Heeba`, fg: C.yellow, bold: true });
           blessed.text({ parent: UI.outputArea, top: lineCount++, left: 0, width: '100%', content: `  ${'─'.repeat(Math.max(20, (screen.width || 80) - 6))}`, fg: C.border });
 
           // Live streaming element
@@ -870,26 +889,40 @@ screen.key('C-g', () => {
 // PROMPT PAGE NAVIGATION (Auto mode)
 // ==============================================
 
-// Ctrl+Left: Previous page
-screen.key('C-left', () => {
+// Page navigation helper functions
+function goToPrevPage() {
   if (currentMode === 'auto' && pages.length > 0 && currentPageIndex > 0) {
     navigateToPage(currentPageIndex - 1);
   }
-});
+}
 
-// Ctrl+Right: Next page
-screen.key('C-right', () => {
+function goToNextPage() {
   if (currentMode === 'auto' && pages.length > 0 && currentPageIndex < pages.length - 1) {
     navigateToPage(currentPageIndex + 1);
   }
-});
+}
 
-// Ctrl+L: Open page list view
-screen.key('C-l', () => {
+function openPageListIfAvailable() {
   if (currentMode === 'auto' && pages.length > 0 && !UI.pageListView.visible) {
     openPageList();
   }
-});
+}
+
+// Ctrl+Left / Ctrl+P: Previous page (bound on both screen AND inputBox)
+screen.key('C-left', goToPrevPage);
+UI.inputBox.key('C-left', goToPrevPage);
+screen.key('C-p', goToPrevPage);
+UI.inputBox.key('C-p', goToPrevPage);
+
+// Ctrl+Right / Ctrl+N: Next page
+screen.key('C-right', goToNextPage);
+UI.inputBox.key('C-right', goToNextPage);
+screen.key('C-n', goToNextPage);
+UI.inputBox.key('C-n', goToNextPage);
+
+// Ctrl+L: Open page list view
+screen.key('C-l', openPageListIfAvailable);
+UI.inputBox.key('C-l', openPageListIfAvailable);
 
 // Page list helpers
 function openPageList() {
