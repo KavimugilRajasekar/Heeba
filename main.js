@@ -291,6 +291,16 @@ function renderIndexPage() {
     });
   } else {
     // ── Windows tree-style session list ──
+    // Root tip of the tree
+    blessed.text({
+      parent: UI.outputArea,
+      top: lineCount++,
+      left: 0,
+      width: '100%',
+      content: '  ●',
+      fg: C.black
+    });
+
     sessions.forEach((session, idx) => {
       const isLastSession  = idx === sessions.length - 1;
       const isCurrent      = idx === currentSessionIndex;
