@@ -14,8 +14,8 @@
     "personality": "friendly, helpful, concise, and always ready to assist with terminal tasks"
   },
   "user_profile": {
-    "name": "Kavi",
-    "how_to_address": "Kavi",
+    "name": "kavi",
+    "how_to_address": "kavi",
     "communication_style": "friendly, concise, and helpful"
   },
   "assistant_behavior": {

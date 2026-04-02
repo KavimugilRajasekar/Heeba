@@ -274,11 +274,10 @@ function addSpacer() {
  * WelcomeCard is already showing with "Heeba Sessions" title.
  */
 function renderIndexPage() {
-  // Clear any stale dynamic content (session pages, old lists, etc.) before re-rendering.
-  // clearDynamicContent() preserves the WelcomeCard node.
+  // Clear any stale dynamic content before re-rendering. Preserves WelcomeCard.
   clearDynamicContent();
 
-  // Start below the WelcomeCard (which is 11 lines)
+  // Start below the WelcomeCard (11 lines)
   lineCount = 12;
 
   if (sessions.length === 0) {
@@ -287,35 +286,83 @@ function renderIndexPage() {
       top: lineCount++,
       left: 0,
       width: '100%',
-      content: '  No sessions yet. Start chatting to create your first session.',
+      content: '  No sessions yet — type a prompt below to start.',
       fg: C.dim
     });
   } else {
+    // ── Windows tree-style session list ──
     sessions.forEach((session, idx) => {
-      const marker = idx === currentSessionIndex ? ' ●' : '';
-      const firstPrompt = session.pages.length > 0 ? session.pages[0].prompt : '(empty)';
-      const truncatedPrompt = firstPrompt.length > 45 ? firstPrompt.substring(0, 42) + '...' : firstPrompt;
-      const relativeTime = getRelativeTime(session.lastUpdated);
+      const isLastSession  = idx === sessions.length - 1;
+      const isCurrent      = idx === currentSessionIndex;
+      const sessionBranch  = isLastSession ? '└─' : '├─';
+      const pageIndentLine = isLastSession ? '   ' : '│  ';  // vertical pipe for non-last
 
+      const firstPrompt   = session.pages.length > 0 ? session.pages[0].prompt : '(empty)';
+      const titleTrunc    = firstPrompt.length > 44 ? firstPrompt.substring(0, 41) + '...' : firstPrompt;
+      const marker        = isCurrent ? ' ●' : '';
+      const relTime       = getRelativeTime(session.lastUpdated);
+
+      // ─ Session branch line
       blessed.text({
         parent: UI.outputArea,
         top: lineCount++,
         left: 0,
         width: '100%',
-        content: `  ${idx + 1}. ${truncatedPrompt}${marker}`,
-        fg: C.cyan,
-        bold: true
+        content: `  ${sessionBranch} ${idx + 1}  "${titleTrunc}"${marker}`,
+        fg: isCurrent ? C.yellow : C.cyan,
+        bold: isCurrent
       });
-
+      // Timestamp right-aligned on same row
       blessed.text({
         parent: UI.outputArea,
-        top: lineCount++,
-        left: 2,
-        width: '100%',
-        content: `     ${session.pages.length} exchange${session.pages.length !== 1 ? 's' : ''} · last updated ${relativeTime}`,
-        fg: C.dim
+        top: lineCount - 1,
+        right: 2,
+        content: relTime,
+        fg: C.dark
       });
-      lineCount++; // spacer
+
+      // ─ Page sub-entries (show up to 4, then a "+more" line)
+      const maxPages   = 4;
+      const visible    = session.pages.slice(0, maxPages);
+      const remaining  = session.pages.length - maxPages;
+
+      visible.forEach((page, pIdx) => {
+        const isLastEntry = pIdx === visible.length - 1 && remaining <= 0;
+        const pageBranch  = isLastEntry ? '└─' : '├─';
+        const pagePrompt  = page.prompt.length > 40 ? page.prompt.substring(0, 37) + '...' : page.prompt;
+
+        blessed.text({
+          parent: UI.outputArea,
+          top: lineCount++,
+          left: 0,
+          width: '100%',
+          content: `  ${pageIndentLine}  ${pageBranch} "${pagePrompt}"`,
+          fg: C.dim
+        });
+      });
+
+      if (remaining > 0) {
+        blessed.text({
+          parent: UI.outputArea,
+          top: lineCount++,
+          left: 0,
+          width: '100%',
+          content: `  ${pageIndentLine}  └─ … +${remaining} more exchange${remaining !== 1 ? 's' : ''}`,
+          fg: C.dark
+        });
+      }
+
+      // Vertical spacer line between sessions (not after last)
+      if (!isLastSession) {
+        blessed.text({
+          parent: UI.outputArea,
+          top: lineCount++,
+          left: 0,
+          width: '100%',
+          content: '  │',
+          fg: C.border
+        });
+      }
     });
   }
 
@@ -497,6 +544,9 @@ function navigateToPage(sessionIdx, pageIdx) {
     currentPageIndex = -1;
     // Use renderActivePage() so the WelcomeCard is properly shown and configured.
     renderActivePage();
+    // Restore cursor to input field — without this, keystrokes on the index page
+    // would be invisible and the next Enter would ghost-create a new session.
+    setTimeout(() => { UI.inputBox.focus(); }, 30);
     return;
   }
 
@@ -826,6 +876,8 @@ Threads   : ${CONFIG.threads}`;
 
       // Re-render the page with proper markdown formatting
       renderActivePage();
+      // Restore input focus so the I-beam cursor is visible again immediately
+      setTimeout(() => { UI.inputBox.focus(); }, 30);
 
       // Check for structured commands in LLM response
       const command = parseCommandFromResponse(fullResponse);
@@ -843,6 +895,7 @@ Threads   : ${CONFIG.threads}`;
           newPage.response += `\n\n---\n✗ Failed: ${result.message}`;
           renderActivePage();
         }
+        setTimeout(() => { UI.inputBox.focus(); }, 30);
         return '';
       }
 
@@ -856,6 +909,8 @@ Threads   : ${CONFIG.threads}`;
       newPage._streaming = false;
       newPage.response = `LLM Error: ${err.message}`;
       renderActivePage();
+      // Restore cursor on error path too
+      setTimeout(() => { UI.inputBox.focus(); }, 30);
       logger.error('ENGINE', err);
       isProcessingCommand = false;
       return '';
@@ -1133,6 +1188,8 @@ function startNewSession() {
 
   // renderActivePage() handles showing the WelcomeCard + session list correctly.
   renderActivePage();
+  // Restore cursor so the user can immediately type for a new chat.
+  setTimeout(() => { UI.inputBox.focus(); }, 30);
 }
 
 screen.key('C-n', startNewSession);
