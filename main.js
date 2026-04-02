@@ -632,11 +632,15 @@ function switchMode(newMode) {
 
 function openModelSelection() {
   const models = getAvailableModels();
-  addOutput('Scanning engine/models/...', 'info');
+  if (currentMode !== 'auto') {
+    addOutput('Scanning engine/models/...', 'info');
+  }
   pauseScroll();
 
   if (models.length === 0) {
-    addOutput('No models found in engine/models/', 'error');
+    if (currentMode !== 'auto') {
+      addOutput('No models found in engine/models/', 'error');
+    }
     return;
   }
 
@@ -705,7 +709,9 @@ async function processCommand(input) {
       CONFIG.model = newModel;
       clearConversationHistory();
       updateWelcomeCard();
-      addSpacer(); 
+      if (currentMode !== 'auto') {
+        addSpacer(); 
+      }
       return `Model set to: ${newModel}`;
     }
     return `Model not found: ${sel}`;
@@ -1079,8 +1085,14 @@ UI.modelList.on('select', (item) => {
   clearConversationHistory();
   updateWelcomeCard();
   closeModelSelection();
-  addSpacer();
-  addOutput(`Model set to: ${newModel}`, 'success');
+  
+  if (currentMode !== 'auto') {
+    addSpacer();
+    addOutput(`Model set to: ${newModel}`, 'success');
+  } else if (currentSessionIndex === -1) {
+    // Refresh the index page tree/header to show the new model
+    renderActivePage();
+  }
 });
 
 // ======================
