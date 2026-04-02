@@ -50,8 +50,48 @@ let isProcessingCommand = false;
 // Session/PromptPage Workspace State (Auto mode only)
 let sessions = [];              // Array of Session objects
 let currentSessionIndex = -1;  // Index of active session (-1 = none / at index page)
-let currentPageIndex = -1;     // Index of active page within session (-1 = index page)
+let currentPageId = null;      // ID of active page node within session
 let userScrolledUp = false;     // Track if user manually scrolled during streaming
+
+/**
+ * Reconstruction: Get array of pages from root to specific pageId
+ */
+function getPathToPage(session, pageId) {
+  if (!session || !pageId || !session.pages[pageId]) return [];
+  const path = [];
+  let curr = session.pages[pageId];
+  while (curr) {
+    path.unshift(curr);
+    curr = curr.parentId ? session.pages[curr.parentId] : null;
+  }
+  return path;
+}
+
+/**
+ * Branching: Get sister branches (other children of same parent)
+ */
+function getBrotherPages(session, pageId) {
+  if (!session || !pageId || !session.pages[pageId]) return { index: 0, total: 1, list: [] };
+  const parentId = session.pages[pageId].parentId;
+  const brothers = parentId ? session.pages[parentId].children : [session.rootPageId];
+  return {
+    index: brothers.indexOf(pageId),
+    total: brothers.length,
+    list: brothers
+  };
+}
+
+/**
+ * Helper: Find the last page in a linear path starting from a node
+ */
+function findLeafId(session, pageId) {
+  let currId = pageId;
+  while (session.pages[currId] && session.pages[currId].children.length > 0) {
+    // Always follow the first child by default for navigation
+    currId = session.pages[currId].children[0];
+  }
+  return currId;
+}
 
 // Virtual index page (not stored in sessions)
 const INDEX_PAGE_ID = 0;
@@ -187,20 +227,6 @@ function updateWelcomeCard() {
   requestRender();
 }
 
-function updatePageIndicator() {
-  if (currentMode === 'auto' && sessions.length > 0) {
-    if (currentSessionIndex === -1) {
-      // At index page
-      UI.pageIndicator.setContent(`Sessions: ${sessions.length}`);
-    } else {
-      // Within a session
-      UI.pageIndicator.setContent(`Session ${currentSessionIndex + 1}/${sessions.length} | Page ${currentPageIndex + 1}/${sessions[currentSessionIndex].pages.length}`);
-    }
-  } else {
-    UI.pageIndicator.setContent('');
-  }
-}
-
 // ChatGPT-like auto-scroll to bottom
 function autoScroll() {
   requestScroll();
@@ -273,11 +299,34 @@ function addSpacer() {
  * Render the Index Page - session list below the WelcomeCard.
  * WelcomeCard is already showing with "Heeba Sessions" title.
  */
-function renderIndexPage() {
-  // Clear any stale dynamic content before re-rendering. Preserves WelcomeCard.
-  clearDynamicContent();
+function renderPageRecursive(session, pageId, prefix = '', isLast = true) {
+  const page = session.pages[pageId];
+  if (!page) return;
 
-  // Start below the WelcomeCard (11 lines)
+  const marker = pageId === currentPageId ? ' ●' : '';
+  const branchChar = isLast ? '└─' : '├─';
+  const childPrefix = prefix + (isLast ? '   ' : '│  ');
+
+  const contentTrunc = page.prompt.length > 40 ? page.prompt.substring(0, 37) + '...' : page.prompt;
+
+  blessed.text({
+    parent: UI.outputArea,
+    top: lineCount++,
+    left: 0,
+    width: '100%',
+    content: `${prefix}${branchChar} "${contentTrunc}"${marker}`,
+    fg: pageId === currentPageId ? C.yellow : C.dim,
+    bold: pageId === currentPageId
+  });
+
+  const children = page.children || [];
+  children.forEach((childId, idx) => {
+    renderPageRecursive(session, childId, childPrefix, idx === children.length - 1);
+  });
+}
+
+function renderIndexPage() {
+  clearDynamicContent();
   lineCount = 12;
 
   if (sessions.length === 0) {
@@ -290,31 +339,31 @@ function renderIndexPage() {
       fg: C.dim
     });
   } else {
-    // ── Windows tree-style session list ──
-    // Root tip of the tree
+    // ── Tree Root ──
     blessed.text({
       parent: UI.outputArea,
       top: lineCount++,
       left: 0,
       width: '100%',
-      content: '  ●',
-      fg: C.black
+      content: '  ◈',
+      fg: C.green
     });
 
     sessions.forEach((session, idx) => {
-      const isLastSession  = idx === sessions.length - 1;
-      const isCurrent      = idx === currentSessionIndex;
-      const sessionBranch  = isLastSession ? '└─' : '├─';
-      const pageIndentLine = isLastSession ? '   ' : '│  ';  // vertical pipe for non-last
+      const isLastSession = idx === sessions.length - 1;
+      const isCurrent = idx === currentSessionIndex;
+      const sessionBranch = isLastSession ? '└─' : '├─';
+      const recursivePrefix = isLastSession ? '     ' : '  │  ';
 
-      const firstPrompt   = session.pages.length > 0 ? session.pages[0].prompt : '(empty)';
-      // Use custom session.name if set, otherwise fall back to the first prompt
-      const displayTitle  = session.name || firstPrompt;
-      const titleTrunc    = displayTitle.length > 44 ? displayTitle.substring(0, 41) + '...' : displayTitle;
-      const marker        = isCurrent ? ' ●' : '';
-      const relTime       = getRelativeTime(session.lastUpdated);
+      const firstPrompt = session.rootPageId && session.pages[session.rootPageId] 
+        ? session.pages[session.rootPageId].prompt 
+        : '(empty)';
+      const displayTitle = session.name || firstPrompt;
+      const titleTrunc = displayTitle.length > 44 ? displayTitle.substring(0, 41) + '...' : displayTitle;
+      const marker = isCurrent ? ' ●' : '';
+      const relTime = getRelativeTime(session.lastUpdated);
 
-      // ─ Session branch line
+      // Session branch line
       blessed.text({
         parent: UI.outputArea,
         top: lineCount++,
@@ -324,7 +373,7 @@ function renderIndexPage() {
         fg: isCurrent ? C.yellow : C.cyan,
         bold: isCurrent
       });
-      // Timestamp right-aligned on same row
+
       blessed.text({
         parent: UI.outputArea,
         top: lineCount - 1,
@@ -333,38 +382,10 @@ function renderIndexPage() {
         fg: C.dark
       });
 
-      // ─ Page sub-entries (show up to 4, then a "+more" line)
-      const maxPages   = 4;
-      const visible    = session.pages.slice(0, maxPages);
-      const remaining  = session.pages.length - maxPages;
-
-      visible.forEach((page, pIdx) => {
-        const isLastEntry = pIdx === visible.length - 1 && remaining <= 0;
-        const pageBranch  = isLastEntry ? '└─' : '├─';
-        const pagePrompt  = page.prompt.length > 40 ? page.prompt.substring(0, 37) + '...' : page.prompt;
-
-        blessed.text({
-          parent: UI.outputArea,
-          top: lineCount++,
-          left: 0,
-          width: '100%',
-          content: `  ${pageIndentLine}  ${pageBranch} "${pagePrompt}"`,
-          fg: C.dim
-        });
-      });
-
-      if (remaining > 0) {
-        blessed.text({
-          parent: UI.outputArea,
-          top: lineCount++,
-          left: 0,
-          width: '100%',
-          content: `  ${pageIndentLine}  └─ … +${remaining} more exchange${remaining !== 1 ? 's' : ''}`,
-          fg: C.dark
-        });
+      if (session.rootPageId) {
+        renderPageRecursive(session, session.rootPageId, recursivePrefix, true);
       }
 
-      // Vertical spacer line between sessions (not after last)
       if (!isLastSession) {
         blessed.text({
           parent: UI.outputArea,
@@ -378,7 +399,7 @@ function renderIndexPage() {
     });
   }
 
-  lineCount++; // trailing spacer
+  lineCount++;
   updatePageIndicator();
   requestRender();
   autoScroll();
@@ -442,19 +463,18 @@ function renderActivePage() {
 
   if (currentSessionIndex < 0 || currentSessionIndex >= sessions.length) return;
   const session = sessions[currentSessionIndex];
-  if (currentPageIndex < 0 || currentPageIndex >= session.pages.length) return;
+  if (!currentPageId || !session.pages[currentPageId]) return;
 
   // Stop header animation when viewing a session page
   stopSessionHeaderAnimation();
-
-  const page = session.pages[currentPageIndex];
   clearDynamicContent();
   UI.welcomeCard.hide();
-
-  // ── User prompt header ──
   lineCount = 1;
 
-  // Prompt label
+  // Render ONLY the current active page node
+  const page = session.pages[currentPageId];
+  
+  // ── User prompt ──
   blessed.text({
     parent: UI.outputArea,
     top: lineCount++,
@@ -465,7 +485,6 @@ function renderActivePage() {
     bold: true
   });
 
-  // Separator
   blessed.text({
     parent: UI.outputArea,
     top: lineCount++,
@@ -475,9 +494,7 @@ function renderActivePage() {
     fg: C.border
   });
 
-  // User prompt text (wrapped)
-  const promptLines = page.prompt.split('\n');
-  promptLines.forEach(pl => {
+  page.prompt.split('\n').forEach(pl => {
     blessed.text({
       parent: UI.outputArea,
       top: lineCount++,
@@ -492,7 +509,6 @@ function renderActivePage() {
 
   // ── LLM Response ──
   if (page.response) {
-    // Response label
     blessed.text({
       parent: UI.outputArea,
       top: lineCount++,
@@ -503,7 +519,6 @@ function renderActivePage() {
       bold: true
     });
 
-    // Separator
     blessed.text({
       parent: UI.outputArea,
       top: lineCount++,
@@ -513,10 +528,8 @@ function renderActivePage() {
       fg: C.border
     });
 
-    // Render markdown response
     const termWidth = (typeof screen.width === 'number') ? screen.width : 80;
     const mdLines = renderMarkdown(page.response, termWidth);
-
     mdLines.forEach(ml => {
       blessed.text({
         parent: UI.outputArea,
@@ -530,62 +543,71 @@ function renderActivePage() {
     });
   }
 
-  lineCount++; // trailing spacer
   updatePageIndicator();
   requestRender();
   autoScroll();
 }
 
+function updatePageIndicator() {
+  if (currentSessionIndex === -1) {
+    UI.pageIndicator.setContent(' Sessions ');
+    return;
+  }
+  const session = sessions[currentSessionIndex];
+  if (!currentPageId || !session.pages[currentPageId]) return;
+
+  const path = getPathToPage(session, currentPageId);
+  const brothers = getBrotherPages(session, currentPageId);
+  
+  let label = ` Page ${path.length} `;
+  if (brothers.total > 1) {
+    label += `[Branch ${brothers.index + 1}/${brothers.total}] `;
+  }
+  
+  UI.pageIndicator.setContent(label);
+  requestRender();
+}
+
 /**
- * Navigate to a specific page index within a session.
- * Also handles navigation to/from the index page.
- * @param {number} sessionIdx - Session index (-1 for index page)
- * @param {number} pageIdx - Page index within session (-1 for index page)
+ * Branch Switching: Switch between parallel branches (Shift + Left/Right)
  */
-function navigateToPage(sessionIdx, pageIdx) {
+function switchBranch(direction) {
+  if (currentSessionIndex === -1) return;
+  const session = sessions[currentSessionIndex];
+  if (!currentPageId || !session.pages[currentPageId]) return;
+
+  const brothers = getBrotherPages(session, currentPageId);
+  if (brothers.total <= 1) return; // No other branches here
+
+  let nextIdx = (brothers.index + direction) % brothers.total;
+  if (nextIdx < 0) nextIdx = brothers.total - 1;
+
+  currentPageId = brothers.list[nextIdx];
+  // If we switch to a branch, the path might end elsewhere, but findLeafId helps
+  // Actually, we usually want to stay at the same depth.
+  renderActivePage();
+}
+
+/**
+ * Navigate to a specific page ID within a session.
+ * @param {number} sessionIdx - Session index (-1 for index page)
+ * @param {string} pageId - Page node ID
+ */
+function navigateToPage(sessionIdx, pageId) {
   if (sessionIdx === -1) {
-    // Navigate to index page
-    if (currentSessionIndex >= 0 && currentSessionIndex < sessions.length) {
-      // Save scroll offset of current page before leaving
-      const session = sessions[currentSessionIndex];
-      if (currentPageIndex >= 0 && currentPageIndex < session.pages.length) {
-        session.pages[currentPageIndex].scrollOffset = UI.outputArea.getScroll();
-      }
-    }
     currentSessionIndex = -1;
-    currentPageIndex = -1;
-    // Use renderActivePage() so the WelcomeCard is properly shown and configured.
+    currentPageId = null;
     renderActivePage();
-    // Restore cursor to input field — without this, keystrokes on the index page
-    // would be invisible and the next Enter would ghost-create a new session.
     setTimeout(() => { UI.inputBox.focus(); }, 30);
     return;
   }
 
   if (sessionIdx < 0 || sessionIdx >= sessions.length) return;
-  const session = sessions[sessionIdx];
-  if (pageIdx < 0 || pageIdx >= session.pages.length) return;
-
-  // Save scroll offset of current page before leaving
-  if (currentSessionIndex >= 0 && currentSessionIndex < sessions.length) {
-    const prevSession = sessions[currentSessionIndex];
-    if (currentPageIndex >= 0 && currentPageIndex < prevSession.pages.length) {
-      prevSession.pages[currentPageIndex].scrollOffset = UI.outputArea.getScroll();
-    }
-  }
-
   currentSessionIndex = sessionIdx;
-  currentPageIndex = pageIdx;
+  currentPageId = pageId || sessions[sessionIdx].rootPageId;
+  
   renderActivePage();
-
-  // Restore saved scroll offset
-  const page = sessions[currentSessionIndex].pages[currentPageIndex];
-  if (page.scrollOffset) {
-    try { UI.outputArea.setScroll(page.scrollOffset); } catch(e) {}
-  }
-}
-
-function showLoading(show) {
+}function showLoading(show) {
   if (show) {
     UI.promptText.setContent(`>`);
     startLoadingAnimation(UI, overlays, screen, MODES[currentMode]);
@@ -721,9 +743,6 @@ async function processCommand(input) {
     clearOutput();
     if (currentMode === 'auto') {
       clearConversationHistory();
-      sessions = [];
-      currentSessionIndex = -1;
-      currentPageIndex = -1;
       UI.welcomeCard.show();
       updatePageIndicator();
       lineCount = 12;
@@ -754,34 +773,58 @@ Threads   : ${CONFIG.threads}`;
   }
 
   if (currentMode === 'auto') {
-    // Session Workspace: Append to current session or create new one
+    // Session Workspace: Branching Tree Logic
     let session;
     if (currentSessionIndex === -1 || currentSessionIndex >= sessions.length) {
       // Create new session
       session = {
-        id: sessions.length + 1,
-        pages: [],
+        id: Date.now().toString(36),
+        name: null,
+        pages: {}, // Dictionary of page nodes: { id: { prompt, response, parentId, children: [] } }
+        rootPageId: null,
         createdAt: Date.now(),
         lastUpdated: Date.now()
       };
       sessions.push(session);
       currentSessionIndex = sessions.length - 1;
+      currentPageId = null; 
     } else {
       session = sessions[currentSessionIndex];
     }
 
+    const newPageId = Math.random().toString(36).substring(2, 9);
     const newPage = {
-      id: session.pages.length + 1,
+      id: newPageId,
       prompt: input,
       response: '',
+      parentId: currentPageId, // Points to where we branched from
+      children: [],
       scrollOffset: 0,
       createdAt: Date.now(),
       _streaming: true
     };
-    session.pages.push(newPage);
-    currentPageIndex = session.pages.length - 1;
+
+    // Add to session 
+    session.pages[newPageId] = newPage;
+    
+    // Wire up parent/child relationship
+    if (!session.rootPageId) {
+      session.rootPageId = newPageId;
+    } else if (currentPageId && session.pages[currentPageId]) {
+      session.pages[currentPageId].children.push(newPageId);
+    }
+
+    // Set as active
+    currentPageId = newPageId;
     session.lastUpdated = Date.now();
     userScrolledUp = false;
+
+    // Build History from current branch path (excluding the new prompt itself)
+    const historyPath = getPathToPage(session, newPage.parentId);
+    const llmHistory = historyPath.map(p => ({
+      user: p.prompt,
+      assistant: p.response
+    }));
 
     // Hide WelcomeCard — full screen for chat
     UI.welcomeCard.hide();
@@ -884,7 +927,7 @@ Threads   : ${CONFIG.threads}`;
           requestScroll();
         }
         requestRender();
-      });
+      }, llmHistory);
 
       showLoading(false);
 
@@ -919,7 +962,7 @@ Threads   : ${CONFIG.threads}`;
             }
             // Reset to index page
             currentSessionIndex = -1;
-            currentPageIndex    = -1;
+            currentPageId       = null;
             userScrolledUp      = false;
             // Re-render the index page (WelcomeCard + updated tree)
             renderActivePage();
@@ -1174,17 +1217,17 @@ screen.key('C-g', () => {
 
 // Page navigation helper functions
 function goToPrevPage() {
-  if (currentMode !== 'auto' || sessions.length === 0) return;
-
-  if (currentSessionIndex === -1) {
-    // At index page - navigate to last session, last page
-    navigateToPage(sessions.length - 1, sessions[sessions.length - 1].pages.length - 1);
-    return;
-  }
-
+  if (currentSessionIndex === -1) return;
   const session = sessions[currentSessionIndex];
-  if (currentPageIndex > 0) {
-    navigateToPage(currentSessionIndex, currentPageIndex - 1);
+  if (!currentPageId || !session.pages[currentPageId]) return;
+
+  const parentId = session.pages[currentPageId].parentId;
+  if (parentId) {
+    currentPageId = parentId;
+    renderActivePage();
+  } else {
+    // Return to index
+    navigateToPage(-1, null);
   }
 }
 
@@ -1192,14 +1235,18 @@ function goToNextPage() {
   if (currentMode !== 'auto' || sessions.length === 0) return;
 
   if (currentSessionIndex === -1) {
-    // At index page - navigate to first session, first page
-    navigateToPage(0, 0);
+    // At index page - navigate to first session's root
+    navigateToPage(0, null);
     return;
   }
 
   const session = sessions[currentSessionIndex];
-  if (currentPageIndex < session.pages.length - 1) {
-    navigateToPage(currentSessionIndex, currentPageIndex + 1);
+  if (!currentPageId || !session.pages[currentPageId]) return;
+
+  const children = session.pages[currentPageId].children;
+  if (children && children.length > 0) {
+    currentPageId = children[0];
+    renderActivePage();
   }
 }
 
@@ -1232,7 +1279,7 @@ function startNewSession() {
   // automatically in processCommand() when the user sends their first prompt.
   // This avoids creating a ghost empty session prematurely.
   currentSessionIndex = -1;
-  currentPageIndex = -1;
+  currentPageId = null;
   userScrolledUp = false;
 
   // renderActivePage() handles showing the WelcomeCard + session list correctly.
@@ -1240,6 +1287,12 @@ function startNewSession() {
   // Restore cursor so the user can immediately type for a new chat.
   setTimeout(() => { UI.inputBox.focus(); }, 30);
 }
+
+// Nav: Shift + Left/Right for branch switching
+screen.key('S-left', () => switchBranch(-1));
+UI.inputBox.key('S-left', () => switchBranch(-1));
+screen.key('S-right', () => switchBranch(1));
+UI.inputBox.key('S-right', () => switchBranch(1));
 
 screen.key('C-n', startNewSession);
 UI.inputBox.key('C-n', startNewSession);
@@ -1251,26 +1304,32 @@ function openPageList() {
   if (currentSessionIndex === -1) {
     // At index page - show session list
     const items = sessions.map((s, i) => {
-      const truncated = s.pages.length > 0 && s.pages[0].prompt.length > 50
-        ? s.pages[0].prompt.substring(0, 47) + '...'
-        : (s.pages.length > 0 ? s.pages[0].prompt : '(empty)');
+      const rootPage = s.pages[s.rootPageId];
+      const prompt = rootPage ? rootPage.prompt : '(empty)';
+      const truncated = prompt.length > 50 ? prompt.substring(0, 47) + '...' : prompt;
       const marker = i === currentSessionIndex ? ' ●' : '';
-      return `  ${i + 1}. ${truncated}${marker} [${s.pages.length} pages]`;
+      return `  ${i + 1}. ${s.name || truncated}${marker}`;
     });
     UI.pageListView.setItems(items);
     UI.pageListView.setLabel(` {bold}◆ SESSIONS (${sessions.length}) ◆{/bold} `);
     UI.pageListView.select(0);
   } else {
-    // Within a session - show pages in that session
+    // Within a session - show the CURRENT PATH (branch)
     const session = sessions[currentSessionIndex];
-    const items = session.pages.map((p, i) => {
+    const path = getPathToPage(session, currentPageId);
+    
+    const items = path.map((p, i) => {
       const truncated = p.prompt.length > 50 ? p.prompt.substring(0, 47) + '...' : p.prompt;
-      const marker = i === currentPageIndex ? ' ●' : '';
+      const marker = p.id === currentPageId ? ' ●' : '';
       return `  ${i + 1}. ${truncated}${marker}`;
     });
+    
     UI.pageListView.setItems(items);
-    UI.pageListView.setLabel(` {bold}◆ SESSION ${currentSessionIndex + 1} PAGES (${session.pages.length}) ◆{/bold} `);
-    UI.pageListView.select(currentPageIndex);
+    UI.pageListView.setLabel(` {bold}◆ BRANCH PATH (${path.length} steps) ◆{/bold} `);
+    
+    // Select the current step in path
+    const currentStepIdx = path.findIndex(p => p.id === currentPageId);
+    UI.pageListView.select(currentStepIdx >= 0 ? currentStepIdx : 0);
   }
 
   UI.inputContainer.hide();
@@ -1291,11 +1350,15 @@ function closePageList() {
 UI.pageListView.on('select', (item, idx) => {
   closePageList();
   if (currentSessionIndex === -1) {
-    // Was at index - navigate to first page of selected session
-    navigateToPage(idx, 0);
+    // Navigate to root of selected session
+    navigateToPage(idx, null);
   } else {
-    // Was within a session - navigate to selected page in current session
-    navigateToPage(currentSessionIndex, idx);
+    // Navigate to selected page in the current branch path
+    const session = sessions[currentSessionIndex];
+    const path = getPathToPage(session, currentPageId);
+    if (path[idx]) {
+      navigateToPage(currentSessionIndex, path[idx].id);
+    }
   }
 });
 
