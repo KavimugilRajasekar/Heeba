@@ -115,8 +115,13 @@ const INDEX_PAGE_ID = 0;
 
 // Session header animation state
 let sessionHeaderInterval = null;
-const SESSION_HEADER_FRAMES = ['⁛', '⁘', '⁙', '⁘', '⁛'];
+const SESSION_HEADER_FRAMES = ['✧', '✦', '★', '✦', '✧'];
 let sessionHeaderFrameIdx = 0;
+
+// Root icon glimmer animation
+let rootIconInterval = null;
+const ROOT_ICON_FRAMES = ['◇', '◈', '◇', '◈', '◇'];
+let rootIconFrameIdx = 0;
 
 // Keyboard state
 let lastShiftPress = 0;
@@ -385,13 +390,13 @@ function renderIndexPage() {
       fg: C.dim
     });
   } else {
-    // Root tip of the tree
-    blessed.text({
+    // Root tip of the tree (Animated)
+    UI.rootIconEl = blessed.text({
       parent: UI.outputArea,
       top: lineCount++,
       left: 0,
       width: '100%',
-      content: '  ◈',
+      content: `  ${ROOT_ICON_FRAMES[rootIconFrameIdx]}`,
       fg: C.green
     });
 
@@ -490,6 +495,32 @@ function stopSessionHeaderAnimation() {
 }
 
 /**
+ * Start the animated root glimmer (✧, ✦, ★, ✦, ✧)
+ */
+function startRootIconAnimation() {
+  if (rootIconInterval) return;
+
+  rootIconInterval = setInterval(() => {
+    rootIconFrameIdx = (rootIconFrameIdx + 1) % ROOT_ICON_FRAMES.length;
+    if (UI.rootIconEl) {
+      UI.rootIconEl.setContent(`  ${ROOT_ICON_FRAMES[rootIconFrameIdx]}`);
+      requestRender();
+    }
+  }, 350); // Slightly slower for a 'glowing' effect
+}
+
+/**
+ * Stop the animated root glimmer
+ */
+function stopRootIconAnimation() {
+  if (rootIconInterval) {
+    clearInterval(rootIconInterval);
+    rootIconInterval = null;
+    UI.rootIconEl = null; // Clear ref
+  }
+}
+
+/**
  * Render the active PromptPage into the outputArea.
  * Clears all dynamic content and rebuilds from the page data.
  * For Index Page (sessionIndex=-1), shows the WelcomeCard with session list.
@@ -503,6 +534,7 @@ function renderActivePage() {
     UI.modeIndicator.style.fg = C.green;
     UI.statusLinesEl.setContent(`${sessions.length} session${sessions.length !== 1 ? 's' : ''} · Enter to open`);
     startSessionHeaderAnimation();
+    startRootIconAnimation(); // <── Start Root Animation here
     renderIndexPage();
     return;
   }
@@ -511,8 +543,9 @@ function renderActivePage() {
   const session = sessions[currentSessionIndex];
   if (!currentPageId || !session.pages[currentPageId]) return;
 
-  // Stop header animation when viewing a session page
+  // Stop header and root animations when viewing a session page
   stopSessionHeaderAnimation();
+  stopRootIconAnimation(); // <── Stop Root Animation here
   clearDynamicContent();
   UI.welcomeCard.hide();
   lineCount = 1;
