@@ -191,7 +191,7 @@ process.on('exit', () => stopServer());
 // UI FUNCTIONS
 // ======================
 function updateWelcomeCard() {
-  const m = MODES[currentMode];
+  const m = MODES.auto;
   const config = getHeebaConfig();
   logger.debug('UI', `Updating welcome card: ${currentMode}`);
 
@@ -230,17 +230,12 @@ function updateWelcomeCard() {
   updatePageIndicator();
 
   // WelcomeCard visibility: show in auto mode to display sessions list
-  if (currentMode === 'auto') {
-    UI.welcomeCard.show();
-    UI.cardTitle.setContent('Sessions');
-    UI.modeIndicator.setContent(`${SESSION_HEADER_FRAMES[0]} Heeba`);
-    UI.modeIndicator.style.fg = C.green;
-    UI.statusLinesEl.setContent(`${sessions.length} session${sessions.length !== 1 ? 's' : ''} · Enter to open`);
-    startSessionHeaderAnimation();
-  } else {
-    UI.welcomeCard.show();
-    stopSessionHeaderAnimation();
-  }
+  UI.welcomeCard.show();
+  UI.cardTitle.setContent('Sessions');
+  UI.modeIndicator.setContent(`${SESSION_HEADER_FRAMES[0]} Heeba`);
+  UI.modeIndicator.style.fg = C.green;
+  UI.statusLinesEl.setContent(`${sessions.length} session${sessions.length !== 1 ? 's' : ''} · Enter to open`);
+  startSessionHeaderAnimation();
 
   // Start animations
   startIdleAnimation(UI, screen, m);
@@ -281,7 +276,7 @@ function addOutput(text, className = '') {
 
   const textStr = String(text);
   const prefix = {
-    command: `${MODES[currentMode].prompt} `,
+    command: `${MODES.auto.prompt} `,
     error: '[ERR] ',
     success: '↬ ',
     info: '',
@@ -701,10 +696,10 @@ function navigateToPage(sessionIdx, pageId) {
 }function showLoading(show) {
   if (show) {
     UI.promptText.setContent(`>`);
-    startLoadingAnimation(UI, overlays, screen, MODES[currentMode]);
+    startLoadingAnimation(UI, overlays, screen, MODES.auto);
   } else {
     UI.promptText.setContent(`>`);
-    stopLoadingAnimation(UI, overlays, screen, MODES[currentMode]);
+    stopLoadingAnimation(UI, overlays, screen, MODES.auto);
   }
   UI.footerStatus.setContent(show ? '● busy' : '● ready');
   UI.footerStatus.style.fg = show ? C.yellow : C.green;
@@ -712,7 +707,7 @@ function navigateToPage(sessionIdx, pageId) {
 }
 
 function switchMode(newMode) {
-  logger.info('MODE', `Switching: ${currentMode} → ${newMode}`);
+  logger.info('MODE', `Switching to ${newMode}`);
 
   overlays.modeOverlayText.setContent(`Switching to ${MODES[newMode].name} mode...`);
   overlays.modeOverlayText.style.fg = MODES[newMode].color;
@@ -728,13 +723,6 @@ function switchMode(newMode) {
     // When switching to auto mode with existing sessions, render the index page
     if (newMode === 'auto' && sessions.length > 0) {
       navigateToPage(-1, -1);
-    } else if (newMode === 'task') {
-      // Task mode: restore traditional chat view with WelcomeCard
-      clearDynamicContent();
-      lineCount = 12;
-      UI.welcomeCard.show();
-      addSpacer();
-      addOutput(`Switched to ${MODES[newMode].name} Mode`, 'success');
     } else {
       addSpacer();
       addOutput(`Switched to ${MODES[newMode].name} Mode`, 'success');
@@ -745,17 +733,8 @@ function switchMode(newMode) {
 
 function openModelSelection() {
   const models = getAvailableModels();
-  if (currentMode !== 'auto') {
-    addOutput('Scanning engine/models/...', 'info');
-  }
+  if (models.length === 0) return;
   pauseScroll();
-
-  if (models.length === 0) {
-    if (currentMode !== 'auto') {
-      addOutput('No models found in engine/models/', 'error');
-    }
-    return;
-  }
 
   UI.inputContainer.hide();
   UI.modelList.setItems(models);
@@ -781,25 +760,6 @@ async function processCommand(input) {
   const trimmed = input.trim().toLowerCase();
   if (!trimmed) return '';
 
-  if (trimmed === 'mode task' || trimmed === 'mode auto') {
-    switchMode(trimmed === 'mode task' ? 'task' : 'auto');
-    return '';
-  }
-
-  if (trimmed === 'help') {
-    return `Available Commands:
-  [S-Space]  - Switch mode (DINO <-> CAT)
-  mode task  - Switch to DINO mode
-  mode auto  - Switch to CAT mode
-  models     - List available models
-  model <n>  - Select model by number
-  model <name> - Select model by name
-  clear      - Clear terminal output
-  info       - Show system information
-  cancel     - Cancel ongoing LLM request
-  help       - Show this help`;
-  }
-
   if (trimmed === 'models') {
     openModelSelection();
     return '';
@@ -822,49 +782,12 @@ async function processCommand(input) {
       CONFIG.model = newModel;
       clearConversationHistory();
       updateWelcomeCard();
-      if (currentMode !== 'auto') {
-        addSpacer(); 
-      }
       return `Model set to: ${newModel}`;
     }
     return `Model not found: ${sel}`;
   }
 
-  if (trimmed === 'clear') {
-    clearOutput();
-    if (currentMode === 'auto') {
-      clearConversationHistory();
-      UI.welcomeCard.show();
-      updatePageIndicator();
-      lineCount = 12;
-    }
-    return '';
-  }
-
-  if (trimmed === 'info') {
-    const models = getAvailableModels();
-    return `Heeba Terminal v1.0
-════════════════════════════════════
-Current Mode: ${MODES[currentMode].name}
-Status    : ${getLLMStatus() ? 'LLM Running' : 'Ready'}
-Uptime    : ${Math.floor((Date.now() - startTime) / 1000)}s
-
-ENGINE CONFIG
-════════════════════════════════════
-Engine    : llama-cli.exe (llama.cpp)
-Model     : ${CONFIG.model}
-Model OK  : ${models.length > 0 ? '[OK] Found (' + models.length + ')' : '[ERR] None'}
-Context   : ${CONFIG.contextLength} tokens
-Threads   : ${CONFIG.threads}`;
-  }
-
-  if (trimmed === 'cancel') {
-    if (getLLMStatus()) { cancelLLM(); showLoading(false); return 'LLM request cancelled.'; }
-    return 'No LLM request to cancel.';
-  }
-
-  if (currentMode === 'auto') {
-    // Session Workspace: Branching Tree Logic
+  // Session Workspace: Branching Tree Logic
     let session;
     if (currentSessionIndex === -1 || currentSessionIndex >= sessions.length) {
       // Create new session
@@ -982,7 +905,7 @@ Threads   : ${CONFIG.threads}`;
         }
 
         if (!liveTextEl) {
-          startLoadingAnimation(UI, overlays, screen, MODES[currentMode], true);
+          startLoadingAnimation(UI, overlays, screen, MODES.auto, true);
           // Re-render the page fresh with response header.
           clearDynamicContent();
           lineCount = 1;
@@ -1100,13 +1023,7 @@ Threads   : ${CONFIG.threads}`;
     } finally {
       isProcessingCommand = false;
     }
-  }
 
-  if (trimmed.startsWith('ask heeba') || trimmed.startsWith('heeba')) {
-    return `Heeba is ready!\nSwitch to Auto Mode (Shift+Space) to chat with LLM.`;
-  }
-
-  return `Command not found: ${input}\nType "help" for available commands.`;
 }
 
 // ======================
@@ -1166,14 +1083,8 @@ UI.inputBox.key('enter', async (ch, key) => {
   UI.outputArea.height = '100%-7';
 
   // In Auto mode, don't append to global chat — processCommand handles page rendering
-  if (currentMode !== 'auto') {
-    addSpacer();
-    addOutput(command, 'command');
-    lastOutputWasCommand = true;
-  }
 
   const response = await processCommand(command);
-  if (response && currentMode !== 'auto') { addSpacer(); addOutput(response, 'response'); addSpacer(); }
   // In auto mode, responses are handled within processCommand via PromptPage rendering
 
   if (command) {
@@ -1225,11 +1136,8 @@ UI.modelList.on('select', (item) => {
   clearConversationHistory();
   updateWelcomeCard();
   closeModelSelection();
-  
-  if (currentMode !== 'auto') {
-    addSpacer();
-    addOutput(`Model set to: ${newModel}`, 'success');
-  } else if (currentSessionIndex === -1) {
+
+  if (currentSessionIndex === -1) {
     // Refresh the index page tree/header to show the new model
     renderActivePage();
   }
@@ -1281,34 +1189,6 @@ UI.inputBox.key('down', () => {
 });
 
 // ==============================================
-// MODE SWITCH - SHIFT+SPACE
-// ==============================================
-
-// Direct Shift+Space combination
-screen.key('S-space', () => {
-  logger.debug('KEYBOARD', 'S-space detected');
-  if (!UI.modelList.visible && !UI.pageListView.visible) {
-    switchMode(currentMode === 'task' ? 'auto' : 'task');
-  }
-});
-
-// Space as fallback only if not typing
-screen.key('space', () => {
-  if (UI.modelList.visible) {
-    UI.modelList.down();
-    requestRender();
-  }
-});
-
-// Ctrl+g as universal fallback
-screen.key('C-g', () => {
-  logger.debug('KEYBOARD', 'Ctrl+g detected');
-  if (!UI.modelList.visible && !UI.pageListView.visible) {
-    switchMode(currentMode === 'task' ? 'auto' : 'task');
-  }
-});
-
-// ==============================================
 // PROMPT PAGE NAVIGATION (Auto mode)
 // ==============================================
 
@@ -1329,7 +1209,7 @@ function goToPrevPage() {
 }
 
 function goToNextPage() {
-  if (currentMode !== 'auto' || sessions.length === 0) return;
+  if (false || sessions.length === 0) return;
 
   if (currentSessionIndex === -1) {
     // At index page - navigate to first session's root
@@ -1348,7 +1228,7 @@ function goToNextPage() {
 }
 
 function openPageListIfAvailable() {
-  if (currentMode === 'auto' && sessions.length > 0 && !UI.pageListView.visible) {
+  if (true && sessions.length > 0 && !UI.pageListView.visible) {
     openPageList();
   }
 }
@@ -1369,7 +1249,6 @@ UI.inputBox.key('C-l', openPageListIfAvailable);
 
 // Ctrl+N: Start new session
 function startNewSession() {
-  if (currentMode !== 'auto') return;
   if (UI.modelList.visible || UI.pageListView.visible) return;
 
   // Navigate back to the index page. The new session object will be created
@@ -1465,7 +1344,7 @@ UI.pageListView.key('escape', () => closePageList());
 
 // Track user scroll during streaming
 UI.outputArea.on('scroll', () => {
-  if (isProcessingCommand && currentMode === 'auto') {
+  if (isProcessingCommand && true) {
     // If user scrolled away from the bottom, mark as scrolled up
     const scrollHeight = UI.outputArea.getScrollHeight();
     const currentScroll = UI.outputArea.getScroll();
@@ -1484,7 +1363,7 @@ UI.outputArea.on('scroll', () => {
 
 screen.on('resize', () => {
   // Re-render active page on resize for proper line wrapping
-  if (currentMode === 'auto' && sessions.length > 0 && currentSessionIndex >= 0) {
+  if (true && sessions.length > 0 && currentSessionIndex >= 0) {
     renderActivePage();
   }
   requestRender();
@@ -1505,14 +1384,9 @@ screen.key('escape', () => {
     closeModelSelection();
     return;
   }
-  if (currentMode === 'auto') {
-    if (sessions.length > 0) {
-      // Return to Index Page
-      navigateToPage(-1, -1);
-    } else {
-      cancelLLM();
-      cleanupAndExit();
-    }
+  if (sessions.length > 0) {
+    // Return to Index Page
+    navigateToPage(-1, -1);
   } else {
     cancelLLM();
     cleanupAndExit();
@@ -1532,16 +1406,8 @@ screen.key('escape', () => {
   await runBootSequence(overlays, UI, screen, CONFIG);
 
   // In Auto mode, suppress boot messages since session history takes that space
-  if (currentMode !== 'auto') {
-    addOutput('Heeba | Code Space v1.0 - Online', 'success');
-    addOutput('Engine: llama.cpp (local GGUF)', 'info');
-    addOutput(`Model: ${CONFIG.model}`, 'info');
-    addOutput('Type "help" for available commands', 'info');
-    addSpacer();
-  } else {
-    // In auto mode, show session index page
-    navigateToPage(-1, -1);
-  }
+  // show session index page
+  navigateToPage(-1, -1);
 
   logger.info('APP', 'Boot complete');
 })();

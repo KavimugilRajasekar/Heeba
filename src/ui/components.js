@@ -59,7 +59,7 @@ function createUI(screen) {
     parent: topBar,
     top: 0,
     left: 11,
-    content: '● DINO',
+    content: '● AUTO',
     fg: C.green,
     bold: true
   });
@@ -206,7 +206,7 @@ function createUI(screen) {
     parent: cardHeaderBar,
     top: 0,
     left: 1,
-    content: '● DINO',
+    content: '● AUTO',
     fg: C.green,
     bold: true
   });
@@ -215,7 +215,7 @@ function createUI(screen) {
     parent: cardHeaderBar,
     top: 0,
     left: 10,
-    content: 'Heeba Task Mode',
+    content: 'Heeba',
     fg: C.dim
   });
 

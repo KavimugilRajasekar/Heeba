@@ -32,9 +32,8 @@
 ### 1. Config-Driven Personality
 All AI behavior, identity, and routing rules are defined in `heeba.json`. You can refine Heeba's tone, communication style, and allowed actions without touching a single line of code.
 
-### 2. Dual Interaction Modes
-- **Auto Mode (Cat 🐱)**: Full AI conversation with history and context memory. Ideal for brainstorming, debugging, and general assistance.
-- **Task Mode (Dino 🦖)**: Focused mode for direct system operations and manual command execution. High-performance and low-latency.
+### 2. AI-Powered Chat
+- **Auto Mode**: Full AI conversation with session history and context memory. Ideal for brainstorming, debugging, and general assistance. Features a tree-based branching navigation so you can explore multiple conversation paths.
 
 ### 3. Professional Terminal UI
 Built with the `blessed` library, Heeba offers a feature-rich CLI experience:
@@ -101,18 +100,12 @@ Found in `src/core/config.js`:
 ### Keyboard Shortcuts
 | Key | Action |
 | --- | --- |
-| `Shift + Space` | Toggle between Auto (Cat) and Task (Dino) modes |
 | `↑` / `↓` | Navigate command history |
-| `Ctrl + G` | Fallback mode switch |
 | `Esc` / `q` | Safe exit |
 
 ### Integrated Commands
-- `mode task` / `mode auto`: Switch modes manually.
 - `models`: Scan and list available GGUF models.
 - `model <name>`: Switch active model dynamically.
-- `clear`: Clear output area (resets context in Auto mode).
-- `info`: Display detailed system and engine status.
-- `cancel`: Abort ongoing LLM request safely.
 
 ---
 
@@ -126,7 +119,7 @@ Heeba uses a layered architecture to separate UI rendering from inference logic:
 └───────────────┬────────────────┘
                 ▼
 ┌────────────────────────────────┐
-│      Command Layer (main.js)   │ <── Routing, History, Mode Mgmt
+│      Command Layer (main.js)   │ <── Routing, History, Sessions
 └───────────────┬────────────────┘
                 ▼
 ┌───────────────┴────────────────┐
