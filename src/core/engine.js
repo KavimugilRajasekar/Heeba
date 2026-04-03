@@ -182,5 +182,20 @@ function getTotalTokensUsed() {
     return totalTokensUsed + getOllamaTokens();
 }
 
-module.exports = { queryLLM, cancelLLM, getLLMStatus, clearConversationHistory, stopServer, getTotalTokensUsed };
+async function generateTurnTitle(userInput, response, CONFIG) {
+    if (isLLMRunning) return null; // Don't interrupt
+    
+    const summaryPrompt = `User: ${userInput.substring(0, 500)}\nAssistant: ${response.substring(0, 500)}\n\nTask: Summarize this interaction in 2-3 simple words for a sidebar title. Output ONLY the words. Example: 'Project Setup' or 'Bug Fix'.`;
+    
+    try {
+        // Use a variant of queryLLM or call adapters directly to avoid 'isLLMRunning' blocking if possible, 
+        // but here we just use it sequentially.
+        const title = await queryLLM(summaryPrompt, 'auto', { ...CONFIG, model: CONFIG.model }, null);
+        return title.replace(/["']/g, '').trim();
+    } catch (e) {
+        return null;
+    }
+}
+
+module.exports = { queryLLM, cancelLLM, getLLMStatus, clearConversationHistory, stopServer, getTotalTokensUsed, generateTurnTitle };
 

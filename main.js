@@ -25,10 +25,15 @@ const {
   getLLMStatus,
   clearConversationHistory,
   stopServer,
-  getTotalTokensUsed
+  getTotalTokensUsed,
+  generateTurnTitle
 } = require('./src/core/engine');
 const { isVirtualModel } = require('./src/core/ollama-adapter');
-const { parseCommandFromResponse, executeCommand } = require('./src/core/intent-executor');
+const {
+  parseCommandFromResponse,
+  executeCommand,
+  processLLMResponse
+} = require('./src/core/intent-executor');
 const { renderMarkdown } = require('./src/ui/markdown-renderer');
 
 // Load heeba.json config on startup
@@ -50,6 +55,7 @@ let isProcessingCommand = false;
 // Session/PromptPage Workspace State (Auto mode only)
 let sessions = [];              // Array of Session objects
 let currentSessionIndex = -1;  // Index of active session (-1 = none / at index page)
+let selectedSessionIndex = 0;  // Highlighted index on the session list (index page)
 let currentPageId = null;      // ID of active page node within session
 let userScrolledUp = false;     // Track if user manually scrolled during streaming
 
@@ -324,7 +330,8 @@ function renderPageRecursive(session, pageId, prefix = '', isLast = true) {
   const branchChar = isLast ? '└─' : '├─';
   const childPrefix = prefix + (isLast ? '   ' : '│  ');
 
-  const contentTrunc = page.prompt.length > 40 ? page.prompt.substring(0, 37) + '...' : page.prompt;
+  const displayTitle = page.title || page.prompt;
+  const contentTrunc = displayTitle.length > 40 ? displayTitle.substring(0, 37) + '...' : displayTitle;
   const leftSide = `${prefix}${branchChar} "${contentTrunc}"${marker}`;
   
   // Render the left side (Branch + Prompt)
@@ -402,11 +409,13 @@ function renderIndexPage() {
       const recursivePrefix = isLastSession ? '     ' : '  │  ';
 
       const firstPrompt = session.rootPageId && session.pages[session.rootPageId] 
-        ? session.pages[session.rootPageId].prompt 
+        ? (session.pages[session.rootPageId].title || session.pages[session.rootPageId].prompt)
         : '(empty)';
       const displayTitle = session.name || firstPrompt;
       const titleTrunc = displayTitle.length > 44 ? displayTitle.substring(0, 41) + '...' : displayTitle;
-      const marker = isCurrent ? ' ●' : '';
+      
+      const isSelected = (idx === selectedSessionIndex && currentSessionIndex === -1);
+      const marker = isCurrent ? ' ●' : (isSelected ? ' ►' : '');
       const relTime = getRelativeTime(session.lastUpdated);
 
       // Session branch line
@@ -416,8 +425,8 @@ function renderIndexPage() {
         left: 0,
         width: '100%',
         content: `  ${sessionBranch} ${idx + 1}  "${titleTrunc}"${marker}`,
-        fg: isCurrent ? C.yellow : C.cyan,
-        bold: isCurrent
+        fg: (isCurrent || isSelected) ? C.yellow : C.cyan,
+        bold: (isCurrent || isSelected)
       });
 
       blessed.text({
@@ -950,9 +959,19 @@ async function processCommand(input) {
       newPage.response = fullResponse;
       newPage.tokens = estimateTokens(newPage.prompt + newPage.response);
 
-      // If this is the root node and session has no name, use the first prompt
-      if (!session.name && session.rootPageId === newPageId) {
-        session.name = newPage.prompt.substring(0, 30);
+      // If this page doesn't have a title yet, generate one automatically
+      if (!newPage.title) {
+        generateTurnTitle(newPage.prompt, newPage.response, CONFIG).then(title => {
+          if (title) {
+            newPage.title = title;
+            // If root node, also name the session
+            if (session.rootPageId === newPageId && !session.name) {
+              session.name = title;
+            }
+            // Silent refresh of the index tree if we are at index
+            if (currentSessionIndex === -1) renderIndexPage();
+          }
+        }).catch(() => {});
       }
 
       // Re-render the page with proper markdown formatting
@@ -970,9 +989,17 @@ async function processCommand(input) {
           currentSession: (currentSessionIndex >= 0 && currentSessionIndex < sessions.length)
             ? sessions[currentSessionIndex]
             : null,
+          currentPage: newPage,
           onSessionRenamed: (newName) => {
             // Update WelcomeCard header to reflect the new name immediately
-            UI.cardTitle.setContent(newName);
+            if (currentSessionIndex === -1) {
+              UI.cardTitle.setContent(newName);
+            }
+            renderIndexPage();
+            requestRender();
+          },
+          onConversationRenamed: (newTitle) => {
+            renderIndexPage();
             requestRender();
           },
           onSessionDeleted: () => {
@@ -1064,6 +1091,16 @@ UI.inputBox.key('enter', async (ch, key) => {
 
   const command = UI.inputBox.getValue().trim();
   if (!command) {
+    // If on index page and input is empty, open the highlighted session
+    if (currentSessionIndex === -1 && sessions.length > 0) {
+      if (sessions[selectedSessionIndex]) {
+        navigateToPage(selectedSessionIndex, null);
+      } else {
+        navigateToPage(0, null);
+      }
+      return;
+    }
+
     UI.inputBox.clearValue();
     UI.inputBox.height = 1;
     UI.inputContainer.height = 3;
@@ -1155,6 +1192,15 @@ UI.modelList.key('escape', () => closeModelSelection());
 
 // Input history navigation
 UI.inputBox.key('up', () => {
+  // If at index page and input is empty, navigate the session list
+  if (currentSessionIndex === -1 && UI.inputBox.getValue().trim() === '' && sessions.length > 0) {
+    if (selectedSessionIndex > 0) {
+      selectedSessionIndex--;
+      renderActivePage();
+    }
+    return;
+  }
+
   // Only navigate history if we are in single-line mode or empty
   if (UI.inputBox.getLines().length > 1 && UI.inputBox.getValue().trim() !== '') return;
 
@@ -1170,6 +1216,15 @@ UI.inputBox.key('up', () => {
 });
 
 UI.inputBox.key('down', () => {
+  // If at index page and input is empty, navigate the session list
+  if (currentSessionIndex === -1 && UI.inputBox.getValue().trim() === '' && sessions.length > 0) {
+    if (selectedSessionIndex < sessions.length - 1) {
+      selectedSessionIndex++;
+      renderActivePage();
+    }
+    return;
+  }
+
   // Only navigate history if we are in single-line mode or empty
   if (UI.inputBox.getLines().length > 1 && UI.inputBox.getValue().trim() !== '') return;
 
@@ -1202,8 +1257,13 @@ function goToPrevPage() {
     currentPageId = parentId;
     renderActivePage();
   } else {
-    // Return to index
+    // Return to index - preserve which session we were in
+    const oldSessionIdx = currentSessionIndex;
     navigateToPage(-1, null);
+    if (oldSessionIdx >= 0) {
+      selectedSessionIndex = oldSessionIdx;
+      renderActivePage();
+    }
   }
 }
 
@@ -1211,8 +1271,12 @@ function goToNextPage() {
   if (false || sessions.length === 0) return;
 
   if (currentSessionIndex === -1) {
-    // At index page - navigate to first session's root
-    navigateToPage(0, null);
+    // At index page - navigate to the highlighted session's root
+    if (sessions[selectedSessionIndex]) {
+      navigateToPage(selectedSessionIndex, null);
+    } else if (sessions.length > 0) {
+      navigateToPage(0, null);
+    }
     return;
   }
 

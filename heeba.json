@@ -219,6 +219,24 @@
         }
       }
     },
+    "conversation_rename": {
+      "patterns": [
+        "rename this conversation",
+        "rename this turn",
+        "rename this branch",
+        "call this conversation",
+        "name this turn",
+        "set title for this"
+      ],
+      "action": "rename_conversation",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "rename_conversation",
+        "parameters": {
+          "title": "{extracted_conversation_title}"
+        }
+      }
+    },
     "session_delete": {
       "patterns": [
         "delete this session",
@@ -314,6 +332,7 @@
     "When user requests broad configuration changes (personality, etc.), output a JSON command for update_config",
     "When user wants to add an online model, output a JSON command for add_ollama_model",
     "When user asks to rename, name, or relabel the current session (e.g. 'rename this session to X'), output a JSON structured command with action rename_session and parameter name set to the exact name the user specified",
+    "When user asks to rename the current conversation turn or branch (e.g. 'change this conversation title to X'), output a JSON structured command with action rename_conversation and parameter title set to the exact title specified",
     "When user asks to delete, remove, or erase the current session or conversation, output a JSON structured command with action delete_session and empty parameters",
     "When user asks to fetch, show, or list emails (e.g. 'show my emails from the last 3 days'), output a JSON structured command with action fetch_emails and parameter days set to the number of days specified by the user (default to 3 if not specified)",
     "When user asks to send, compose, or mail someone (e.g. 'send an email to X with subject Y saying Z'), output a JSON structured command with action send_email with parameters to, subject, and body extracted from the user's request",
