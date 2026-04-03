@@ -357,9 +357,18 @@ const commandHandlers = {
     const creds = getEmailCredentials();
     if (!creds) return { success: false, message: 'Email credentials not configured in credentials.json' };
 
-    const { to, subject, body } = params;
+    let { to, subject, body, attachments } = params;
     if (!to || !subject || !body) {
       return { success: false, message: 'Missing recipient (to), subject, or body.' };
+    }
+
+    const config = getHeebaConfig();
+
+    // Handle "reception" alias if not an email address
+    if (to.toLowerCase() === 'reception') {
+      if (config.user_profile && config.user_profile.reception_email) {
+        to = config.user_profile.reception_email;
+      }
     }
 
     const transporter = nodemailer.createTransport({
@@ -369,15 +378,46 @@ const commandHandlers = {
       auth: { user: creds.user, pass: creds.pass }
     });
 
-    try {
-      const config = getHeebaConfig();
-      const info = await transporter.sendMail({
-        from: `"${config.heeba_identity.name}" <${creds.user}>`,
-        to,
-        subject,
-        text: body
+    const mailOptions = {
+      from: `"${config.heeba_identity.name}" <${creds.user}>`,
+      to,
+      subject,
+      text: body
+    };
+
+    // Handle attachments
+    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+      mailOptions.attachments = attachments.map(filePath => {
+        const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath);
+        if (fs.existsSync(absolutePath)) {
+          return {
+            filename: path.basename(absolutePath),
+            path: absolutePath
+          };
+        } else {
+          throw new Error(`Attachment file not found: ${filePath}`);
+        }
       });
-      return { success: true, message: `Email sent successfully! (ID: ${info.messageId})` };
+    } else if (attachments && typeof attachments === 'string') {
+        // Handle single string attachment if LLM sends it that way
+        const absolutePath = path.isAbsolute(attachments) ? attachments : path.join(process.cwd(), attachments);
+        if (fs.existsSync(absolutePath)) {
+          mailOptions.attachments = [{
+            filename: path.basename(absolutePath),
+            path: absolutePath
+          }];
+        } else {
+          throw new Error(`Attachment file not found: ${attachments}`);
+        }
+    }
+
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      let msg = `Email sent successfully to ${to}! (ID: ${info.messageId})`;
+      if (mailOptions.attachments && mailOptions.attachments.length > 0) {
+        msg += ` with ${mailOptions.attachments.length} attachment(s).`;
+      }
+      return { success: true, message: msg };
     } catch (err) {
       return { success: false, message: `SMTP Error: ${err.message}` };
     }

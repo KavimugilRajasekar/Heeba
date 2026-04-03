@@ -278,7 +278,8 @@
         "email to",
         "compose a mail",
         "mail to",
-        "send message to email"
+        "send message to email",
+        "attach"
       ],
       "action": "send_email",
       "response_type": "structured_command",
@@ -287,7 +288,8 @@
         "parameters": {
           "to": "{extracted_recipient}",
           "subject": "{extracted_subject}",
-          "body": "{extracted_body}"
+          "body": "{extracted_body}",
+          "attachments": "{extracted_file_paths_array}"
         }
       }
     },
@@ -335,7 +337,8 @@
     "When user asks to rename the current conversation turn or branch (e.g. 'change this conversation title to X'), output a JSON structured command with action rename_conversation and parameter title set to the exact title specified",
     "When user asks to delete, remove, or erase the current session or conversation, output a JSON structured command with action delete_session and empty parameters",
     "When user asks to fetch, show, or list emails (e.g. 'show my emails from the last 3 days'), output a JSON structured command with action fetch_emails and parameter days set to the number of days specified by the user (default to 3 if not specified)",
-    "When user asks to send, compose, or mail someone (e.g. 'send an email to X with subject Y saying Z'), output a JSON structured command with action send_email with parameters to, subject, and body extracted from the user's request",
+    "When user asks to send, compose, or mail someone (e.g. 'send an email to X with subject Y saying Z'), output a JSON structured command with action send_email with parameters to, subject, body, and optionally attachments extracted from the user's request. If the user mentions a file path (e.g., 'C:\\Users\\...'), include it in the attachments array.",
+    "RECEPTION ALIAS: If the user refers to 'reception', use the email address they explicitly mentioned earlier in the conversation. If no email was mentioned for reception, use 'reception' as the recipient and the backend will handle it if configured.",
     "When user asks to read, open, or view a specific email (e.g. 'read the first email' or 'open #2'), output a JSON structured command with action read_email and parameter index set to the number the user specified",
     "INTENT DISAMBIGUATION: If the user asks to open an email using a description (e.g., sender name, subject keyword) rather than a number, you MUST search the previously fetched email list in the conversation history for a match. Once found, use the corresponding index number in the read_email command."
   ],
