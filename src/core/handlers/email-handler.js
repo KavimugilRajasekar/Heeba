@@ -4,6 +4,7 @@ const path = require('path');
 const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
 const { convert } = require('html-to-text');
+const nodemailer = require('nodemailer');
 const { getHeebaConfig } = require('../config-loader');
 const { queryOllama } = require('../ollama-adapter');
 const { getEmailAccount } = require('../email-accounts');
