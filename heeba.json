@@ -315,6 +315,125 @@
           "uid": "{extracted_uid}"
         }
       }
+    },
+    "fetch_emails_by_date": {
+      "patterns": [
+        "emails from",
+        "show emails on",
+        "fetch emails for",
+        "list emails since",
+        "how many emails on"
+      ],
+      "action": "fetch_emails_by_date",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "fetch_emails_by_date",
+        "parameters": {
+          "from": "{ISO_DATETIME}",
+          "to": "{ISO_DATETIME}"
+        }
+      }
+    },
+    "fetch_emails_by_timerange": {
+      "patterns": [
+        "morning emails",
+        "afternoon emails",
+        "evening emails",
+        "night emails",
+        "today morning",
+        "yesterday evening"
+      ],
+      "action": "fetch_emails_by_timerange",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "fetch_emails_by_timerange",
+        "parameters": {
+          "date": "{YYYY-MM-DD}",
+          "time_range": "{morning|afternoon|evening|night}"
+        }
+      }
+    },
+    "fetch_emails_by_filter": {
+      "patterns": [
+        "emails from Amazon",
+        "invoice mail from",
+        "emails with subject",
+        "find mail about",
+        "search mail"
+      ],
+      "action": "fetch_emails_by_filter",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "fetch_emails_by_filter",
+        "parameters": {
+          "date": "{YYYY-MM-DD}",
+          "from_contains": "{string}",
+          "subject_contains": "{string}"
+        }
+      }
+    },
+    "fetch_unread_by_date": {
+      "patterns": [
+        "unread emails",
+        "what did I miss",
+        "any new mail from",
+        "any unread"
+      ],
+      "action": "fetch_unread_by_date",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "fetch_unread_by_date",
+        "parameters": {
+          "date": "{YYYY-MM-DD}"
+        }
+      }
+    },
+    "fetch_threads_by_sender": {
+      "patterns": [
+        "threads from",
+        "conversation with",
+        "mail history with"
+      ],
+      "action": "fetch_threads_by_sender",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "fetch_threads_by_sender",
+        "parameters": {
+          "sender": "{string}",
+          "date": "{YYYY-MM-DD}"
+        }
+      }
+    },
+    "export_emails_by_date": {
+      "patterns": [
+        "export emails",
+        "save emails to file",
+        "backup emails"
+      ],
+      "action": "export_emails_by_date",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "export_emails_by_date",
+        "parameters": {
+          "date": "{YYYY-MM-DD}",
+          "format": "{md|txt}"
+        }
+      }
+    },
+    "summarize_emails_by_date": {
+      "patterns": [
+        "summarize emails",
+        "give me a summary of",
+        "wrap up of today"
+      ],
+      "action": "summarize_emails_by_date",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "summarize_emails_by_date",
+        "parameters": {
+          "date": "{YYYY-MM-DD}"
+        }
+      }
     }
   },
   "system_rules": [
@@ -340,7 +459,8 @@
     "When user asks to send, compose, or mail someone (e.g. 'send an email to X with subject Y saying Z'), output a JSON structured command with action send_email with parameters to, subject, body, and optionally attachments extracted from the user's request. If the user mentions a file path (e.g., 'C:\\Users\\...'), include it in the attachments array.",
     "RECEPTION ALIAS: If the user refers to 'reception', use the email address they explicitly mentioned earlier in the conversation. If no email was mentioned for reception, use 'reception' as the recipient and the backend will handle it if configured.",
     "When user asks to read, open, or view a specific email (e.g. 'read the first email' or 'open #2'), output a JSON structured command with action read_email and parameter index set to the number the user specified",
-    "INTENT DISAMBIGUATION: If the user asks to open an email using a description (e.g., sender name, subject keyword) rather than a number, you MUST search the previously fetched email list in the conversation history for a match. Once found, use the corresponding index number in the read_email command."
+    "INTENT DISAMBIGUATION: If the user asks to open an email using a description (e.g., sender name, subject keyword) rather than a number, you MUST search the previously fetched email list in the conversation history for a match. Once found, use the corresponding index number in the read_email command.",
+    "INTENT FILTERING: For advanced email fetching, provide ISO dates and specific filters: morning (05:00-12:00), afternoon (12:00-17:00), evening (17:00-21:00), night (21:00-05:00). If the user asks 'What did I miss yesterday?', use fetch_unread_by_date with yesterday's ISO date. If the user asks to 'summarize' or 'export', use the corresponding action with the target date."
   ],
   "output_format": {
     "conversational": {

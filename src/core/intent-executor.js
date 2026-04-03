@@ -2,13 +2,20 @@
 const fs = require('fs');
 const path = require('path');
 const { getHeebaConfig, reloadConfig } = require('./config-loader');
-const { testOllamaConnection } = require('./ollama-adapter');
+const { testOllamaConnection, queryOllama } = require('./ollama-adapter');
 const { ImapFlow } = require('imapflow');
 const nodemailer = require('nodemailer');
 const { simpleParser } = require('mailparser');
 const { convert } = require('html-to-text');
 
 let lastMailList = []; // Array of UIDs from last fetch_emails
+
+const CACHE_DIR = path.join(process.cwd(), '.cache', 'email');
+const EXPORT_DIR = path.join(process.cwd(), 'exports');
+
+// Ensure directories exist
+if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
+if (!fs.existsSync(EXPORT_DIR)) fs.mkdirSync(EXPORT_DIR, { recursive: true });
 
 const getEmailCredentials = () => {
   try {
@@ -17,9 +24,7 @@ const getEmailCredentials = () => {
       const creds = JSON.parse(fs.readFileSync(credPath, 'utf8'));
       return creds.email;
     }
-  } catch (err) {
-    // Silent fail for TUI
-  }
+  } catch (err) { }
   return null;
 };
 
@@ -31,6 +36,69 @@ const truncate = (str, len) => {
 const pad = (str, len) => {
   const s = String(str);
   return s + ' '.repeat(Math.max(0, len - s.length));
+};
+
+const getCachePath = (dateStr) => path.join(CACHE_DIR, `${dateStr}.json`);
+
+const saveToCache = (dateStr, emails) => {
+  try {
+    fs.writeFileSync(getCachePath(dateStr), JSON.stringify(emails, null, 2));
+  } catch (e) { console.error('Cache save failed', e); }
+};
+
+const getFromCache = (dateStr) => {
+  const p = getCachePath(dateStr);
+  if (fs.existsSync(p)) {
+    try {
+      return JSON.parse(fs.readFileSync(p, 'utf8'));
+    } catch (e) { return null; }
+  }
+  return null;
+};
+
+const formatTimeline = (emails, title) => {
+  if (!emails || emails.length === 0) return `No emails found for: ${title}`;
+  
+  let output = `[Timeline: ${title}]\n\n`;
+  emails.forEach((msg, idx) => {
+    const time = msg.date ? new Date(msg.date).toTimeString().substring(0, 5) : '--:--';
+    const from = truncate(msg.from, 20);
+    const sub = truncate(msg.subject, 40);
+    output += `  ${time}  ${pad(from, 20)}  ${sub} (#${idx + 1})\n`;
+  });
+  return output;
+};
+
+const emailToTable = (emails, title, context) => {
+  const termWidth = context.screen?.width || 80;
+  const availableWidth = Math.max(50, termWidth - 10);
+  
+  const wIdx = 4 + 1;
+  const wDate = 10 + 1;
+  const wFrom = Math.floor((availableWidth - wIdx - wDate) * 0.3) + 1;
+  const wSub = (availableWidth - wIdx - wDate - wFrom - 6) + 1;
+
+  let table = `${title}\n\n\`\`\`table\n`;
+  table += `┌${'─'.repeat(wIdx)}┬${'─'.repeat(wDate)}┬${'─'.repeat(wFrom)}┬${'─'.repeat(wSub)}┐\n`;
+  table += `│ ${pad('#', wIdx - 1)}│ ${pad('Date', wDate - 1)}│ ${pad('From', wFrom - 1)}│ ${pad('Subject', wSub - 1)}│\n`;
+  table += `├${'─'.repeat(wIdx)}┼${'─'.repeat(wDate)}┼${'─'.repeat(wFrom)}┼${'─'.repeat(wSub)}┤\n`;
+
+  emails.forEach((msg, idx) => {
+    const date = msg.date ? new Date(msg.date).toISOString().split('T')[0] : '????-??-??';
+    const from = msg.from || '(Unknown)';
+    const subject = msg.subject || '(No Subject)';
+    table += `│ ${pad(idx + 1, wIdx - 1)}│ ${pad(date, wDate - 1)}│ ${pad(truncate(from, wFrom - 1), wFrom - 1)}│ ${pad(truncate(subject, wSub - 1), wSub - 1)}│\n`;
+  });
+  table += `└${'─'.repeat(wIdx)}┴${'─'.repeat(wDate)}┴${'─'.repeat(wFrom)}┴${'─'.repeat(wSub)}┘\n\`\`\``;
+  return table;
+};
+
+// Map time ranges to start/end hours
+const TIME_MAPPING = {
+  morning: { start: 5, end: 12 },
+  afternoon: { start: 12, end: 17 },
+  evening: { start: 17, end: 21 },
+  night: { start: 21, end: 5 }
 };
 
 // Command handlers map
@@ -215,6 +283,9 @@ const commandHandlers = {
     if (!creds) return { success: false, message: 'Email credentials not configured in credentials.json' };
 
     const days = params.days || 3;
+    const sinceDate = new Date();
+    sinceDate.setDate(sinceDate.getDate() - days);
+
     const client = new ImapFlow({
       host: creds.host || 'imap.gmail.com',
       port: creds.port || 993,
@@ -225,52 +296,430 @@ const commandHandlers = {
 
     try {
       await client.connect();
-      const sinceDate = new Date();
-      sinceDate.setDate(sinceDate.getDate() - days);
-
       let lock = await client.getMailboxLock('INBOX');
       try {
-        let messages = await client.fetch({ since: sinceDate }, { envelope: true });
+        const messages = await client.fetch({ since: sinceDate }, { envelope: true });
+        const emails = [];
         lastMailList = []; 
 
-        const termWidth = context.screen?.width || 80;
-        const availableWidth = Math.max(50, termWidth - 10);
-        
-        // Col Widths (+1 added for breathing room)
-        const wIdx = 4 + 1;
-        const wDate = 10 + 1;
-        const wFrom = Math.floor((availableWidth - wIdx - wDate) * 0.3) + 1;
-        const wSub = (availableWidth - wIdx - wDate - wFrom - 6) + 1;
-
-        let table = `Recent Emails (last ${days} days):\n\n\`\`\`table\n`;
-        table += `┌${'─'.repeat(wIdx)}┬${'─'.repeat(wDate)}┬${'─'.repeat(wFrom)}┬${'─'.repeat(wSub)}┐\n`;
-        table += `│ ${pad('#', wIdx - 1)}│ ${pad('Date', wDate - 1)}│ ${pad('From', wFrom - 1)}│ ${pad('Subject', wSub - 1)}│\n`;
-        table += `├${'─'.repeat(wIdx)}┼${'─'.repeat(wDate)}┼${'─'.repeat(wFrom)}┼${'─'.repeat(wSub)}┤\n`;
-
-        let count = 0;
         for await (let msg of messages) {
-          count++;
+          emails.push({
+            uid: msg.uid,
+            date: msg.envelope.date,
+            from: msg.envelope.from[0].name || msg.envelope.from[0].address,
+            subject: msg.envelope.subject || '(No Subject)'
+          });
           lastMailList.push(msg.uid);
-          const date = msg.envelope.date.toISOString().split('T')[0];
-          const from = msg.envelope.from[0].name || msg.envelope.from[0].address;
-          const subject = msg.envelope.subject || '(No Subject)';
-          
-          table += `│ ${pad(count, wIdx - 1)}│ ${pad(date, wDate - 1)}│ ${pad(truncate(from, wFrom - 1), wFrom - 1)}│ ${pad(truncate(subject, wSub - 1), wSub - 1)}│\n`;
         }
 
-        if (count === 0) {
-          return { success: true, message: 'No recent emails found in the last 3 days.' };
+        if (emails.length === 0) {
+          return { success: true, message: `No recent emails found in the last ${days} days.` };
         }
 
-        table += `└${'─'.repeat(wIdx)}┴${'─'.repeat(wDate)}┴${'─'.repeat(wFrom)}┴${'─'.repeat(wSub)}┘\n\`\`\``;
-        table += `\nType "Read email #" to open.`;
-        
+        const table = emailToTable(emails, `Recent Emails (last ${days} days)`, context);
+        return { success: true, message: table + `\nType "Read email #" to open.` };
+      } finally {
+        lock.release();
+      }
+    } catch (err) {
+      return { success: false, message: `IMAP Error: ${err.message}` };
+    } finally {
+      await client.logout();
+    }
+  },
+
+  fetch_emails_by_date: async (params, context) => {
+    const creds = getEmailCredentials();
+    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+
+    const { from, to } = params;
+    const dateStr = from ? from.split('T')[0] : new Date().toISOString().split('T')[0];
+    
+    // Check Cache
+    const cached = getFromCache(dateStr);
+    if (cached && !params.refresh) {
+      lastMailList = cached.map(m => m.uid);
+      const table = emailToTable(cached, `Emails on ${dateStr} (Cached)`, context);
+      return { success: true, message: table };
+    }
+
+    const searchCriteria = { };
+    if (from) searchCriteria.since = new Date(from);
+    if (to) searchCriteria.before = new Date(to);
+
+    const client = new ImapFlow({
+      host: creds.host || 'imap.gmail.com',
+      port: creds.port || 993,
+      secure: true,
+      auth: { user: creds.user, pass: creds.pass },
+      logger: false
+    });
+
+    try {
+      await client.connect();
+      let lock = await client.getMailboxLock('INBOX');
+      try {
+        const messages = await client.fetch(searchCriteria, { envelope: true });
+        const emails = [];
+        lastMailList = [];
+
+        for await (let msg of messages) {
+          emails.push({
+            uid: msg.uid,
+            date: msg.envelope.date,
+            from: msg.envelope.from[0].name || msg.envelope.from[0].address,
+            subject: msg.envelope.subject || '(No Subject)'
+          });
+          lastMailList.push(msg.uid);
+        }
+
+        saveToCache(dateStr, emails);
+        const table = emailToTable(emails, `Emails on ${dateStr}`, context);
+        return { success: true, message: table + `\nType "Read email #" to open.` };
+      } finally {
+        lock.release();
+      }
+    } catch (err) {
+      return { success: false, message: `IMAP Error: ${err.message}` };
+    } finally {
+      await client.logout();
+    }
+  },
+
+  fetch_unread_by_date: async (params, context) => {
+    const creds = getEmailCredentials();
+    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+
+    const dateStr = params.date || new Date().toISOString().split('T')[0];
+    const since = new Date(dateStr);
+    const before = new Date(since);
+    before.setDate(before.getDate() + 1);
+
+    const client = new ImapFlow({
+      host: creds.host || 'imap.gmail.com',
+      port: creds.port || 993,
+      secure: true,
+      auth: { user: creds.user, pass: creds.pass },
+      logger: false
+    });
+
+    try {
+      await client.connect();
+      let lock = await client.getMailboxLock('INBOX');
+      try {
+        const messages = await client.fetch({ since, before, unseen: true }, { envelope: true });
+        const emails = [];
+        lastMailList = [];
+
+        for await (let msg of messages) {
+          emails.push({
+            uid: msg.uid,
+            date: msg.envelope.date,
+            from: msg.envelope.from[0].name || msg.envelope.from[0].address,
+            subject: msg.envelope.subject || '(No Subject)'
+          });
+          lastMailList.push(msg.uid);
+        }
+
+        if (emails.length === 0) return { success: true, message: `No unread emails found for ${dateStr}.` };
+
+        const table = emailToTable(emails, `Unread Emails on ${dateStr}`, context);
         return { success: true, message: table };
       } finally {
         lock.release();
       }
     } catch (err) {
       return { success: false, message: `IMAP Error: ${err.message}` };
+    } finally {
+      await client.logout();
+    }
+  },
+
+  fetch_emails_by_timerange: async (params, context) => {
+    const creds = getEmailCredentials();
+    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+
+    const { date, time_range } = params;
+    const dateStr = date || new Date().toISOString().split('T')[0];
+    const range = TIME_MAPPING[time_range] || TIME_MAPPING.morning;
+
+    const since = new Date(dateStr);
+    since.setHours(range.start, 0, 0, 0);
+    const before = new Date(dateStr);
+    before.setHours(range.end, 0, 0, 0);
+
+    const client = new ImapFlow({
+      host: creds.host || 'imap.gmail.com',
+      port: creds.port || 993,
+      secure: true,
+      auth: { user: creds.user, pass: creds.pass },
+      logger: false
+    });
+
+    try {
+      await client.connect();
+      let lock = await client.getMailboxLock('INBOX');
+      try {
+        const messages = await client.fetch({ since, before }, { envelope: true });
+        const emails = [];
+        lastMailList = [];
+
+        for await (let msg of messages) {
+          emails.push({
+            uid: msg.uid,
+            date: msg.envelope.date,
+            from: msg.envelope.from[0].name || msg.envelope.from[0].address,
+            subject: msg.envelope.subject || '(No Subject)'
+          });
+          lastMailList.push(msg.uid);
+        }
+
+        if (emails.length === 0) return { success: true, message: `No emails found for ${dateStr} ${time_range}.` };
+
+        const table = emailToTable(emails, `${time_range.toUpperCase()} Emails on ${dateStr}`, context);
+        return { success: true, message: table };
+      } finally {
+        lock.release();
+      }
+    } catch (err) {
+      return { success: false, message: `IMAP Error: ${err.message}` };
+    } finally {
+      await client.logout();
+    }
+  },
+
+  fetch_emails_by_filter: async (params, context) => {
+    const creds = getEmailCredentials();
+    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+
+    const { date, from_contains, subject_contains } = params;
+    const searchCriteria = {};
+    if (date) {
+      searchCriteria.since = new Date(date);
+      const before = new Date(date);
+      before.setDate(before.getDate() + 1);
+      searchCriteria.before = before;
+    }
+    if (from_contains) searchCriteria.from = from_contains;
+    if (subject_contains) searchCriteria.subject = subject_contains;
+
+    const client = new ImapFlow({
+      host: creds.host || 'imap.gmail.com',
+      port: creds.port || 993,
+      secure: true,
+      auth: { user: creds.user, pass: creds.pass },
+      logger: false
+    });
+
+    try {
+      await client.connect();
+      let lock = await client.getMailboxLock('INBOX');
+      try {
+        const messages = await client.fetch(searchCriteria, { envelope: true });
+        const emails = [];
+        lastMailList = [];
+
+        for await (let msg of messages) {
+          emails.push({
+            uid: msg.uid,
+            date: msg.envelope.date,
+            from: msg.envelope.from[0].name || msg.envelope.from[0].address,
+            subject: msg.envelope.subject || '(No Subject)'
+          });
+          lastMailList.push(msg.uid);
+        }
+
+        if (emails.length === 0) return { success: true, message: `No emails found matching filters.` };
+
+        const table = emailToTable(emails, `Search Results`, context);
+        return { success: true, message: table };
+      } finally {
+        lock.release();
+      }
+    } catch (err) {
+      return { success: false, message: `IMAP Error: ${err.message}` };
+    } finally {
+      await client.logout();
+    }
+  },
+
+  fetch_threads_by_sender: async (params, context) => {
+    const creds = getEmailCredentials();
+    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+
+    const { sender, date } = params;
+    const searchCriteria = { from: sender };
+    if (date) {
+      searchCriteria.since = new Date(date);
+      const before = new Date(date);
+      before.setDate(before.getDate() + 1);
+      searchCriteria.before = before;
+    }
+
+    const client = new ImapFlow({
+      host: creds.host || 'imap.gmail.com',
+      port: creds.port || 993,
+      secure: true,
+      auth: { user: creds.user, pass: creds.pass },
+      logger: false
+    });
+
+    try {
+      await client.connect();
+      let lock = await client.getMailboxLock('INBOX');
+      try {
+        // Fetch with headers for threading
+        const messages = await client.fetch(searchCriteria, { envelope: true, headers: ['Message-ID', 'In-Reply-To', 'References'] });
+        const emails = [];
+        lastMailList = [];
+
+        for await (let msg of messages) {
+          emails.push({
+            uid: msg.uid,
+            date: msg.envelope.date,
+            from: msg.envelope.from[0].name || msg.envelope.from[0].address,
+            subject: msg.envelope.subject || '(No Subject)',
+            messageId: msg.headers.get('message-id'),
+            inReplyTo: msg.headers.get('in-reply-to')
+          });
+          lastMailList.push(msg.uid);
+        }
+
+        if (emails.length === 0) return { success: true, message: `No emails found for thread analysis.` };
+
+        // Simple threading logic: find responses to the same subject or messageId
+        let output = `[Threads with ${sender}]\n\n`;
+        const groups = {};
+        emails.forEach(m => {
+          const key = m.subject.replace(/^Re:\s*/i, '');
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(m);
+        });
+
+        Object.entries(groups).forEach(([sub, list]) => {
+          output += ` ◈ ${sub}\n`;
+          list.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(m => {
+            const time = new Date(m.date).toLocaleString();
+            output += `   └─ ${time} : ${m.from}\n`;
+          });
+          output += `\n`;
+        });
+
+        return { success: true, message: output };
+      } finally {
+        lock.release();
+      }
+    } catch (err) {
+      return { success: false, message: `IMAP Error: ${err.message}` };
+    } finally {
+      await client.logout();
+    }
+  },
+
+  export_emails_by_date: async (params, context) => {
+    const creds = getEmailCredentials();
+    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+
+    const dateStr = params.date || new Date().toISOString().split('T')[0];
+    const since = new Date(dateStr);
+    const before = new Date(since);
+    before.setDate(before.getDate() + 1);
+
+    const client = new ImapFlow({
+      host: creds.host || 'imap.gmail.com',
+      port: creds.port || 993,
+      secure: true,
+      auth: { user: creds.user, pass: creds.pass },
+      logger: false
+    });
+
+    try {
+      await client.connect();
+      let lock = await client.getMailboxLock('INBOX');
+      try {
+        const messages = await client.fetch({ since, before }, { envelope: true });
+        let content = `# Emails for ${dateStr}\n\n`;
+        let count = 0;
+
+        for await (let msg of messages) {
+          count++;
+          const date = msg.envelope.date.toLocaleString();
+          const from = msg.envelope.from[0].name || msg.envelope.from[0].address;
+          const subject = msg.envelope.subject || '(No Subject)';
+          content += `## ${count}. ${subject}\n- **From**: ${from}\n- **Date**: ${date}\n\n---\n\n`;
+        }
+
+        if (count === 0) return { success: true, message: `No emails to export for ${dateStr}.` };
+
+        const ext = params.format === 'txt' ? 'txt' : 'md';
+        const fileName = `${dateStr}-emails.${ext}`;
+        const filePath = path.join(EXPORT_DIR, fileName);
+        fs.writeFileSync(filePath, content);
+
+        return { success: true, message: `Exported ${count} emails to ${filePath}` };
+      } finally {
+        lock.release();
+      }
+    } catch (err) {
+      return { success: false, message: `IMAP Error: ${err.message}` };
+    } finally {
+      await client.logout();
+    }
+  },
+
+  summarize_emails_by_date: async (params, context) => {
+    const creds = getEmailCredentials();
+    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+
+    const dateStr = params.date || new Date().toISOString().split('T')[0];
+    const since = new Date(dateStr);
+    const before = new Date(since);
+    before.setDate(before.getDate() + 1);
+
+    const client = new ImapFlow({
+      host: creds.host || 'imap.gmail.com',
+      port: creds.port || 993,
+      secure: true,
+      auth: { user: creds.user, pass: creds.pass },
+      logger: false
+    });
+
+    try {
+      await client.connect();
+      let lock = await client.getMailboxLock('INBOX');
+      try {
+        const messages = await client.fetch({ since, before }, { source: true, envelope: true });
+        let combinedText = `Email Summary for ${dateStr}:\n\n`;
+        let count = 0;
+
+        for await (let msg of messages) {
+          count++;
+          const parsed = await simpleParser(msg.source);
+          let body = parsed.text || '';
+          if (!body && parsed.html) body = convert(parsed.html);
+          
+          combinedText += `--- Email ${count} ---\n`;
+          combinedText += `From: ${msg.envelope.from[0].address}\n`;
+          combinedText += `Subject: ${msg.envelope.subject}\n`;
+          combinedText += `Body: ${truncate(body, 500)}\n\n`;
+          
+          if (count >= 10) break; // Limit to first 10 for context length safety
+        }
+
+        if (count === 0) return { success: true, message: `No emails found to summarize for ${dateStr}.` };
+
+        const config = getHeebaConfig();
+        const prompt = `Please summarize the following ${count} emails into categories like: Important, Promotional, Alerts, Personal. Provide a concise bulleted list for each category.\n\n${combinedText}`;
+        
+        // We use queryOllama directly, bypassing the usual session history
+        const summary = await queryOllama(prompt, 'manual', config, null);
+        
+        return { success: true, message: `### Daily Summary: ${dateStr}\n\n${summary}` };
+      } finally {
+        lock.release();
+      }
+    } catch (err) {
+      return { success: false, message: `Summarization Error: ${err.message}` };
     } finally {
       await client.logout();
     }

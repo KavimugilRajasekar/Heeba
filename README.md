@@ -45,6 +45,13 @@ Built with the `blessed` library, Heeba offers a feature-rich CLI experience:
 ### 4. Intent Routing & Structured Commands
 Heeba automatically detects user intent (e.g., code generation, debugging, profile updates) and translates requests into structured JSON commands for backend execution.
 
+### 5. Email Integration
+Heeba connects to your inbox via IMAP and sends mail via SMTP.
+- **Fetch & Read**: List recent emails and read full contents with HTML-to-text conversion.
+- **Attachments**: Send emails with local file attachments directly from the terminal.
+- **Contextual Aliases**: Intelligently resolves "reception" or other aliases mentioned in the conversation.
+- See [EmailService.md](./EmailService.md) for detailed configuration.
+
 ---
 
 ## ◈ Getting Started
