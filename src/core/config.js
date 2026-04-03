@@ -18,7 +18,7 @@ function loadCredentials() {
     return null;
 }
 
-// Get available virtual models from credentials
+// Get available virtual models from credentials (legacy)
 function getVirtualModels() {
     const credentials = loadCredentials();
     if (!credentials || !credentials.ollama || !credentials.ollama.models) {
@@ -27,15 +27,11 @@ function getVirtualModels() {
     return credentials.ollama.models.map(m => m.virtual_name);
 }
 
-// CONFIG logic
-function getAvailableModels() {
-    const localModels = fs.existsSync(MODELS_DIR)
-        ? fs.readdirSync(MODELS_DIR).filter(f => f.endsWith('.gguf') || f.endsWith('.bin')).map(f => f)
-        : [];
+// CONFIG logic - now uses model-registry for dynamic discovery
+const { getAllModels } = require('./model-registry');
 
-    // Combine local models and virtual models (label virtual ones)
-    const virtualModels = getVirtualModels().map(m => `${m} (Online)`);
-    return [...localModels, ...virtualModels];
+function getAvailableModels() {
+    return getAllModels();
 }
 
 const availableModels = getAvailableModels();

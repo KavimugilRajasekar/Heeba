@@ -7,6 +7,9 @@ const { ImapFlow } = require('imapflow');
 const nodemailer = require('nodemailer');
 const { simpleParser } = require('mailparser');
 const { convert } = require('html-to-text');
+const { getEmailAccount } = require('./email-accounts');
+const { addOnlineModel, deleteOnlineModel } = require('./model-registry');
+const { deletePage } = require('./state-manager');
 
 // pkg-compatible base path
 const BASE_PATH = process.pkg
@@ -23,21 +26,6 @@ let lastMailList = []; // Array of UIDs from last fetch_emails
 // Ensure directories exist
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 if (!fs.existsSync(EXPORT_DIR)) fs.mkdirSync(EXPORT_DIR, { recursive: true });
-
-const getEmailCredentials = () => {
-  try {
-    if (fs.existsSync(CREDENTIALS_PATH)) {
-      const creds = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
-      // Handle both object format: { email: { user, pass, ... } }
-      // and array format: { email: [{ user, pass, ... }] }
-      if (Array.isArray(creds.email)) {
-        return creds.email[0] || null;
-      }
-      return creds.email;
-    }
-  } catch (err) { }
-  return null;
-};
 
 const truncate = (str, len) => {
   if (!str) return '';
@@ -269,11 +257,11 @@ const commandHandlers = {
       return { success: false, message: `Connection test failed: ${test.message}` };
     }
 
-    // Step 2: Load and update credentials.json
+    // Step 2: Add to credentials.json (legacy support)
     try {
       const credPath = CREDENTIALS_PATH;
       let credentials = { ollama: { api_key, endpoint, models: [] } };
-      
+
       if (fs.existsSync(credPath)) {
         credentials = JSON.parse(fs.readFileSync(credPath, 'utf8'));
       }
@@ -293,19 +281,90 @@ const commandHandlers = {
     }
   },
 
+  add_online_model: async (params) => {
+    const { id, type, base_url, api_key, model } = params;
+
+    if (!id || !type || !base_url || !api_key || !model) {
+      return { success: false, message: 'Missing required fields: id, type, base_url, api_key, model' };
+    }
+
+    // Test connection
+    const test = await testOllamaConnection(api_key, base_url, model);
+    if (!test.success) {
+      return { success: false, message: `Connection test failed: ${test.message}` };
+    }
+
+    addOnlineModel({ id, type, base_url, api_key, model });
+    return { success: true, message: `Online model "${id}" added successfully!` };
+  },
+
+  delete_page: async (params, context) => {
+    const { scope } = params;
+    const deleteScope = scope || 'current';
+
+    if (!context.currentSession || !context.currentPage) {
+      return { success: false, message: 'No active page to delete.' };
+    }
+
+    const session = context.currentSession;
+    const pageId = context.currentPage.id;
+
+    // Cannot delete root page
+    if (session.rootPageId === pageId) {
+      return { success: false, message: 'Cannot delete the root page of a session. Delete the session instead.' };
+    }
+
+    const newCurrentPageId = context.currentPage.parentId;
+    deletePage(session, pageId, deleteScope);
+
+    // Navigate to parent
+    if (typeof context.onPageDeleted === 'function') {
+      context.onPageDeleted(newCurrentPageId);
+    }
+
+    return { success: true, message: `Page deleted${deleteScope === 'branch' ? ' with branch' : ''}.` };
+  },
+
+  add_email_account: async (params) => {
+    const { id, email, app_password, imap_host, smtp_host } = params;
+
+    if (!email || !app_password) {
+      return { success: false, message: 'Missing required fields: email, app_password' };
+    }
+
+    const { addEmailAccount, testEmailAccount } = require('./email-accounts');
+
+    const account = {
+      id: id || `account_${Date.now()}`,
+      email,
+      app_password,
+      imap_host: imap_host || 'imap.gmail.com',
+      smtp_host: smtp_host || 'smtp.gmail.com'
+    };
+
+    // Test connection
+    const test = await testEmailAccount(account);
+    if (!test.success) {
+      return { success: false, message: `Connection test failed: ${test.message}` };
+    }
+
+    addEmailAccount(account);
+    return { success: true, message: `Email account "${email}" added successfully!` };
+  },
+
   fetch_emails: async (params, context) => {
-    const creds = getEmailCredentials();
-    if (!creds) return { success: false, message: 'Email credentials not configured in credentials.json' };
+    const account = getEmailAccount(params.account_id);
+    if (!account) return { success: false, message: 'Email credentials not configured in credentials.json' };
 
     const days = params.days || 3;
     const sinceDate = new Date();
     sinceDate.setDate(sinceDate.getDate() - days);
 
     const client = new ImapFlow({
-      host: creds.host || 'imap.gmail.com',
-      port: creds.port || 993,
+      host: account.imap_host || account.host || 'imap.gmail.com',
+      port: account.port || 993,
       secure: true,
-      auth: { user: creds.user, pass: creds.pass },
+      auth: { user: account.email, pass: account.app_password || account.pass },
       logger: false
     });
 
@@ -344,12 +403,12 @@ const commandHandlers = {
   },
 
   fetch_emails_by_date: async (params, context) => {
-    const creds = getEmailCredentials();
-    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+    const account = getEmailAccount(params.account_id);
+    if (!account) return { success: false, message: 'Email credentials not configured.' };
 
     const { from, to } = params;
     const dateStr = from ? from.split('T')[0] : new Date().toISOString().split('T')[0];
-    
+
     // Check Cache
     const cached = getFromCache(dateStr);
     if (cached && !params.refresh) {
@@ -363,10 +422,10 @@ const commandHandlers = {
     if (to) searchCriteria.before = new Date(to);
 
     const client = new ImapFlow({
-      host: creds.host || 'imap.gmail.com',
-      port: creds.port || 993,
+      host: account.imap_host || account.host || 'imap.gmail.com',
+      port: account.port || 993,
       secure: true,
-      auth: { user: creds.user, pass: creds.pass },
+      auth: { user: account.email, pass: account.app_password || account.pass },
       logger: false
     });
 
@@ -402,8 +461,8 @@ const commandHandlers = {
   },
 
   fetch_unread_by_date: async (params, context) => {
-    const creds = getEmailCredentials();
-    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+    const account = getEmailAccount(params.account_id);
+    if (!account) return { success: false, message: 'Email credentials not configured.' };
 
     const dateStr = params.date || new Date().toISOString().split('T')[0];
     const since = new Date(dateStr);
@@ -411,10 +470,10 @@ const commandHandlers = {
     before.setDate(before.getDate() + 1);
 
     const client = new ImapFlow({
-      host: creds.host || 'imap.gmail.com',
-      port: creds.port || 993,
+      host: account.imap_host || account.host || 'imap.gmail.com',
+      port: account.port || 993,
       secure: true,
-      auth: { user: creds.user, pass: creds.pass },
+      auth: { user: account.email, pass: account.app_password || account.pass },
       logger: false
     });
 
@@ -925,7 +984,7 @@ async function executeCommand(command, context) {
     return { success: false, message: `Unknown action: ${command.action}` };
   }
 
-  return await handler(command.parameters || {}, context);
+  return await handler(command.payload || command.parameters || {}, context);
 }
 
 // Main entry: process LLM response and check for commands

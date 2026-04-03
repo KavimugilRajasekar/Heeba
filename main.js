@@ -4,7 +4,7 @@ const blessed = require('blessed');
 const logger = require('./src/utils/logger');
 
 // Modules
-const { state, estimateTokens, getPathToPage } = require('./src/core/state-manager');
+const { state, estimateTokens, getPathToPage, deletePage } = require('./src/core/state-manager');
 const { DEFAULT_CONFIG, getAvailableModels } = require('./src/core/config');
 const { loadHeebaConfig } = require('./src/core/config-loader');
 const { initScreen, createUI } = require('./src/ui/components');
@@ -48,7 +48,24 @@ async function processCommand(input) {
   const trimmed = input.trim().toLowerCase();
   if (!trimmed) return '';
 
-  if (trimmed === 'models') { openModelSelection(UI); return ''; }
+  if (trimmed === 'models' || trimmed === '[models]') { openModelSelection(UI); return ''; }
+
+  if (trimmed === '[exit]') { cleanupAndExit(); return ''; }
+
+  if (trimmed === '[delete page]') {
+    const session = (state.currentSessionIndex >= 0 && state.currentSessionIndex < state.sessions.length) 
+        ? state.sessions[state.currentSessionIndex] : null;
+    if (!session || !state.currentPageId) return 'No page to delete.';
+    if (session.rootPageId === state.currentPageId) return 'Cannot delete the root page of a session.';
+
+    const parentId = session.pages[state.currentPageId]?.parentId;
+    deletePage(session, state.currentPageId, 'branch');
+    state.currentPageId = parentId;
+    state.userScrolledUp = false;
+    renderActivePage(UI, screen, state);
+    return '';
+  }
+
 
   if (trimmed.startsWith('model ')) {
     const models = getAvailableModels();
@@ -59,11 +76,19 @@ async function processCommand(input) {
     if (!isNaN(num) && num > 0 && num <= models.length) newModel = models[num - 1];
     else newModel = models.find(m => m.toLowerCase() === sel.toLowerCase());
 
+    if (!newModel) {
+      // Try matching without suffix
+      newModel = models.find(m => {
+        const clean = m.split('(')[0].trim().toLowerCase();
+        return clean === sel.toLowerCase();
+      });
+    }
+
     if (newModel) {
-      state.CONFIG.model = newModel;
+      state.CONFIG.model = newModel.split('(')[0].trim();
       clearConversationHistory();
       updateWelcomeCard(UI, screen, state);
-      return `Model set to: ${newModel}`;
+      return `Model set to: ${state.CONFIG.model}`;
     }
     return `Model not found: ${sel}`;
   }
@@ -163,6 +188,12 @@ async function processCommand(input) {
         onSessionDeleted: () => {
           if (state.currentSessionIndex >= 0 && state.currentSessionIndex < state.sessions.length) state.sessions.splice(state.currentSessionIndex, 1);
           state.currentSessionIndex = -1; state.currentPageId = null; state.userScrolledUp = false;
+          renderActivePage(UI, screen, state);
+          setTimeout(() => { UI.inputBox.focus(); }, 30);
+        },
+        onPageDeleted: (newCurrentPageId) => {
+          state.currentPageId = newCurrentPageId;
+          state.userScrolledUp = false;
           renderActivePage(UI, screen, state);
           setTimeout(() => { UI.inputBox.focus(); }, 30);
         }

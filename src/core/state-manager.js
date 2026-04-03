@@ -57,11 +57,68 @@ const findLeafId = (session, pageId) => {
   return currId;
 };
 
+// Delete a page (and optionally its branch)
+const deletePage = (session, pageId, scope = 'current') => {
+  if (!session || !pageId || !session.pages[pageId]) return false;
+
+  const page = session.pages[pageId];
+
+  if (scope === 'branch') {
+    // Recursively collect all descendant IDs
+    const toDelete = [];
+    const collectDescendants = (id) => {
+      toDelete.push(id);
+      const children = session.pages[id]?.children || [];
+      children.forEach(collectDescendants);
+    };
+    collectDescendants(pageId);
+
+    // Remove from parent's children
+    if (page.parentId && session.pages[page.parentId]) {
+      session.pages[page.parentId].children =
+        session.pages[page.parentId].children.filter(cid => cid !== pageId);
+    }
+
+    // Delete all pages in branch
+    toDelete.forEach(id => delete session.pages[id]);
+  } else {
+    // Delete only current page, promote children to parent
+    const parentId = page.parentId;
+
+    if (parentId && session.pages[parentId]) {
+      // Remove this page from parent's children
+      session.pages[parentId].children =
+        session.pages[parentId].children.filter(cid => cid !== pageId);
+
+      // Add current page's children to parent
+      page.children.forEach(childId => {
+        if (session.pages[childId]) {
+          session.pages[childId].parentId = parentId;
+          session.pages[parentId].children.push(childId);
+        }
+      });
+    }
+
+    delete session.pages[pageId];
+  }
+
+  return true;
+};
+
+// Get the parent page ID after deletion (for navigation)
+const getParentAfterDelete = (session, pageId) => {
+  if (!session || !pageId) return null;
+  const page = session.pages[pageId];
+  return page?.parentId || null;
+};
+
 module.exports = {
   state,
   getPathToPage,
   getBrotherPages,
   estimateTokens,
   calculatePathTokens,
-  findLeafId
+  findLeafId,
+  deletePage,
+  getParentAfterDelete
 };

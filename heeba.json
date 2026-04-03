@@ -38,6 +38,9 @@
       "access_sensitive_information"
     ]
   },
+  "online_models": [],
+  "email_accounts": [],
+  "default_email_account": null,
   "intent_routing_rules": {
     "greeting": {
       "patterns": [
@@ -434,6 +437,71 @@
           "date": "{YYYY-MM-DD}"
         }
       }
+    },
+    "add_online_model": {
+      "patterns": [
+        "add online model",
+        "add model provider",
+        "register new model",
+        "add openrouter",
+        "add api model",
+        "add model",
+        "add ollama model"
+      ],
+      "action": "add_online_model",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "add_online_model",
+        "parameters": {
+          "id": "{unique_model_id}",
+          "type": "{ollama|openrouter|openai}",
+          "base_url": "{api_endpoint_url}",
+          "api_key": "{api_key}",
+          "model": "{model_name}"
+        }
+      }
+    },
+    "add_email_account": {
+      "patterns": [
+        "add email account",
+        "add new email",
+        "configure email account",
+        "add mail account",
+        "use this mail",
+        "store this email",
+        "add this mail",
+        "use this mail for fetch"
+      ],
+      "action": "add_email_account",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "add_email_account",
+        "parameters": {
+          "id": "{account_id}",
+          "email": "{email_address}",
+          "app_password": "{app_password}",
+          "imap_host": "{imap_host}",
+          "smtp_host": "{smtp_host}"
+        }
+      }
+    },
+    "delete_page": {
+      "patterns": [
+        "delete this page",
+        "delete current page",
+        "delete this turn",
+        "remove this page",
+        "delete branch",
+        "delete this branch"
+      ],
+      "action": "delete_page",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "delete_page",
+        "parameters": {
+          "scope": "{current|branch}"
+        }
+      }
     }
   },
   "system_rules": [
@@ -460,7 +528,12 @@
     "RECEPTION ALIAS: If the user refers to 'reception', use the email address they explicitly mentioned earlier in the conversation. If no email was mentioned for reception, use 'reception' as the recipient and the backend will handle it if configured.",
     "When user asks to read, open, or view a specific email (e.g. 'read the first email' or 'open #2'), output a JSON structured command with action read_email and parameter index set to the number the user specified",
     "INTENT DISAMBIGUATION: If the user asks to open an email using a description (e.g., sender name, subject keyword) rather than a number, you MUST search the previously fetched email list in the conversation history for a match. Once found, use the corresponding index number in the read_email command.",
-    "INTENT FILTERING: For advanced email fetching, provide ISO dates and specific filters: morning (05:00-12:00), afternoon (12:00-17:00), evening (17:00-21:00), night (21:00-05:00). If the user asks 'What did I miss yesterday?', use fetch_unread_by_date with yesterday's ISO date. If the user asks to 'summarize' or 'export', use the corresponding action with the target date."
+    "When user wants to add an online model (e.g. 'add openrouter model'), output a JSON command with action add_online_model and parameters: id (unique name), type (ollama/openrouter/openai), base_url, api_key, and model",
+    "When user wants to add an email account, output a JSON command with action add_email_account and parameters: id, email, app_password (not regular password), imap_host, smtp_host",
+    "When user asks to delete the current page or branch (e.g. 'delete this page' or 'delete branch'), output a JSON command with action delete_page and scope set to 'current' or 'branch'",
+    "INTENT FILTERING: For advanced email fetching, provide ISO dates and specific filters: morning (05:00-12:00), afternoon (12:00-17:00), evening (17:00-21:00), night (21:00-05:00). If the user asks 'What did I miss yesterday?', use fetch_unread_by_date with yesterday's ISO date. If the user asks to 'summarize' or 'export', use the corresponding action with the target date.",
+    "HEEBA CORE RULE: Never hardcode models. All models (local GGUF and online) must be discovered dynamically at runtime via getAvailableModels(). Local models are scanned from engine/models/, online models come from heeba.json online_models array.",
+    "USER ADVICE: If a user wants to register or use an online model but you lack the credentials, ADVISE the user to provide the exact 'BaseUrl', 'API Key', 'Model ID', and 'Type' (e.g. OpenRouter, Ollama) so you can add them to heeba.json or credentials.json automatically."
   ],
   "output_format": {
     "conversational": {
