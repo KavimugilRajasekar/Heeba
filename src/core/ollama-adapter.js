@@ -18,7 +18,7 @@ function loadOllamaCredentials() {
     return null;
 }
 
-function queryOllama(userInput, mode, CONFIG, onToken) {
+function queryOllama(userInput, mode, CONFIG, onToken, history = []) {
     return new Promise((resolve, reject) => {
         if (isLLMRunning) {
             reject(new Error('LLM is already busy'));
@@ -42,9 +42,11 @@ function queryOllama(userInput, mode, CONFIG, onToken) {
         const systemPrompt = buildSystemPrompt(mode);
         let fullPrompt;
 
-        if (mode === 'auto' && conversationHistory.length > 0) {
-            let history = conversationHistory.map(e => `USER: ${e.user}\nASST: ${e.assistant}`).join('\n');
-            fullPrompt = `${systemPrompt}\n\n${history}\n\nUSER: ${userInput}\nASST:`;
+        const effectiveHistory = (history && history.length > 0) ? history : conversationHistory;
+
+        if (mode === 'auto' && effectiveHistory.length > 0) {
+            let historyText = effectiveHistory.map(e => `USER: ${e.user || e.prompt}\nASST: ${e.assistant || e.response}`).join('\n');
+            fullPrompt = `${systemPrompt}\n\n${historyText}\n\nUSER: ${userInput}\nASST:`;
         } else {
             fullPrompt = `${systemPrompt}\n\nUSER: ${userInput}\nASST:`;
         }

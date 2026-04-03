@@ -30,6 +30,32 @@ const sessionHandlers = {
 
     if (typeof context.onSessionDeleted === 'function') context.onSessionDeleted();
     return { success: true, message: 'Session deleted.' };
+  },
+
+  delete_page: async (params, context) => {
+    const { scope } = params;
+    const deleteScope = scope || 'current';
+
+    if (!context.currentSession || !context.currentPage) {
+      return { success: false, message: 'No active page to delete.' };
+    }
+
+    const session = context.currentSession;
+    const pageId = context.currentPage.id;
+
+    if (session.rootPageId === pageId) {
+      return { success: false, message: 'Cannot delete the root page of a session. Delete the session instead.' };
+    }
+
+    const newCurrentPageId = context.currentPage.parentId;
+    const { deletePage } = require('../state-manager');
+    deletePage(session, pageId, deleteScope);
+
+    if (typeof context.onPageDeleted === 'function') {
+      context.onPageDeleted(newCurrentPageId);
+    }
+
+    return { success: true, message: `Page deleted${deleteScope === 'branch' ? ' with branch' : ''}.` };
   }
 };
 

@@ -6,6 +6,7 @@ const { simpleParser } = require('mailparser');
 const { convert } = require('html-to-text');
 const { getHeebaConfig } = require('../config-loader');
 const { queryOllama } = require('../ollama-adapter');
+const { getEmailAccount } = require('../email-accounts');
 const { CACHE_DIR, EXPORT_DIR, CREDENTIALS_PATH } = require('../../utils/paths');
 
 let lastMailList = []; // Array of UIDs from last fetch_emails
@@ -14,20 +15,7 @@ let lastMailList = []; // Array of UIDs from last fetch_emails
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 if (!fs.existsSync(EXPORT_DIR)) fs.mkdirSync(EXPORT_DIR, { recursive: true });
 
-const getEmailCredentials = () => {
-  try {
-    if (fs.existsSync(CREDENTIALS_PATH)) {
-      const creds = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
-      // Handle both object format: { email: { user, pass, ... } }
-      // and array format: { email: [{ user, pass, ... }] }
-      if (Array.isArray(creds.email)) {
-        return creds.email[0] || null;
-      }
-      return creds.email;
-    }
-  } catch (err) { }
-  return null;
-};
+
 
 const truncate = (str, len) => {
   if (!str) return '';
@@ -88,18 +76,18 @@ const emailToTable = (emails, title, context) => {
 // Commmand Implementations
 const emailHandlers = {
   fetch_emails: async (params, context) => {
-    const creds = getEmailCredentials();
-    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+    const account = getEmailAccount(params.account_id);
+    if (!account) return { success: false, message: 'Email credentials not configured.' };
 
     const days = params.days || 3;
     const sinceDate = new Date();
     sinceDate.setDate(sinceDate.getDate() - days);
 
     const client = new ImapFlow({
-      host: creds.host || 'imap.gmail.com',
-      port: creds.port || 993,
+      host: account.imap_host || account.host || 'imap.gmail.com',
+      port: account.port || 993,
       secure: true,
-      auth: { user: creds.user, pass: creds.pass },
+      auth: { user: account.email, pass: account.app_password || account.pass },
       logger: false
     });
 
@@ -129,8 +117,8 @@ const emailHandlers = {
   },
 
   fetch_emails_by_date: async (params, context) => {
-    const creds = getEmailCredentials();
-    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+    const account = getEmailAccount(params.account_id);
+    if (!account) return { success: false, message: 'Email credentials not configured.' };
 
     const { from, to } = params;
     const dateStr = from ? from.split('T')[0] : new Date().toISOString().split('T')[0];
@@ -146,8 +134,8 @@ const emailHandlers = {
     if (to) searchCriteria.before = new Date(to);
 
     const client = new ImapFlow({
-      host: creds.host || 'imap.gmail.com', port: creds.port || 993, secure: true,
-      auth: { user: creds.user, pass: creds.pass }, logger: false
+      host: account.imap_host || account.host || 'imap.gmail.com', port: account.port || 993, secure: true,
+      auth: { user: account.email, pass: account.app_password || account.pass }, logger: false
     });
 
     try {
@@ -169,8 +157,8 @@ const emailHandlers = {
   },
 
   fetch_unread_by_date: async (params, context) => {
-    const creds = getEmailCredentials();
-    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+    const account = getEmailAccount(params.account_id);
+    if (!account) return { success: false, message: 'Email credentials not configured.' };
 
     const dateStr = params.date || new Date().toISOString().split('T')[0];
     const since = new Date(dateStr);
@@ -178,8 +166,8 @@ const emailHandlers = {
     before.setDate(before.getDate() + 1);
 
     const client = new ImapFlow({
-      host: creds.host || 'imap.gmail.com', port: creds.port || 993, secure: true,
-      auth: { user: creds.user, pass: creds.pass }, logger: false
+      host: account.imap_host || account.host || 'imap.gmail.com', port: account.port || 993, secure: true,
+      auth: { user: account.email, pass: account.app_password || account.pass }, logger: false
     });
 
     try {
@@ -201,8 +189,8 @@ const emailHandlers = {
   },
 
   fetch_emails_by_timerange: async (params, context) => {
-    const creds = getEmailCredentials();
-    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+    const account = getEmailAccount(params.account_id);
+    if (!account) return { success: false, message: 'Email credentials not configured.' };
 
     const { date, time_range } = params;
     const dateStr = date || new Date().toISOString().split('T')[0];
@@ -218,8 +206,8 @@ const emailHandlers = {
     const before = new Date(dateStr); before.setHours(range.end, 0, 0, 0);
 
     const client = new ImapFlow({
-      host: creds.host || 'imap.gmail.com', port: creds.port || 993, secure: true,
-      auth: { user: creds.user, pass: creds.pass }, logger: false
+      host: account.imap_host || account.host || 'imap.gmail.com', port: account.port || 993, secure: true,
+      auth: { user: account.email, pass: account.app_password || account.pass }, logger: false
     });
 
     try {
@@ -240,8 +228,8 @@ const emailHandlers = {
   },
 
   fetch_emails_by_filter: async (params, context) => {
-    const creds = getEmailCredentials();
-    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+    const account = getEmailAccount(params.account_id);
+    if (!account) return { success: false, message: 'Email credentials not configured.' };
 
     const { date, from_contains, subject_contains } = params;
     const searchCriteria = {};
@@ -254,8 +242,8 @@ const emailHandlers = {
     if (subject_contains) searchCriteria.subject = subject_contains;
 
     const client = new ImapFlow({
-      host: creds.host || 'imap.gmail.com', port: creds.port || 993, secure: true,
-      auth: { user: creds.user, pass: creds.pass }, logger: false
+      host: account.imap_host || account.host || 'imap.gmail.com', port: account.port || 993, secure: true,
+      auth: { user: account.email, pass: account.app_password || account.pass }, logger: false
     });
 
     try {
@@ -276,8 +264,8 @@ const emailHandlers = {
   },
 
   fetch_threads_by_sender: async (params, context) => {
-    const creds = getEmailCredentials();
-    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+    const account = getEmailAccount(params.account_id);
+    if (!account) return { success: false, message: 'Email credentials not configured.' };
 
     const { sender, date } = params;
     const searchCriteria = { from: sender };
@@ -288,8 +276,8 @@ const emailHandlers = {
     }
 
     const client = new ImapFlow({
-      host: creds.host || 'imap.gmail.com', port: creds.port || 993, secure: true,
-      auth: { user: creds.user, pass: creds.pass }, logger: false
+      host: account.imap_host || account.host || 'imap.gmail.com', port: account.port || 993, secure: true,
+      auth: { user: account.email, pass: account.app_password || account.pass }, logger: false
     });
 
     try {
@@ -334,16 +322,16 @@ const emailHandlers = {
   },
 
   export_emails_by_date: async (params, context) => {
-    const creds = getEmailCredentials();
-    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+    const account = getEmailAccount(params.account_id);
+    if (!account) return { success: false, message: 'Email credentials not configured.' };
 
     const dateStr = params.date || new Date().toISOString().split('T')[0];
     const since = new Date(dateStr);
     const before = new Date(since); before.setDate(before.getDate() + 1);
 
     const client = new ImapFlow({
-      host: creds.host || 'imap.gmail.com', port: creds.port || 993, secure: true,
-      auth: { user: creds.user, pass: creds.pass }, logger: false
+      host: account.imap_host || account.host || 'imap.gmail.com', port: account.port || 993, secure: true,
+      auth: { user: account.email, pass: account.app_password || account.pass }, logger: false
     });
 
     try {
@@ -371,16 +359,16 @@ const emailHandlers = {
   },
 
   summarize_emails_by_date: async (params, context) => {
-    const creds = getEmailCredentials();
-    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+    const account = getEmailAccount(params.account_id);
+    if (!account) return { success: false, message: 'Email credentials not configured.' };
 
     const dateStr = params.date || new Date().toISOString().split('T')[0];
     const since = new Date(dateStr);
     const before = new Date(since); before.setDate(before.getDate() + 1);
 
     const client = new ImapFlow({
-      host: creds.host || 'imap.gmail.com', port: creds.port || 993, secure: true,
-      auth: { user: creds.user, pass: creds.pass }, logger: false
+      host: account.imap_host || account.host || 'imap.gmail.com', port: account.port || 993, secure: true,
+      auth: { user: account.email, pass: account.app_password || account.pass }, logger: false
     });
 
     try {
@@ -409,8 +397,8 @@ const emailHandlers = {
   },
 
   read_email: async (params, context) => {
-    const creds = getEmailCredentials();
-    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+    const account = getEmailAccount(params.account_id);
+    if (!account) return { success: false, message: 'Email credentials not configured.' };
 
     let uid = params.uid;
     const index = parseInt(params.index);
@@ -420,8 +408,8 @@ const emailHandlers = {
     if (!uid) return { success: false, message: 'Invalid email index or UID.' };
 
     const client = new ImapFlow({
-      host: creds.host || 'imap.gmail.com', port: creds.port || 993, secure: true,
-      auth: { user: creds.user, pass: creds.pass }, logger: false
+      host: account.imap_host || account.host || 'imap.gmail.com', port: account.port || 993, secure: true,
+      auth: { user: account.email, pass: account.app_password || account.pass }, logger: false
     });
 
     try {
