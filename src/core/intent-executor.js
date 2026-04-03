@@ -221,7 +221,7 @@ const commandHandlers = {
         const wFrom = Math.floor((availableWidth - wIdx - wDate) * 0.3) + 1;
         const wSub = (availableWidth - wIdx - wDate - wFrom - 6) + 1;
 
-        let table = `Recent Emails (last ${days} days):\n\n\`\`\`\n`;
+        let table = `Recent Emails (last ${days} days):\n\n\`\`\`table\n`;
         table += `┌${'─'.repeat(wIdx)}┬${'─'.repeat(wDate)}┬${'─'.repeat(wFrom)}┬${'─'.repeat(wSub)}┐\n`;
         table += `│ ${pad('#', wIdx - 1)}│ ${pad('Date', wDate - 1)}│ ${pad('From', wFrom - 1)}│ ${pad('Subject', wSub - 1)}│\n`;
         table += `├${'─'.repeat(wIdx)}┼${'─'.repeat(wDate)}┼${'─'.repeat(wFrom)}┼${'─'.repeat(wSub)}┤\n`;
@@ -306,7 +306,7 @@ const commandHandlers = {
         const wMeta = 12 + 1; // +1 for breathing room
         const wVal = availableWidth - wMeta - 3 + 1;
 
-        let output = `\`\`\`\n`;
+        let output = `\`\`\`table\n`;
         output += `┌${'─'.repeat(wMeta)}┬${'─'.repeat(wVal)}┐\n`;
         output += `│ ${pad('Date', wMeta - 1)}│ ${pad(truncate(date, wVal - 1), wVal - 1)}│\n`;
         output += `├${'─'.repeat(wMeta)}┼${'─'.repeat(wVal)}┤\n`;
@@ -319,7 +319,7 @@ const commandHandlers = {
         body.split('\n').forEach(line => {
           output += `  ${line}\n`;
         });
-        output += `\n──────────────────────────────────\n\`\`\``;
+        output += `\`\`\``;
 
         return { success: true, message: output };
       } finally {
