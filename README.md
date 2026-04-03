@@ -116,24 +116,58 @@ Found in `src/core/config.js`:
 
 ---
 
-## ◈ Architecture
+## ◈ Directory Structure
 
-Heeba uses a layered architecture to separate UI rendering from inference logic:
+The project follows a modular architecture, separating concerns between state, logic, and presentation:
 
 ```text
-┌────────────────────────────────┐
-│      Terminal UI (Blessed)     │ <── Mascot, Stats, Input
-└───────────────┬────────────────┘
-                ▼
-┌────────────────────────────────┐
-│      Command Layer (main.js)   │ <── Routing, History, Sessions
-└───────────────┬────────────────┘
-                ▼
-┌───────────────┴────────────────┐
-│         Inference Layer        │
-│    (llama.cpp + llama-cli)     │ <── Local LLM Execution
-└────────────────────────────────┘
+Heeba/
+├── main.js                 # Entry point & Orchestrator
+├── heeba.json              # Main configuration & Identity
+├── credentials.json        # Private API keys & service credentials
+├── src/
+│   ├── core/               # Business Logic & State
+│   │   ├── state-manager.js    # Application state & session tree logic
+│   │   ├── engine.js           # LLM Query & Inference control
+│   │   ├── intent-executor.js  # Command dispatcher (orchestrates handlers)
+│   │   ├── handlers/           # Specific action implementations
+│   │   │   ├── email-handler.js   # IMAP/SMTP & email formatting
+│   │   │   ├── session-handler.js # Session/Page lifecycle management
+│   │   │   ├── profile-handler.js # User identity & heeba.json updates
+│   │   │   └── model-handler.js   # Ollama & GGUF model management
+│   │   ├── config.js           # System settings & Model discovery
+│   │   ├── config-loader.js    # Config persistence & reloading
+│   │   └── ollama-adapter.js   # Remote LLM / API support
+│   ├── ui/                 # Visual components
+│   │   ├── components.js       # Blessed element definitions
+│   │   ├── layout-manager.js   # Screen rendering & Page population
+│   │   ├── input-manager.js    # Keyboard bindings & Input handling
+│   │   ├── animations.js       # Boot sequence & Mascot logic
+│   │   ├── render-manager.js   # Screen update coordination
+│   │   ├── scroll-manager.js   # Smart auto-scroll control
+│   │   ├── theme.js            # Visual design & color tokens
+│   │   └── markdown-renderer.js# Markdown to ANSI terminal translator
+│   └── utils/              # Shared utilities
+│       ├── helpers.js          # Shared constants & tiny helpers
+│       ├── logger.js           # Debug & info logging to /logs
+│       └── stats-refresher.js  # Real-time CPU/RAM/Token monitoring
+└── engine/                 # Inference binaries & LLM Models
 ```
+
+---
+
+## ◈ How It Works
+
+Heeba operates as an event-driven terminal workflow engine. Here is the step-by-step lifecycle of an interaction:
+
+1. **Initialization**: On startup, `main.js` initializes the `blessed` screen and spawns a 1-second interval for the `stats-refresher`. It then triggers the `animations.js` boot sequence.
+2. **Input Capture**: The `input-manager.js` monitors the multi-line input box. When you press **Enter** (without Shift), the input is captured and sent to the orchestrator in `main.js`.
+3. **State & Context**: `main.js` uses `state-manager.js` to identify the current session or create a new one. It reconstructs the conversation history (the path from the root node to your current page) to provide the LLM with full context.
+4. **Inference**: The request is sent to `engine.js`, which spawns a `llama.cpp` process or queries Ollama. Tokens are streamed back in real-time.
+5. **Real-Time Rendering**: As tokens arrive, `main.js` calls `layout-manager.js` to update the active page. The `markdown-renderer.js` ensures code blocks and formatting look professional in the terminal.
+6. **Intent Resolution**: Once the response is complete, `intent-executor.js` parses the text for structured JSON blocks. If a command (like `fetch_emails` or `update_user_profile`) is detected, it dispatches the task to the appropriate **Handler** in `src/core/handlers/`.
+7. **Action & Feedback**: The handler executes the requested action (e.g., connecting to IMAP) and returns a result. This result is appended to the conversation, and the UI is refreshed to show the success or failure.
+8. **Persistence**: Throughout the process, any changes to the user profile or session names are automatically persisted to `heeba.json` via `config-loader.js`.
 
 ---
 
