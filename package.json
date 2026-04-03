@@ -10,10 +10,17 @@
     "start": "node main.js",
     "dev": "node main.js"
   },
-  "keywords": ["terminal", "ai"],
+  "keywords": [
+    "terminal",
+    "ai"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "blessed": "^0.1.81"
+    "blessed": "^0.1.81",
+    "html-to-text": "^9.0.5",
+    "imapflow": "^1.2.18",
+    "mailparser": "^3.9.6",
+    "nodemailer": "^8.0.4"
   }
 }

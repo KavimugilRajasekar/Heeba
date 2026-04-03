@@ -1106,9 +1106,8 @@ UI.inputBox.key('enter', async (ch, key) => {
 });
 
 // Watch for changes to resize the input box
-UI.inputBox.on('keypress', (ch, key) => {
-  // Use setImmediate to wait for the value to update in blessed
-  setImmediate(() => resizeInput());
+UI.inputBox.on('keypress', () => {
+  resizeInput();
 });
 
 // Manual cursor navigation helpers

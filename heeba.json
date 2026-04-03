@@ -234,6 +234,67 @@
         "action": "delete_session",
         "parameters": {}
       }
+    },
+    "fetch_emails": {
+      "patterns": [
+        "fetch emails",
+        "show my emails",
+        "check my inbox",
+        "list my mail",
+        "get recent emails",
+        "show emails from the last",
+        "read my mail"
+      ],
+      "action": "fetch_emails",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "fetch_emails",
+        "parameters": {
+          "days": "{extracted_number_of_days}"
+        }
+      }
+    },
+    "send_email": {
+      "patterns": [
+        "send an email to",
+        "email to",
+        "compose a mail",
+        "mail to",
+        "send message to email"
+      ],
+      "action": "send_email",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "send_email",
+        "parameters": {
+          "to": "{extracted_recipient}",
+          "subject": "{extracted_subject}",
+          "body": "{extracted_body}"
+        }
+      }
+    },
+    "read_email": {
+      "patterns": [
+        "read email",
+        "open email",
+        "view email",
+        "show me email",
+        "read #",
+        "open #",
+        "view #",
+        "read the one from",
+        "open the mail about",
+        "read the alert"
+      ],
+      "action": "read_email",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "read_email",
+        "parameters": {
+          "index": "{extracted_index}",
+          "uid": "{extracted_uid}"
+        }
+      }
     }
   },
   "system_rules": [
@@ -253,7 +314,11 @@
     "When user requests broad configuration changes (personality, etc.), output a JSON command for update_config",
     "When user wants to add an online model, output a JSON command for add_ollama_model",
     "When user asks to rename, name, or relabel the current session (e.g. 'rename this session to X'), output a JSON structured command with action rename_session and parameter name set to the exact name the user specified",
-    "When user asks to delete, remove, or erase the current session or conversation, output a JSON structured command with action delete_session and empty parameters"
+    "When user asks to delete, remove, or erase the current session or conversation, output a JSON structured command with action delete_session and empty parameters",
+    "When user asks to fetch, show, or list emails (e.g. 'show my emails from the last 3 days'), output a JSON structured command with action fetch_emails and parameter days set to the number of days specified by the user (default to 3 if not specified)",
+    "When user asks to send, compose, or mail someone (e.g. 'send an email to X with subject Y saying Z'), output a JSON structured command with action send_email with parameters to, subject, and body extracted from the user's request",
+    "When user asks to read, open, or view a specific email (e.g. 'read the first email' or 'open #2'), output a JSON structured command with action read_email and parameter index set to the number the user specified",
+    "INTENT DISAMBIGUATION: If the user asks to open an email using a description (e.g., sender name, subject keyword) rather than a number, you MUST search the previously fetched email list in the conversation history for a match. Once found, use the corresponding index number in the read_email command."
   ],
   "output_format": {
     "conversational": {

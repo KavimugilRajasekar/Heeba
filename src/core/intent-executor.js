@@ -3,6 +3,35 @@ const fs = require('fs');
 const path = require('path');
 const { getHeebaConfig, reloadConfig } = require('./config-loader');
 const { testOllamaConnection } = require('./ollama-adapter');
+const { ImapFlow } = require('imapflow');
+const nodemailer = require('nodemailer');
+const { simpleParser } = require('mailparser');
+const { convert } = require('html-to-text');
+
+let lastMailList = []; // Array of UIDs from last fetch_emails
+
+const getEmailCredentials = () => {
+  try {
+    const credPath = path.join(process.cwd(), 'credentials.json');
+    if (fs.existsSync(credPath)) {
+      const creds = JSON.parse(fs.readFileSync(credPath, 'utf8'));
+      return creds.email;
+    }
+  } catch (err) {
+    // Silent fail for TUI
+  }
+  return null;
+};
+
+const truncate = (str, len) => {
+  if (!str) return '';
+  return str.length > len ? str.substring(0, len - 2) + '..' : str;
+};
+
+const pad = (str, len) => {
+  const s = String(str);
+  return s + ' '.repeat(Math.max(0, len - s.length));
+};
 
 // Command handlers map
 const commandHandlers = {
@@ -157,6 +186,179 @@ const commandHandlers = {
       return { success: true, message: `Model "${virtual_name}" added and verified!` };
     } catch (err) {
       return { success: false, message: `Failed to save credentials: ${err.message}` };
+    }
+  },
+
+  fetch_emails: async (params, context) => {
+    const creds = getEmailCredentials();
+    if (!creds) return { success: false, message: 'Email credentials not configured in credentials.json' };
+
+    const days = params.days || 3;
+    const client = new ImapFlow({
+      host: creds.host || 'imap.gmail.com',
+      port: creds.port || 993,
+      secure: true,
+      auth: { user: creds.user, pass: creds.pass },
+      logger: false
+    });
+
+    try {
+      await client.connect();
+      const sinceDate = new Date();
+      sinceDate.setDate(sinceDate.getDate() - days);
+
+      let lock = await client.getMailboxLock('INBOX');
+      try {
+        let messages = await client.fetch({ since: sinceDate }, { envelope: true });
+        lastMailList = []; 
+
+        const termWidth = context.screen?.width || 80;
+        const availableWidth = Math.max(50, termWidth - 10);
+        
+        // Col Widths (+1 added for breathing room)
+        const wIdx = 4 + 1;
+        const wDate = 10 + 1;
+        const wFrom = Math.floor((availableWidth - wIdx - wDate) * 0.3) + 1;
+        const wSub = (availableWidth - wIdx - wDate - wFrom - 6) + 1;
+
+        let table = `Recent Emails (last ${days} days):\n\n\`\`\`\n`;
+        table += `┌${'─'.repeat(wIdx)}┬${'─'.repeat(wDate)}┬${'─'.repeat(wFrom)}┬${'─'.repeat(wSub)}┐\n`;
+        table += `│ ${pad('#', wIdx - 1)}│ ${pad('Date', wDate - 1)}│ ${pad('From', wFrom - 1)}│ ${pad('Subject', wSub - 1)}│\n`;
+        table += `├${'─'.repeat(wIdx)}┼${'─'.repeat(wDate)}┼${'─'.repeat(wFrom)}┼${'─'.repeat(wSub)}┤\n`;
+
+        let count = 0;
+        for await (let msg of messages) {
+          count++;
+          lastMailList.push(msg.uid);
+          const date = msg.envelope.date.toISOString().split('T')[0];
+          const from = msg.envelope.from[0].name || msg.envelope.from[0].address;
+          const subject = msg.envelope.subject || '(No Subject)';
+          
+          table += `│ ${pad(count, wIdx - 1)}│ ${pad(date, wDate - 1)}│ ${pad(truncate(from, wFrom - 1), wFrom - 1)}│ ${pad(truncate(subject, wSub - 1), wSub - 1)}│\n`;
+        }
+
+        if (count === 0) {
+          return { success: true, message: 'No recent emails found in the last 3 days.' };
+        }
+
+        table += `└${'─'.repeat(wIdx)}┴${'─'.repeat(wDate)}┴${'─'.repeat(wFrom)}┴${'─'.repeat(wSub)}┘\n\`\`\``;
+        table += `\nType "Read email #" to open.`;
+        
+        return { success: true, message: table };
+      } finally {
+        lock.release();
+      }
+    } catch (err) {
+      return { success: false, message: `IMAP Error: ${err.message}` };
+    } finally {
+      await client.logout();
+    }
+  },
+
+  read_email: async (params, context) => {
+    const creds = getEmailCredentials();
+    if (!creds) return { success: false, message: 'Email credentials not configured.' };
+
+    let uid = params.uid;
+    const index = parseInt(params.index);
+
+    if (!uid && !isNaN(index) && index > 0 && index <= lastMailList.length) {
+      uid = lastMailList[index - 1];
+    }
+
+    if (!uid) {
+      return { success: false, message: 'Invalid email index or UID. Try fetching emails first.' };
+    }
+
+    const client = new ImapFlow({
+      host: creds.host || 'imap.gmail.com',
+      port: creds.port || 993,
+      secure: true,
+      auth: { user: creds.user, pass: creds.pass },
+      logger: false
+    });
+
+    try {
+      await client.connect();
+      let lock = await client.getMailboxLock('INBOX');
+      try {
+        const message = await client.fetchOne(uid, { source: true }, { uid: true });
+        if (!message) return { success: false, message: 'Email not found.' };
+
+        const parsed = await simpleParser(message.source);
+        let body = parsed.text || '';
+        
+        if (!body && parsed.html) {
+          body = convert(parsed.html, {
+            wordwrap: 80,
+            selectors: [
+              { selector: 'a', options: { hideLinkHrefIfSameAsText: true } }
+            ]
+          });
+        }
+
+        const date = parsed.date ? parsed.date.toLocaleString() : 'Unknown Date';
+        const from = parsed.from ? parsed.from.text : 'Unknown Sender';
+        const subject = parsed.subject || '(No Subject)';
+        
+        const termWidth = context.screen?.width || 80;
+        const availableWidth = Math.min(80, termWidth - 10);
+        const wMeta = 12 + 1; // +1 for breathing room
+        const wVal = availableWidth - wMeta - 3 + 1;
+
+        let output = `\`\`\`\n`;
+        output += `┌${'─'.repeat(wMeta)}┬${'─'.repeat(wVal)}┐\n`;
+        output += `│ ${pad('Date', wMeta - 1)}│ ${pad(truncate(date, wVal - 1), wVal - 1)}│\n`;
+        output += `├${'─'.repeat(wMeta)}┼${'─'.repeat(wVal)}┤\n`;
+        output += `│ ${pad('From', wMeta - 1)}│ ${pad(truncate(from, wVal - 1), wVal - 1)}│\n`;
+        output += `├${'─'.repeat(wMeta)}┼${'─'.repeat(wVal)}┤\n`;
+        output += `│ ${pad('Subject', wMeta - 1)}│ ${pad(truncate(subject, wVal - 1), wVal - 1)}│\n`;
+        output += `└${'─'.repeat(wMeta)}┴${'─'.repeat(wVal)}┘\n\n`;
+        
+        // Framed body (indented)
+        body.split('\n').forEach(line => {
+          output += `  ${line}\n`;
+        });
+        output += `\n──────────────────────────────────\n\`\`\``;
+
+        return { success: true, message: output };
+      } finally {
+        lock.release();
+      }
+    } catch (err) {
+      return { success: false, message: `IMAP Error: ${err.message}` };
+    } finally {
+      await client.logout();
+    }
+  },
+
+  send_email: async (params) => {
+    const creds = getEmailCredentials();
+    if (!creds) return { success: false, message: 'Email credentials not configured in credentials.json' };
+
+    const { to, subject, body } = params;
+    if (!to || !subject || !body) {
+      return { success: false, message: 'Missing recipient (to), subject, or body.' };
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: creds.smtp || 'smtp.gmail.com',
+      port: creds.smtp_port || 465,
+      secure: (creds.smtp_port || 465) === 465,
+      auth: { user: creds.user, pass: creds.pass }
+    });
+
+    try {
+      const config = getHeebaConfig();
+      const info = await transporter.sendMail({
+        from: `"${config.heeba_identity.name}" <${creds.user}>`,
+        to,
+        subject,
+        text: body
+      });
+      return { success: true, message: `Email sent successfully! (ID: ${info.messageId})` };
+    } catch (err) {
+      return { success: false, message: `SMTP Error: ${err.message}` };
     }
   }
 };
