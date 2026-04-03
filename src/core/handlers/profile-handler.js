@@ -1,7 +1,7 @@
 // src/core/handlers/profile-handler.js
 const fs = require('fs');
-const path = require('path');
 const { getHeebaConfig, reloadConfig } = require('../config-loader');
+const { HEEBA_JSON_PATH } = require('../../utils/paths');
 
 const profileHandlers = {
   update_user_profile: async (params, { screen, UI }) => {
@@ -20,8 +20,7 @@ const profileHandlers = {
     } else return { success: false, message: `Unknown field: ${field}` };
 
     try {
-      const configPath = path.join(process.cwd(), 'heeba.json');
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+      fs.writeFileSync(HEEBA_JSON_PATH, JSON.stringify(config, null, 2), 'utf8');
       reloadConfig();
       return { success: true, message: `Updated ${field} to "${value}"` };
     } catch (err) { return { success: false, message: `Failed to save: ${err.message}` }; }
@@ -38,8 +37,7 @@ const profileHandlers = {
       else if (section === 'root') config[field] = value;
       else config[section] = { [field]: value };
 
-      const configPath = path.join(process.cwd(), 'heeba.json');
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+      fs.writeFileSync(HEEBA_JSON_PATH, JSON.stringify(config, null, 2), 'utf8');
       reloadConfig();
       return { success: true, message: `Updated config: [${section}].${field} = ${value}` };
     } catch (err) { return { success: false, message: `Failed to update config: ${err.message}` }; }

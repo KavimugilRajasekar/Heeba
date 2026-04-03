@@ -1,7 +1,7 @@
 // src/core/ollama-adapter.js
 const https = require('https');
 const fs = require('fs');
-const path = require('path');
+const { CREDENTIALS_PATH } = require('../utils/paths');
 const { buildSystemPrompt } = require('../utils/helpers');
 
 let isLLMRunning = false;
@@ -10,9 +10,8 @@ let totalTokensUsed = 0;
 
 function loadOllamaCredentials() {
     try {
-        const credPath = path.join(process.cwd(), 'credentials.json');
-        if (fs.existsSync(credPath)) {
-            return JSON.parse(fs.readFileSync(credPath, 'utf8'));
+        if (fs.existsSync(CREDENTIALS_PATH)) {
+            return JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
         }
     } catch (e) {}
     return null;

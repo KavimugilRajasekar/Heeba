@@ -8,10 +8,17 @@ const nodemailer = require('nodemailer');
 const { simpleParser } = require('mailparser');
 const { convert } = require('html-to-text');
 
-let lastMailList = []; // Array of UIDs from last fetch_emails
+// pkg-compatible base path
+const BASE_PATH = process.pkg
+    ? path.dirname(process.execPath)
+    : path.join(__dirname, '..', '..');
 
-const CACHE_DIR = path.join(process.cwd(), '.cache', 'email');
-const EXPORT_DIR = path.join(process.cwd(), 'exports');
+const CACHE_DIR = path.join(BASE_PATH, '.cache', 'email');
+const EXPORT_DIR = path.join(BASE_PATH, 'exports');
+const HEEBA_JSON_PATH = path.join(BASE_PATH, 'heeba.json');
+const CREDENTIALS_PATH = path.join(BASE_PATH, 'credentials.json');
+
+let lastMailList = []; // Array of UIDs from last fetch_emails
 
 // Ensure directories exist
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
@@ -19,9 +26,13 @@ if (!fs.existsSync(EXPORT_DIR)) fs.mkdirSync(EXPORT_DIR, { recursive: true });
 
 const getEmailCredentials = () => {
   try {
-    const credPath = path.join(process.cwd(), 'credentials.json');
-    if (fs.existsSync(credPath)) {
-      const creds = JSON.parse(fs.readFileSync(credPath, 'utf8'));
+    if (fs.existsSync(CREDENTIALS_PATH)) {
+      const creds = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
+      // Handle both object format: { email: { user, pass, ... } }
+      // and array format: { email: [{ user, pass, ... }] }
+      if (Array.isArray(creds.email)) {
+        return creds.email[0] || null;
+      }
       return creds.email;
     }
   } catch (err) { }
@@ -128,9 +139,8 @@ const commandHandlers = {
     }
 
     // Persist to heeba.json
-    const configPath = path.join(process.cwd(), 'heeba.json');
     try {
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+      fs.writeFileSync(HEEBA_JSON_PATH, JSON.stringify(config, null, 2), 'utf8');
       // Reload config in config-loader
       reloadConfig();
       return { success: true, message: `Updated ${field} to "${value}"` };
@@ -181,7 +191,7 @@ const commandHandlers = {
         config[section] = { [field]: value };
       }
 
-      const configPath = path.join(process.cwd(), 'heeba.json');
+      const configPath = HEEBA_JSON_PATH;
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
       reloadConfig();
       return { success: true, message: `Updated config: [${section}].${field} = ${value}` };
@@ -261,7 +271,7 @@ const commandHandlers = {
 
     // Step 2: Load and update credentials.json
     try {
-      const credPath = path.join(process.cwd(), 'credentials.json');
+      const credPath = CREDENTIALS_PATH;
       let credentials = { ollama: { api_key, endpoint, models: [] } };
       
       if (fs.existsSync(credPath)) {

@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { testOllamaConnection } = require('../ollama-adapter');
+const { CREDENTIALS_PATH } = require('../../utils/paths');
 
 const modelHandlers = {
   add_ollama_model: async (params) => {
@@ -15,7 +16,7 @@ const modelHandlers = {
     if (!test.success) return { success: false, message: `Connection test failed: ${test.message}` };
 
     try {
-      const credPath = path.join(process.cwd(), 'credentials.json');
+      const credPath = CREDENTIALS_PATH;
       let credentials = { ollama: { api_key, endpoint, models: [] } };
       
       if (fs.existsSync(credPath)) {

@@ -5,6 +5,12 @@ const path = require('path');
 const http = require('http');
 const { buildSystemPrompt } = require('../utils/helpers');
 const { queryOllama, cancelOllama, getOllamaStatus, clearOllamaHistory, getOllamaTokens, isVirtualModel } = require('./ollama-adapter');
+const { MODELS_DIR, ENGINE_DIR } = require('../utils/paths');
+
+// pkg-compatible base path - points to directory containing Heeba.exe
+const BASE_PATH = process.pkg
+    ? path.dirname(process.execPath)
+    : path.join(__dirname, '..', '..');
 
 let isLLMRunning = false;
 let serverProcess = null;
@@ -18,8 +24,9 @@ function ensureServerRunning(CONFIG) {
     return new Promise((resolve, reject) => {
         if (serverProcess) return resolve();
 
-        const serverPath = CONFIG.engine.replace('llama-cli.exe', 'llama-server.exe');
-        const modelPath = path.join(process.cwd(), 'engine', 'models', CONFIG.model);
+        const serverExe = CONFIG.engine.includes('llama-cli.exe') ? 'llama-server.exe' : 'llama-cli.exe';
+        const serverPath = path.join(BASE_PATH, 'engine', 'inference-engine', serverExe);
+        const modelPath = path.join(BASE_PATH, 'engine', 'models', CONFIG.model);
 
         serverProcess = spawn(serverPath, [
             '-m', modelPath,

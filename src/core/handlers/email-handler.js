@@ -6,11 +6,9 @@ const { simpleParser } = require('mailparser');
 const { convert } = require('html-to-text');
 const { getHeebaConfig } = require('../config-loader');
 const { queryOllama } = require('../ollama-adapter');
+const { CACHE_DIR, EXPORT_DIR, CREDENTIALS_PATH } = require('../../utils/paths');
 
 let lastMailList = []; // Array of UIDs from last fetch_emails
-
-const CACHE_DIR = path.join(process.cwd(), '.cache', 'email');
-const EXPORT_DIR = path.join(process.cwd(), 'exports');
 
 // Ensure directories exist
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
@@ -18,9 +16,13 @@ if (!fs.existsSync(EXPORT_DIR)) fs.mkdirSync(EXPORT_DIR, { recursive: true });
 
 const getEmailCredentials = () => {
   try {
-    const credPath = path.join(process.cwd(), 'credentials.json');
-    if (fs.existsSync(credPath)) {
-      const creds = JSON.parse(fs.readFileSync(credPath, 'utf8'));
+    if (fs.existsSync(CREDENTIALS_PATH)) {
+      const creds = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
+      // Handle both object format: { email: { user, pass, ... } }
+      // and array format: { email: [{ user, pass, ... }] }
+      if (Array.isArray(creds.email)) {
+        return creds.email[0] || null;
+      }
       return creds.email;
     }
   } catch (err) { }
