@@ -621,7 +621,8 @@ function renderActivePage() {
         width: '100%',
         content: ml.content,
         fg: ml.fg,
-        bold: ml.bold
+        bold: ml.bold,
+        tags: true
       });
     });
   }

@@ -88,6 +88,11 @@ const emailToTable = (emails, title, context) => {
     const from = msg.from || '(Unknown)';
     const subject = msg.subject || '(No Subject)';
     table += `│ ${pad(idx + 1, wIdx - 1)}│ ${pad(date, wDate - 1)}│ ${pad(truncate(from, wFrom - 1), wFrom - 1)}│ ${pad(truncate(subject, wSub - 1), wSub - 1)}│\n`;
+    
+    // Add separator between rows (but not after the last one)
+    if (idx < emails.length - 1) {
+      table += `├${'─'.repeat(wIdx)}┼${'─'.repeat(wDate)}┼${'─'.repeat(wFrom)}┼${'─'.repeat(wSub)}┤\n`;
+    }
   });
   table += `└${'─'.repeat(wIdx)}┴${'─'.repeat(wDate)}┴${'─'.repeat(wFrom)}┴${'─'.repeat(wSub)}┘\n\`\`\``;
   return table;

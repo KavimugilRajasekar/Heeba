@@ -58,8 +58,17 @@ function renderMarkdown(text, termWidth) {
     // ── Inside Code Block ──
     if (inCodeBlock) {
       const isTable = codeBlockLang === 'table';
+      let content = isTable ? `  ${raw}` : `  │ ${raw}`;
+      
+      if (isTable) {
+        // Tag structural characters with ultraDark color for faint borders
+        // Characters: ┌ ┐ └ ┘ ─ ┬ ┴ ┼ ├ ┤ │
+        const boxChars = /[┌┐└┘─┬┴┼├┤│]/g;
+        content = content.replace(boxChars, (match) => `{#1a1a1a-fg}${match}{/}`);
+      }
+
       result.push({
-        content: isTable ? `  ${raw}` : `  │ ${raw}`,
+        content: content,
         fg: C.cyan,
         bold: false,
         type: 'code'

@@ -13,6 +13,7 @@ const C = {
   yellow: '#e3b341',
   purple: '#d2a8ff',
   red: '#ff7b72',
+  ultraDark: '#1a1a1a',
 };
 
 const STYLES = {
