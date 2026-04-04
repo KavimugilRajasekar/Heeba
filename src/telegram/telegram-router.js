@@ -1,0 +1,239 @@
+// src/telegram/telegram-router.js
+const fs = require('fs');
+const path = require('path');
+const { queryLLM, getTotalTokensUsed } = require('../core/engine');
+const { parseCommandFromResponse, executeCommand } = require('../core/intent-executor');
+const { state } = require('../core/state-manager');
+const { MODES } = require('../utils/helpers');
+
+// Persisted mapping of Telegram UID to Heeba Session
+const SESSIONS_PATH = path.join(__dirname, '..', '..', 'telegram-sessions.json');
+
+/**
+ * Loads Telegram sessions from disk
+ */
+function loadSessions() {
+  try {
+    if (fs.existsSync(SESSIONS_PATH)) {
+      return JSON.parse(fs.readFileSync(SESSIONS_PATH, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error loading Telegram sessions:', e);
+  }
+  return {};
+}
+
+/**
+ * Saves Telegram sessions to disk
+ */
+function saveSessions(sessions) {
+  try {
+    fs.writeFileSync(SESSIONS_PATH, JSON.stringify(sessions, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving Telegram sessions:', e);
+  }
+}
+
+/**
+ * Converts a raw email table block (```table...```) into a clean Telegram-friendly list.
+ * Parses rows from the ASCII table and renders them as numbered emoji entries.
+ */
+function convertEmailTableToTelegram(text) {
+  if (!text) return '';
+
+  // Detect ```table blocks produced by formatEmailTable
+  const tableBlockMatch = text.match(/```table\n([\s\S]*?)```/);
+  if (!tableBlockMatch) return null; // Not a table block
+
+  const tableContent = tableBlockMatch[1];
+  const lines = tableContent.split('\n');
+
+  // Extract title (line before the ```table block)
+  const titleMatch = text.match(/^(.*?)\n\n```table/);
+  const title = titleMatch ? titleMatch[1].trim() : 'Emails';
+
+  // Parse data rows: lines that start with │ and contain a number in the first cell
+  const dataRows = [];
+  for (const line of lines) {
+    if (!line.startsWith('│')) continue;
+    // Split on │ and clean cells
+    const cells = line.split('│').map(c => c.trim()).filter(c => c.length > 0);
+    if (cells.length < 4) continue;
+    const idx = parseInt(cells[0]);
+    if (isNaN(idx)) continue; // Skip header row
+    dataRows.push({
+      idx,
+      date: cells[1] || '',
+      from: cells[2] || '',
+      subject: cells[3] || ''
+    });
+  }
+
+  if (dataRows.length === 0) return null;
+
+  // Build Telegram-friendly output
+  let output = `📬 *${title}*\n`;
+  output += `─────────────────────\n`;
+  dataRows.forEach(row => {
+    output += `\n*${row.idx}.* ${row.subject}\n`;
+    output += `   👤 ${row.from}\n`;
+    output += `   📅 ${row.date}\n`;
+  });
+  output += `\n─────────────────────`;
+
+  // Preserve the hint text after the code block (e.g. "Type 'Read email #' to open.")
+  const afterBlock = text.replace(/[\s\S]*```/, '').trim();
+  if (afterBlock) output += `\n_${afterBlock}_`;
+
+  return output;
+}
+
+/**
+ * Converts a ```table email card (from read_email) to a clean Telegram message.
+ */
+function convertEmailCardToTelegram(text) {
+  if (!text) return '';
+
+  const cardMatch = text.match(/```table\n([\s\S]*?)```([\s\S]*)/);
+  if (!cardMatch) return null;
+
+  const tableContent = cardMatch[1];
+  const bodyContent = cardMatch[2] ? cardMatch[2].trim() : '';
+
+  const lines = tableContent.split('\n');
+  const meta = {};
+  for (const line of lines) {
+    if (!line.startsWith('│')) continue;
+    const cells = line.split('│').map(c => c.trim()).filter(c => c.length > 0);
+    if (cells.length >= 2) {
+      const key = cells[0].toLowerCase();
+      const val = cells[1];
+      if (key === 'date') meta.date = val;
+      if (key === 'from') meta.from = val;
+      if (key === 'subject') meta.subject = val;
+    }
+  }
+
+  let output = `📧 *Email*\n`;
+  output += `─────────────────────\n`;
+  if (meta.subject) output += `*Subject:* ${meta.subject}\n`;
+  if (meta.from)    output += `*From:* ${meta.from}\n`;
+  if (meta.date)    output += `*Date:* ${meta.date}\n`;
+  output += `─────────────────────\n`;
+  if (bodyContent) {
+    // No truncation here — sendSafe() in the launcher handles chunking at 4096 chars
+    output += `\n${bodyContent}`;
+  }
+
+  return output;
+}
+
+/**
+ * Master post-processor: detects and converts any table-format output to Telegram-friendly text.
+ */
+function formatForTelegram(text) {
+  if (!text) return '';
+
+  // Try email list table first
+  const listResult = convertEmailTableToTelegram(text);
+  if (listResult) return listResult;
+
+  // Try email card (read_email view)
+  const cardResult = convertEmailCardToTelegram(text);
+  if (cardResult) return cardResult;
+
+  // No table detected — strip any ANSI escape codes and return as-is
+  return text.replace(/\x1b\[[0-9;]*m/g, '');
+}
+
+/**
+ * Processes an incoming Telegram message
+ */
+async function processMessage(uid, text, configOverride = {}) {
+  const sessions = loadSessions();
+  const session = sessions[uid] || { history: [], last_accessed: Date.now() };
+  
+  // Merge config
+  const config = { ...state.CONFIG, ...configOverride };
+  
+  let fullResponse = '';
+  const startTime = Date.now();
+  
+  try {
+    // Process through Heeba Engine
+    await queryLLM(text, MODES.auto, config, (token) => {
+      fullResponse += token;
+    }, session.history);
+
+    // Check for commands
+    const command = parseCommandFromResponse(fullResponse);
+    let displayResponse = fullResponse;
+    let intentName = 'None';
+    let handlerName = 'None';
+
+    if (command && command.action) {
+      intentName = command.action;
+      // Clean up response for display
+      displayResponse = fullResponse.replace(/```json\s*[\s\S]*?```/g, '').trim();
+      if (displayResponse.includes('{') && displayResponse.includes('"action"')) {
+        displayResponse = displayResponse.replace(/\{[\s\S]*"action"[\s\S]*\}/g, '').trim();
+      }
+
+      // Execute command
+      const result = await executeCommand(command, { screen: null, UI: null, config });
+      if (result) {
+        handlerName = command.action;
+        // Format handler output for Telegram (converts ASCII tables → clean lists)
+        const formattedResult = formatForTelegram(result.message);
+        if (result.success) {
+          displayResponse = formattedResult; // Replace displayResponse with clean handler output
+        } else {
+          displayResponse += `\n\n❌ ${result.message}`;
+        }
+      }
+    }
+
+    // Update history for statefulness
+    session.history.push({ user: text, assistant: fullResponse });
+    // Keep history manageable (e.g., last 10 turns)
+    if (session.history.length > 10) session.history.shift();
+    
+    session.last_accessed = Date.now();
+    sessions[uid] = session;
+    saveSessions(sessions);
+
+    // Final formatting pass for any remaining table / ANSI output
+    const finalText = formatForTelegram(displayResponse);
+
+    const status = 'Success';
+    const log = {
+        time: new Date().toLocaleTimeString(),
+        uid,
+        prompt: text.substring(0, 20),
+        intent: intentName,
+        handler: handlerName,
+        status
+    };
+
+    return {
+      text: finalText,
+      log
+    };
+
+  } catch (error) {
+     console.error('Telegram Router Error:', error);
+     return {
+       text: `⚠️ Error processing request: ${error.message}`,
+       log: {
+         time: new Date().toLocaleTimeString(),
+         uid,
+         prompt: text.substring(0, 20),
+         intent: 'Error',
+         handler: 'None',
+         status: 'Failed'
+       }
+     };
+  }
+}
+
+module.exports = { processMessage };

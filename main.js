@@ -26,6 +26,8 @@ const { setupInputHandlers, resizeInput } = require('./src/ui/input-manager');
 const { C } = require('./src/ui/theme');
 const { MODES } = require('./src/utils/helpers');
 const { renderMarkdown } = require('./src/ui/markdown-renderer');
+const { launchTelegramMode } = require('./src/telegram/telegram-launcher');
+
 
 // =============================================
 // CLI Argument Parsing
@@ -38,15 +40,22 @@ const listAll = args.includes('--list-models');
 const listOnline = args.includes('--list-online-models') || args.includes('list-online-models');
 const listLocal = args.includes('--list-local-models');
 
-const modelIdx = args.indexOf('--model');
+const modelIdx = args.indexOf('--model') !== -1 ? args.indexOf('--model') : args.indexOf('-model');
 const modelOverride = modelIdx !== -1 ? args[(modelIdx + 1)] : null;
-const promptIdx = args.indexOf('-m');
+const promptIdx = args.indexOf('-m') !== -1 ? args.indexOf('-m') : args.indexOf('--message');
 const cliPrompt = promptIdx !== -1 ? args[(promptIdx + 1)] : null;
-const sessionIdx = args.indexOf('--session');
+const sessionIdx = args.indexOf('--session') !== -1 ? args.indexOf('--session') : args.indexOf('-session');
 const sessionId = sessionIdx !== -1 ? args[(sessionIdx + 1)] : null;
-const showMetrics = args.includes('-M');
-const isLaunch = args.includes('--launch');
+const showMetrics = args.includes('-M') || args.includes('--metrics');
+const isLaunch = args.includes('--launch') || args.includes('-launch');
+const isLaunchTele = args.includes('--launch-tele') || args.includes('-launch-tele');
 const isHelp = args.includes('--help') || args.includes('-h');
+
+// Telegram sub-flags
+const teleListen = args.includes('-l');
+const uidIdx = args.indexOf('-uid');
+const teleUid = uidIdx !== -1 ? args[(uidIdx + 1)] : null;
+
 
 // Helper to show CLI help
 function showHelp() {
@@ -67,22 +76,29 @@ function showHelp() {
   console.log(`  node main.js [options]\n`);
 
   console.log(`\x1b[1mOPTIONS:\x1b[0m`);
-  console.log(`  \x1b[33m--launch\x1b[0m             Start the Interactive Terminal UI (TUI)`);
-  console.log(`  \x1b[33m--help, -h\x1b[0m           Show this help information`);
-  console.log(`  \x1b[33m--version, -v\x1b[0m        Show version number`);
-  console.log(`  \x1b[33m-m "<prompt>"\x1b[0m        Execute a natural language query in stateless mode`);
-  console.log(`  \x1b[33m--model "<name>"\x1b[0m     Override the default LLM for a query`);
-  console.log(`  \x1b[33m--session "<id>"\x1b[0m     Resume or start a specific session for a CLI query`);
-  console.log(`  \x1b[33m-M\x1b[0m                   Show performance metrics after CLI query`);
-  console.log(`  \x1b[33m--list-models\x1b[0m        List all available models`);
-  console.log(`  \x1b[33m--list-online-models\x1b[0m List only online-based models`);
-  console.log(`  \x1b[33m--list-local-models\x1b[0m  List only locally hosted models\n`);
+  console.log(`  \x1b[33m--launch\x1b[0m                    Start the Interactive Terminal UI (TUI)`);
+  console.log(`  \x1b[33m--help, -h\x1b[0m                  Show this help information`);
+  console.log(`  \x1b[33m--version, -v\x1b[0m               Show version number`);
+  console.log(`  \x1b[33m-m "<prompt>"\x1b[0m               Execute a natural language query in stateless mode`);
+  console.log(`  \x1b[33m-model "<name>"\x1b[0m             Override the default LLM for a query`);
+  console.log(`  \x1b[33m--session "<id>"\x1b[0m            Resume or start a specific session for a CLI query`);
+  console.log(`  \x1b[33m-M\x1b[0m                          Show performance metrics after CLI query`);
+  console.log(`  \x1b[33m--list-models\x1b[0m               List all available models`);
+  console.log(`  \x1b[33m--list-online-models\x1b[0m        List only online-based models`);
+  console.log(`  \x1b[33m--list-local-models\x1b[0m         List only locally hosted models\n`);
+
+  console.log(`\x1b[1mTELEGRAM INTERFACE:\x1b[0m`);
+  console.log(`  \x1b[33m--launch-tele -l\x1b[0m            Listen mode — log /start users & their IDs`);
+  console.log(`  \x1b[33m--launch-tele -uid <ID>\x1b[0m     Server mode — bind bot to a Telegram User ID`);
+  console.log(`  \x1b[33m--launch-tele -model <M> -uid <ID>\x1b[0m  Server mode with model override\n`);
 
   console.log(`\x1b[1mEXAMPLES:\x1b[0m`);
   console.log(`  heeba --launch`);
   console.log(`  heeba -m "Summarize my emails from this morning"`);
-  console.log(`  heeba -m "Show my system status" -M\n`);
-  
+  console.log(`  heeba -m "Show my system status" -M`);
+  console.log(`  heeba --launch-tele -l`);
+  console.log(`  heeba --launch-tele -model ollama-gpt-oss -uid <YOUR_TELEGRAM_ID>\n`);
+
   process.exit(0);
 }
 
@@ -205,10 +221,17 @@ async function runStateless(prompt, model) {
   }
 }
 
-// Check if we should enter stateless mode
-if (cliPrompt) {
+// Check if we should enter Telegram mode
+if (isLaunchTele) {
+  launchTelegramMode({
+    listenOnly: teleListen,
+    bindUid: teleUid,
+    modelOverride: modelOverride
+  });
+} else if (cliPrompt) {
   runStateless(cliPrompt, modelOverride);
 } else if (isLaunch) {
+
   // =============================================
   // Terminal UI Mode Logic
   // =============================================
