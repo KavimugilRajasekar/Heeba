@@ -4,6 +4,23 @@ const { getHeebaConfig, reloadConfig } = require('../config-loader');
 const { HEEBA_JSON_PATH } = require('../../utils/paths');
 
 const systemHandlers = {
+  get_system_info: async () => {
+    const os = require('os');
+    const { version } = require('../../../package.json');
+    const uptime = Math.floor(os.uptime() / 3600);
+    const freeMem = (os.freemem() / (1024 * 1024 * 1024)).toFixed(2);
+    const totalMem = (os.totalmem() / (1024 * 1024 * 1024)).toFixed(2);
+
+    let msg = `[System Status: Heeba v${version}]\n`;
+    msg += `  ◈ Platform: ${os.platform()} (${os.arch()})\n`;
+    msg += `  ◈ CPU: ${os.cpus()[0].model} (${os.cpus().length} cores)\n`;
+    msg += `  ◈ Memory: ${freeMem} GB free / ${totalMem} GB total\n`;
+    msg += `  ◈ Uptime: ${uptime} hours\n`;
+    msg += `  ◈ Host: ${os.hostname()}`;
+
+    return { success: true, message: msg };
+  },
+
   update_config: async (params) => {
     const config = getHeebaConfig();
     const { key, value } = params;

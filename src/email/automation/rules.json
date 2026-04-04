@@ -1,0 +1,9 @@
+{
+    "rules": [
+        {
+            "id": "promo-rule",
+            "condition": { "subject": "Promo" },
+            "actions": ["mark_read", "archive"]
+        }
+    ]
+}

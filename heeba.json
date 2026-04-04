@@ -53,60 +53,39 @@
       "action": "greet_user",
       "response_type": " conversational"
     },
-    "code_task": {
-      "patterns": [
-        "write code",
-        "create function",
-        "make a",
-        "generate code",
-        "build",
-        "implement"
-      ],
-      "action": "code_generation",
-      "response_type": "structured_command",
-      "backend_command": {
-        "action": "generate_code",
-        "parameters": {
-          "task_description": "{extracted_description}",
-          "language": "{detected_language}"
-        }
-      }
-    },
-    "debug_task": {
-      "patterns": [
-        "debug",
-        "fix error",
-        "bug",
-        "isn't working",
-        "not working",
-        "broken"
-      ],
-      "action": "debug_task",
-      "response_type": "structured_command",
-      "backend_command": {
-        "action": "debug_code",
-        "parameters": {
-          "error_description": "{extracted_error}",
-          "context": "{relevant_code_context}"
-        }
-      }
-    },
     "file_analysis": {
       "patterns": [
         "analyze",
         "look at",
         "review",
         "check this file",
-        "what does this"
+        "what does this file do",
+        "file info"
       ],
       "action": "analyze_file",
       "response_type": "structured_command",
       "backend_command": {
         "action": "analyze_file",
         "parameters": {
-          "file_path": "{extracted_path}",
-          "analysis_type": "full"
+          "file_path": "{extracted_path}"
         }
+      }
+    },
+    "system_status": {
+      "patterns": [
+        "system status",
+        "system info",
+        "about system",
+        "memory usage",
+        "cpu info",
+        "version",
+        "status"
+      ],
+      "action": "get_system_info",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "get_system_info",
+        "parameters": {}
       }
     },
     "explanation": {
@@ -500,6 +479,371 @@
         "action": "delete_page",
         "parameters": {
           "scope": "{current|branch}"
+        }
+      }
+    },
+    "apply_rules": {
+      "patterns": [
+        "apply rules",
+        "run automation",
+        "process emails automatically"
+      ],
+      "action": "apply_rules",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "apply_rules",
+        "parameters": {}
+      }
+    },
+    "list_rules": {
+      "patterns": [
+        "list rules",
+        "show automation rules",
+        "what rules are configured"
+      ],
+      "action": "list_rules",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "list_rules",
+        "parameters": {}
+      }
+    },
+    "add_rule": {
+      "patterns": [
+        "add a rule",
+        "create automation rule",
+        "new rule for email"
+      ],
+      "action": "add_rule",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "add_rule",
+        "parameters": {
+          "name": "{string}",
+          "conditions": "{}",
+          "actions": "[]"
+        }
+      }
+    },
+    "search_emails": {
+      "patterns": [
+        "search emails",
+        "find emails",
+        "filter emails",
+        "search for"
+      ],
+      "action": "search_emails",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "search_emails",
+        "parameters": {
+          "filters": "{}"
+        }
+      }
+    },
+    "categorize_emails": {
+      "patterns": [
+        "categorize emails",
+        "sort emails by category",
+        "group emails by type"
+      ],
+      "action": "categorize_emails",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "categorize_emails",
+        "parameters": {
+          "days": "{number}"
+        }
+      }
+    },
+    "download_attachments": {
+      "patterns": [
+        "download attachments",
+        "save attachments from email",
+        "download files from mail"
+      ],
+      "action": "download_attachments",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "download_attachments",
+        "parameters": {
+          "index": "{number}",
+          "uid": "{string}"
+        }
+      }
+    },
+    "group_emails_by_thread": {
+      "patterns": [
+        "group emails by thread",
+        "show email threads",
+        "organize emails in threads"
+      ],
+      "action": "group_emails_by_thread",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "group_emails_by_thread",
+        "parameters": {
+          "days": "{number}"
+        }
+      }
+    },
+    "render_timeline": {
+      "patterns": [
+        "show timeline",
+        "email timeline",
+        "chronological view of emails",
+        "timeline for today"
+      ],
+      "action": "render_timeline",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "render_timeline",
+        "parameters": {
+          "days": "{number}"
+        }
+      }
+    },
+    "generate_digest": {
+      "patterns": [
+        "daily digest",
+        "summarize today emails",
+        "what did I get today",
+        "email summary"
+      ],
+      "action": "generate_digest",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "generate_digest",
+        "parameters": {
+          "date": "{YYYY-MM-DD}"
+        }
+      }
+    },
+    "weekly_digest": {
+      "patterns": [
+        "weekly digest",
+        "summarize this week emails",
+        "email summary for the week"
+      ],
+      "action": "weekly_digest",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "weekly_digest",
+        "parameters": {}
+      }
+    },
+    "show_followups": {
+      "patterns": [
+        "show follow ups",
+        "emails I sent without reply",
+        "pending follow ups",
+        "emails awaiting reply"
+      ],
+      "action": "show_followups",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "show_followups",
+        "parameters": {
+          "days": "{number}"
+        }
+      }
+    },
+    "send_quick_reply": {
+      "patterns": [
+        "reply yes",
+        "reply no",
+        "quick reply",
+        "reply noted"
+      ],
+      "action": "send_quick_reply",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "send_quick_reply",
+        "parameters": {
+          "index": "{number}",
+          "type": "{string}"
+        }
+      }
+    },
+    "list_quick_replies": {
+      "patterns": [
+        "list quick replies",
+        "show reply templates",
+        "what quick replies are available"
+      ],
+      "action": "list_quick_replies",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "list_quick_replies",
+        "parameters": {}
+      }
+    },
+    "detect_otp": {
+      "patterns": [
+        "find otp",
+        "extract otp",
+        "show verification code",
+        "what is the otp",
+        "detect otp"
+      ],
+      "action": "detect_otp",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "detect_otp",
+        "parameters": {
+          "index": "{number}",
+          "hours": "{number}"
+        }
+      }
+    },
+    "fetch_priority_unread": {
+      "patterns": [
+        "priority unread",
+        "important unread emails",
+        "unread sorted by importance"
+      ],
+      "action": "fetch_priority_unread",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "fetch_priority_unread",
+        "parameters": {}
+      }
+    },
+    "export_emails": {
+      "patterns": [
+        "export emails to file",
+        "save emails as markdown"
+      ],
+      "action": "export_emails",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "export_emails",
+        "parameters": {
+          "date": "{YYYY-MM-DD}",
+          "format": "{md|txt}"
+        }
+      }
+    },
+    "filter_by_time": {
+      "patterns": [
+        "morning emails",
+        "afternoon emails",
+        "evening emails",
+        "night emails"
+      ],
+      "action": "filter_by_time",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "filter_by_time",
+        "parameters": {
+          "date": "{YYYY-MM-DD}",
+          "time_range": "{morning|afternoon|evening|night}"
+        }
+      }
+    },
+    "email_stats": {
+      "patterns": [
+        "email statistics",
+        "email stats",
+        "how many emails this week"
+      ],
+      "action": "email_stats",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "email_stats",
+        "parameters": {
+          "days": "{number}"
+        }
+      }
+    },
+    "detect_spam": {
+      "patterns": [
+        "detect spam",
+        "find spam emails",
+        "show spam emails"
+      ],
+      "action": "detect_spam",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "detect_spam",
+        "parameters": {
+          "days": "{number}"
+        }
+      }
+    },
+    "bulk_mark_read": {
+      "patterns": [
+        "mark all as read",
+        "bulk mark read",
+        "mark emails as read"
+      ],
+      "action": "bulk_mark_read",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "bulk_mark_read",
+        "parameters": {
+          "category": "{string}"
+        }
+      }
+    },
+    "bulk_archive": {
+      "patterns": [
+        "bulk archive",
+        "archive all promotional",
+        "archive by category"
+      ],
+      "action": "bulk_archive",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "bulk_archive",
+        "parameters": {
+          "category": "{string}"
+        }
+      }
+    },
+    "email_to_task": {
+      "patterns": [
+        "extract tasks from email",
+        "convert email to tasks",
+        "find action items in email"
+      ],
+      "action": "email_to_task",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "email_to_task",
+        "parameters": {
+          "index": "{number}"
+        }
+      }
+    },
+    "narrate_email": {
+      "patterns": [
+        "narrate email",
+        "tell me about this email",
+        "explain this email"
+      ],
+      "action": "narrate_email",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "narrate_email",
+        "parameters": {
+          "index": "{number}",
+          "style": "{friendly|professional|casual}"
+        }
+      }
+    },
+    "narrate_inbox": {
+      "patterns": [
+        "narrate my inbox",
+        "tell me about my emails",
+        "what emails did I get"
+      ],
+      "action": "narrate_inbox",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "narrate_inbox",
+        "parameters": {
+          "days": "{number}"
         }
       }
     }

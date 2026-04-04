@@ -8,25 +8,40 @@ const nodemailer = require('nodemailer');
 const { getHeebaConfig } = require('../config-loader');
 const { queryOllama } = require('../ollama-adapter');
 const { getEmailAccount } = require('../email-accounts');
-const { CACHE_DIR, EXPORT_DIR, CREDENTIALS_PATH } = require('../../utils/paths');
+const { CACHE_DIR, EXPORT_DIR, CREDENTIALS_PATH, DOWNLOADS_DIR, AUTOMATION_DIR } = require('../../utils/paths');
 
 let lastMailList = []; // Array of UIDs from last fetch_emails
 
 // Ensure directories exist
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 if (!fs.existsSync(EXPORT_DIR)) fs.mkdirSync(EXPORT_DIR, { recursive: true });
+if (!fs.existsSync(DOWNLOADS_DIR)) fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
+if (!fs.existsSync(AUTOMATION_DIR)) fs.mkdirSync(AUTOMATION_DIR, { recursive: true });
+
+// Import automation modules
+const automationModules = [
+  require('../../email/automation/rule-engine'),
+  require('../../email/automation/search-builder'),
+  require('../../email/automation/categorizer'),
+  require('../../email/automation/attachment-downloader'),
+  require('../../email/automation/thread-grouper'),
+  require('../../email/automation/timeline-view'),
+  require('../../email/automation/digest-generator'),
+  require('../../email/automation/followup-tracker'),
+  require('../../email/automation/quick-reply'),
+  require('../../email/automation/otp-detector'),
+  require('../../email/automation/priority-unread'),
+  require('../../email/automation/exporter'),
+  require('../../email/automation/date-filter'),
+  require('../../email/automation/stats'),
+  require('../../email/automation/spam-detector'),
+  require('../../email/automation/bulk-actions'),
+  require('../../email/automation/email-to-task'),
+  require('../../email/automation/narrator')
+];
 
 
-
-const truncate = (str, len) => {
-  if (!str) return '';
-  return str.length > len ? str.substring(0, len - 2) + '..' : str;
-};
-
-const pad = (str, len) => {
-  const s = String(str);
-  return s + ' '.repeat(Math.max(0, len - s.length));
-};
+const { formatEmailTable, truncate, pad } = require('../../utils/table-formatter');
 
 const getCachePath = (dateStr) => path.join(CACHE_DIR, `${dateStr}.json`);
 
@@ -46,36 +61,19 @@ const getFromCache = (dateStr) => {
   return null;
 };
 
-const emailToTable = (emails, title, context) => {
-  const termWidth = context.screen?.width || 80;
-  const availableWidth = Math.max(50, termWidth - 10);
-  
-  const wIdx = 4 + 1;
-  const wDate = 10 + 1;
-  const wFrom = Math.floor((availableWidth - wIdx - wDate) * 0.3) + 1;
-  const wSub = (availableWidth - wIdx - wDate - wFrom - 6) + 1;
-
-  let table = `${title}\n\n\`\`\`table\n`;
-  table += `┌${'─'.repeat(wIdx)}┬${'─'.repeat(wDate)}┬${'─'.repeat(wFrom)}┬${'─'.repeat(wSub)}┐\n`;
-  table += `│ ${pad('#', wIdx - 1)}│ ${pad('Date', wDate - 1)}│ ${pad('From', wFrom - 1)}│ ${pad('Subject', wSub - 1)}│\n`;
-  table += `├${'─'.repeat(wIdx)}┼${'─'.repeat(wDate)}┼${'─'.repeat(wFrom)}┼${'─'.repeat(wSub)}┤\n`;
-
-  emails.forEach((msg, idx) => {
-    const date = msg.date ? new Date(msg.date).toISOString().split('T')[0] : '????-??-??';
-    const from = msg.from || '(Unknown)';
-    const subject = msg.subject || '(No Subject)';
-    table += `│ ${pad(idx + 1, wIdx - 1)}│ ${pad(date, wDate - 1)}│ ${pad(truncate(from, wFrom - 1), wFrom - 1)}│ ${pad(truncate(subject, wSub - 1), wSub - 1)}│\n`;
-    
-    if (idx < emails.length - 1) {
-      table += `├${'─'.repeat(wIdx)}┼${'─'.repeat(wDate)}┼${'─'.repeat(wFrom)}┼${'─'.repeat(wSub)}┤\n`;
-    }
-  });
-  table += `└${'─'.repeat(wIdx)}┴${'─'.repeat(wDate)}┴${'─'.repeat(wFrom)}┴${'─'.repeat(wSub)}┘\n\`\`\``;
-  return table;
-};
+// Keep emailToTable as an alias for backward compatibility within this file if needed
+// or just export formatEmailTable
+const emailToTable = (emails, title, context) => formatEmailTable(emails, title, context);
 
 // Commmand Implementations
+// Merge automation modules with existing handlers
+const allAutomationHandlers = {};
+for (const mod of automationModules) {
+  Object.assign(allAutomationHandlers, mod);
+}
+
 const emailHandlers = {
+  // Existing handlers
   fetch_emails: async (params, context) => {
     const account = getEmailAccount(params.account_id);
     if (!account) return { success: false, message: 'Email credentials not configured.' };
@@ -522,4 +520,14 @@ const emailHandlers = {
     } catch (err) { return { success: false, message: `SMTP Error: ${err.message}` }; }
   }
 };
-module.exports = emailHandlers;
+// Export merged handlers
+const exportedHandlers = {
+  ...emailHandlers,
+  ...allAutomationHandlers
+};
+
+// Also export lastMailList for use by automation modules
+exportedHandlers._lastMailList = lastMailList;
+
+module.exports = exportedHandlers;
+module.exports.emailHandlers = exportedHandlers;

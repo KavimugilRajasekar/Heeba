@@ -30,18 +30,6 @@ const modelHandlers = {
       fs.writeFileSync(credPath, JSON.stringify(credentials, null, 2), 'utf8');
       return { success: true, message: `Model "${virtual_name}" added and verified!` };
     } catch (err) { return { success: false, message: `Failed to save credentials: ${err.message}` }; }
-  },
-
-  generate_code: async (params) => {
-    return { success: true, message: `Code generation task queued: ${params.task_description || 'No description'}` };
-  },
-
-  debug_code: async (params) => {
-    return { success: true, message: `Debug task queued: ${params.error_description || 'No error description'}` };
-  },
-
-  analyze_file: async (params) => {
-    return { success: true, message: `File analysis queued: ${params.file_path || 'No path'}` };
   }
 };
 

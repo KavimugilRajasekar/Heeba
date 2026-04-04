@@ -57,6 +57,7 @@ function getAllModels() {
 
 // Get full online model config by ID (display name)
 function getOnlineModel(modelName) {
+    if (!modelName) return null;
     const cleanId = modelName.replace(' (Online)', '').replace(' (Legacy)', '').trim();
     const config = getHeebaConfig();
 
@@ -76,6 +77,7 @@ function getOnlineModel(modelName) {
 
 // Check if model is online/virtual (not local GGUF)
 function isOnlineModel(modelName) {
+    if (!modelName) return false;
     const cleanId = modelName.replace(' (Online)', '').replace(' (Legacy)', '').trim();
     const config = getHeebaConfig();
 

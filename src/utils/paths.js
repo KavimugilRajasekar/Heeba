@@ -19,6 +19,8 @@ const ENGINE_EXE       = path.join(ENGINE_DIR, 'inference-engine', 'llama-cli.ex
 // Runtime data directories (created on first run)
 const CACHE_DIR = path.join(ROOT_PATH, '.cache', 'email');
 const EXPORT_DIR = path.join(ROOT_PATH, 'exports');
+const DOWNLOADS_DIR = path.join(ROOT_PATH, 'downloads', 'email');
+const AUTOMATION_DIR = path.join(ROOT_PATH, 'src', 'email', 'automation');
 
 module.exports = {
   BASE_PATH,
@@ -29,5 +31,7 @@ module.exports = {
   MODELS_DIR,
   ENGINE_EXE,
   CACHE_DIR,
-  EXPORT_DIR
+  EXPORT_DIR,
+  DOWNLOADS_DIR,
+  AUTOMATION_DIR
 };
