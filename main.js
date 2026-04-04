@@ -39,10 +39,56 @@ const listOnline = args.includes('--list-online-models') || args.includes('list-
 const listLocal = args.includes('--list-local-models');
 
 const modelIdx = args.indexOf('--model');
-const modelOverride = modelIdx !== -1 ? args[modelIdx + 1] : null;
+const modelOverride = modelIdx !== -1 ? args[(modelIdx + 1)] : null;
 const promptIdx = args.indexOf('-m');
-const cliPrompt = promptIdx !== -1 ? args[promptIdx + 1] : null;
+const cliPrompt = promptIdx !== -1 ? args[(promptIdx + 1)] : null;
+const sessionIdx = args.indexOf('--session');
+const sessionId = sessionIdx !== -1 ? args[(sessionIdx + 1)] : null;
 const showMetrics = args.includes('-M');
+const isLaunch = args.includes('--launch');
+const isHelp = args.includes('--help') || args.includes('-h');
+
+// Helper to show CLI help
+function showHelp() {
+  const { version } = require('./package.json');
+  console.log(`\x1b[36m
+   __    __   _______  _______ .______      ___      
+  |  |  |  | |   ____||   ____||   _  \\    /   \\     
+  |  |__|  | |  |__   |  |__   |  |_)  |  /  ^  \\    
+  |   __   | |   __|  |   __|  |   _  <  /  /_\\  \\   
+  |  |  |  | |  |____ |  |____ |  |_)  |/  _____  \\  
+  |__|  |__| |_______||_______||______//__/     \\__\\ 
+                                                     \x1b[0m`);
+  console.log(`\x1b[32m  Heeba Intelligence Engine (v${version})\x1b[0m`);
+  console.log(`\x1b[90m  The Autonomous Agentic Assistant for your Terminal\x1b[0m\n`);
+
+  console.log(`\x1b[1mUSAGE:\x1b[0m`);
+  console.log(`  heeba [options]`);
+  console.log(`  node main.js [options]\n`);
+
+  console.log(`\x1b[1mOPTIONS:\x1b[0m`);
+  console.log(`  \x1b[33m--launch\x1b[0m             Start the Interactive Terminal UI (TUI)`);
+  console.log(`  \x1b[33m--help, -h\x1b[0m           Show this help information`);
+  console.log(`  \x1b[33m--version, -v\x1b[0m        Show version number`);
+  console.log(`  \x1b[33m-m "<prompt>"\x1b[0m        Execute a natural language query in stateless mode`);
+  console.log(`  \x1b[33m--model "<name>"\x1b[0m     Override the default LLM for a query`);
+  console.log(`  \x1b[33m--session "<id>"\x1b[0m     Resume or start a specific session for a CLI query`);
+  console.log(`  \x1b[33m-M\x1b[0m                   Show performance metrics after CLI query`);
+  console.log(`  \x1b[33m--list-models\x1b[0m        List all available models`);
+  console.log(`  \x1b[33m--list-online-models\x1b[0m List only online-based models`);
+  console.log(`  \x1b[33m--list-local-models\x1b[0m  List only locally hosted models\n`);
+
+  console.log(`\x1b[1mEXAMPLES:\x1b[0m`);
+  console.log(`  heeba --launch`);
+  console.log(`  heeba -m "Summarize my emails from this morning"`);
+  console.log(`  heeba -m "Show my system status" -M\n`);
+  
+  process.exit(0);
+}
+
+if (isHelp || (args.length === 0)) {
+  showHelp();
+}
 
 if (isVersion) {
   const { version } = require('./package.json');
@@ -162,7 +208,7 @@ async function runStateless(prompt, model) {
 // Check if we should enter stateless mode
 if (cliPrompt) {
   runStateless(cliPrompt, modelOverride);
-} else {
+} else if (isLaunch) {
   // =============================================
   // Terminal UI Mode Logic
   // =============================================
