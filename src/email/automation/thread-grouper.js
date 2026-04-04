@@ -1,5 +1,5 @@
 module.exports = {
-    group_threads: async (params, context) => {
+    group_emails_by_thread: async (params, context) => {
         const emails = params.emails || [];
         const threads = {};
 

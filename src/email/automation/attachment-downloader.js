@@ -10,8 +10,14 @@ module.exports = {
         const account = getEmailAccount(params.account_id);
         if (!account) return { success: false, message: 'Email credentials not configured.' };
 
-        const uid = params.uid;
-        if (!uid) return { success: false, message: 'Missing email UID.' };
+        let uid = params.uid;
+        const lastMailList = context.lastMailList || [];
+        const index = parseInt(params.index);
+        if (!uid && !isNaN(index) && index > 0 && index <= lastMailList.length) {
+            uid = lastMailList[index - 1];
+        }
+
+        if (!uid) return { success: false, message: 'Missing email UID or index.' };
 
         const client = new ImapFlow({
             host: account.imap_host || account.host || 'imap.gmail.com', port: account.port || 993, secure: true,

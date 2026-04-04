@@ -3,7 +3,7 @@ const { getEmailAccount } = require('../../core/email-accounts');
 const { formatEmailTable } = require('../../utils/table-formatter');
 
 module.exports = {
-    list_priority_unread: async (params, context) => {
+    fetch_priority_unread: async (params, context) => {
         const account = getEmailAccount(params.account_id);
         if (!account) return { success: false, message: 'Email credentials not configured.' };
 

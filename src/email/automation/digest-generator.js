@@ -6,7 +6,7 @@ const { getEmailAccount } = require('../../core/email-accounts');
 
 module.exports = {
     generate_digest: async (params, context) => {
-        const config = getHeebaConfig();
+        const config = context.config || getHeebaConfig();
         let emails = params.emails || [];
 
         // Self-fetch if no emails provided (CLI mode)

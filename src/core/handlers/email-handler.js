@@ -65,7 +65,7 @@ const getFromCache = (dateStr) => {
 // or just export formatEmailTable
 const emailToTable = (emails, title, context) => formatEmailTable(emails, title, context);
 
-// Commmand Implementations
+// Command Implementations
 // Merge automation modules with existing handlers
 const allAutomationHandlers = {};
 for (const mod of automationModules) {
@@ -187,7 +187,7 @@ const emailHandlers = {
     finally { await client.logout(); }
   },
 
-  fetch_emails_by_timerange: async (params, context) => {
+  filter_by_time: async (params, context) => {
     const account = getEmailAccount(params.account_id);
     if (!account) return { success: false, message: 'Email credentials not configured.' };
 
@@ -320,7 +320,7 @@ const emailHandlers = {
     finally { await client.logout(); }
   },
 
-  export_emails_by_date: async (params, context) => {
+  export_emails: async (params, context) => {
     const account = getEmailAccount(params.account_id);
     if (!account) return { success: false, message: 'Email credentials not configured.' };
 
@@ -386,7 +386,7 @@ const emailHandlers = {
           if (count >= 10) break;
         }
         if (count === 0) return { success: true, message: `No emails found for ${dateStr}.` };
-        const config = getHeebaConfig();
+        const config = context.config || getHeebaConfig();
         const prompt = `Summarize these ${count} emails into categories: Important, Promotional, Alerts, Personal. Bullet points.\n\n${combinedText}`;
         const summary = await queryOllama(prompt, 'manual', config, null);
         return { success: true, message: `### Daily Summary: ${dateStr}\n\n${summary}` };
@@ -520,14 +520,16 @@ const emailHandlers = {
     } catch (err) { return { success: false, message: `SMTP Error: ${err.message}` }; }
   }
 };
-// Export merged handlers
-const exportedHandlers = {
-  ...emailHandlers,
-  ...allAutomationHandlers
-};
+// Export merged handlers - wrap automation modules to provide lastMailList
+const finalHandlers = { ...emailHandlers };
+for (const [name, handler] of Object.entries(allAutomationHandlers)) {
+  finalHandlers[name] = async (params, context) => {
+    return await handler(params, { ...context, lastMailList });
+  };
+}
 
 // Also export lastMailList for use by automation modules
-exportedHandlers._lastMailList = lastMailList;
+finalHandlers._lastMailList = lastMailList;
 
-module.exports = exportedHandlers;
-module.exports.emailHandlers = exportedHandlers;
+module.exports = finalHandlers;
+module.exports.emailHandlers = finalHandlers;

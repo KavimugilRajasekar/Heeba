@@ -25,6 +25,7 @@ const {
 const { setupInputHandlers, resizeInput } = require('./src/ui/input-manager');
 const { C } = require('./src/ui/theme');
 const { MODES } = require('./src/utils/helpers');
+const { renderMarkdown } = require('./src/ui/markdown-renderer');
 
 // =============================================
 // CLI Argument Parsing
@@ -96,25 +97,44 @@ async function runStateless(prompt, model) {
   console.log(`\x1b[90mQuery: "${prompt}"\x1b[0m\n`);
 
   let fullResponse = '';
-  process.stdout.write(`\x1b[33m⁜ Heeba:\x1b[0m `);
+  process.stdout.write(`\x1b[33m⁜ Heeba:\x1b[0m\n`);
 
   try {
     await queryLLM(prompt, MODES.auto, state.CONFIG, (token) => {
-      process.stdout.write(token);
+      // Just collect tokens, don't print them to avoid raw JSON leaks in terminal
       fullResponse += token;
     });
 
-    console.log('\n');
-
-    // Command Execution in Stateless Mode
+    // Check for command first
     const command = parseCommandFromResponse(fullResponse);
+    let displayResponse = fullResponse;
+
+    // If it's a command, we might want to strip the JSON from the display if desired,
+    // but usually the LLM includes some text too.
     if (command && command.action) {
-      console.log(`\x1b[32m◈ Executing Action: ${command.action}...\x1b[0m`);
-      const result = await executeCommand(command, { screen: null, UI: null });
+      // Clean up the response for display if it contains a JSON block
+      displayResponse = fullResponse.replace(/```json\s*[\s\S]*?```/g, '').trim();
+      if (displayResponse.includes('{') && displayResponse.includes('"action"')) {
+         displayResponse = displayResponse.replace(/\{[\s\S]*"action"[\s\S]*\}/g, '').trim();
+      }
+    }
+
+    // Render markdown for the text part
+    const renderedLines = renderMarkdown(displayResponse, process.stdout.columns || 80);
+    renderedLines.forEach(line => {
+      let content = line.content;
+      // Convert some blessed-like tags or colors if needed, but renderMarkdown 
+      // mostly returns plain text with some ANSI-like prefixes now.
+      process.stdout.write(content + '\n');
+    });
+
+    if (command && command.action) {
+      process.stdout.write(`\n\x1b[32m◈ Executing Action: ${command.action}...\x1b[0m\n`);
+      const result = await executeCommand(command, { screen: null, UI: null, config: state.CONFIG });
       if (result && result.success) {
-        console.log(`\x1b[32m✓ ${result.message}\x1b[0m`);
+        process.stdout.write(`\x1b[32m✓ ${result.message}\x1b[0m\n`);
       } else if (result) {
-        console.log(`\x1b[31m✗ Failed: ${result.message}\x1b[0m`);
+        process.stdout.write(`\x1b[31m✗ Failed: ${result.message}\x1b[0m\n`);
       }
     }
 
@@ -293,7 +313,7 @@ if (cliPrompt) {
       const command = parseCommandFromResponse(fullResponse);
       if (command && command.action) {
         const result = await executeCommand(command, {
-          screen, UI,
+          screen, UI, config: state.CONFIG,
           currentSession: (state.currentSessionIndex >= 0 && state.currentSessionIndex < state.sessions.length) ? state.sessions[state.currentSessionIndex] : null,
           currentPage: newPage,
           onSessionRenamed: (newName) => { if (state.currentSessionIndex === -1) UI.cardTitle.setContent(newName); renderIndexPage(UI, screen, state); requestRender(); },
