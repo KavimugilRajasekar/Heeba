@@ -2,12 +2,19 @@
 const fs = require('fs');
 const path = require('path');
 
+// pkg-compatible path resolution
+const ROOT_PATH = process.pkg
+    ? path.dirname(process.execPath)
+    : path.join(__dirname, '..', '..');
+
+const HEEBA_JSON_PATH = path.join(ROOT_PATH, 'heeba.json');
+
 let heebaConfig = null;
 
 function loadHeebaConfig() {
   if (heebaConfig) return heebaConfig;
 
-  const configPath = path.join(process.cwd(), 'heeba.json');
+  const configPath = path.join(ROOT_PATH, 'heeba.json');
 
   try {
     if (fs.existsSync(configPath)) {

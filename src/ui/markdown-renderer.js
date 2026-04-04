@@ -27,30 +27,48 @@ function renderMarkdown(text, termWidth) {
       if (!inCodeBlock) {
         inCodeBlock = true;
         codeBlockLang = raw.trimStart().slice(3).trim();
-        // Code block header
-        result.push({
-          content: `  ┌${'─'.repeat(Math.min(contentWidth - 2, 60))}${codeBlockLang ? ' ' + codeBlockLang + ' ' : ''}`,
-          fg: C.border,
-          bold: false,
-          type: 'code-border'
-        });
+        const isTable = codeBlockLang === 'table';
+        
+        // Code block header (only if not a table)
+        if (!isTable) {
+          result.push({
+            content: `  ┌${'─'.repeat(Math.min(contentWidth - 2, 60))}${codeBlockLang ? ' ' + codeBlockLang + ' ' : ''}`,
+            fg: C.border,
+            bold: false,
+            type: 'code-border'
+          });
+        }
       } else {
+        const isTable = codeBlockLang === 'table';
         inCodeBlock = false;
+        
+        if (!isTable) {
+          result.push({
+            content: `  └${'─'.repeat(Math.min(contentWidth - 2, 60))}`,
+            fg: C.border,
+            bold: false,
+            type: 'code-border'
+          });
+        }
         codeBlockLang = '';
-        result.push({
-          content: `  └${'─'.repeat(Math.min(contentWidth - 2, 60))}`,
-          fg: C.border,
-          bold: false,
-          type: 'code-border'
-        });
       }
       continue;
     }
 
     // ── Inside Code Block ──
     if (inCodeBlock) {
+      const isTable = codeBlockLang === 'table';
+      let content = isTable ? `  ${raw}` : `  │ ${raw}`;
+      
+      if (isTable) {
+        // Tag structural characters with ultraDark color for faint borders
+        // Characters: ┌ ┐ └ ┘ ─ ┬ ┴ ┼ ├ ┤ │
+        const boxChars = /[┌┐└┘─┬┴┼├┤│]/g;
+        content = content.replace(boxChars, (match) => `{#1a1a1a-fg}${match}{/}`);
+      }
+
       result.push({
-        content: `  │ ${raw}`,
+        content: content,
         fg: C.cyan,
         bold: false,
         type: 'code'

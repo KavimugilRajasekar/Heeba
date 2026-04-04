@@ -1,8 +1,9 @@
 // src/core/ollama-adapter.js
 const https = require('https');
 const fs = require('fs');
-const path = require('path');
+const { CREDENTIALS_PATH } = require('../utils/paths');
 const { buildSystemPrompt } = require('../utils/helpers');
+const { isOnlineModel, getOnlineModel } = require('./model-registry');
 
 let isLLMRunning = false;
 let conversationHistory = [];
@@ -10,15 +11,14 @@ let totalTokensUsed = 0;
 
 function loadOllamaCredentials() {
     try {
-        const credPath = path.join(process.cwd(), 'credentials.json');
-        if (fs.existsSync(credPath)) {
-            return JSON.parse(fs.readFileSync(credPath, 'utf8'));
+        if (fs.existsSync(CREDENTIALS_PATH)) {
+            return JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
         }
     } catch (e) {}
     return null;
 }
 
-function queryOllama(userInput, mode, CONFIG, onToken) {
+function queryOllama(userInput, mode, CONFIG, onToken, history = []) {
     return new Promise((resolve, reject) => {
         if (isLLMRunning) {
             reject(new Error('LLM is already busy'));
@@ -26,26 +26,27 @@ function queryOllama(userInput, mode, CONFIG, onToken) {
         }
         isLLMRunning = true;
 
-        const credentials = loadOllamaCredentials();
-        if (!credentials || !credentials.ollama || !credentials.ollama.api_key) {
+
+        // Get model config from model-registry
+        const modelConfig = getOnlineModel(CONFIG.model);
+        if (!modelConfig) {
             isLLMRunning = false;
-            reject(new Error('Ollama credentials not found'));
+            reject(new Error('Online model not found in registry'));
             return;
         }
 
-        const { api_key, endpoint, models: credentialModels } = credentials.ollama;
-        
-        // Strip "(Online)" if present and find the actual model name
-        const cleanVirtualName = CONFIG.model.replace(' (Online)', '').trim();
-        const modelEntry = credentialModels.find(m => m.virtual_name === cleanVirtualName);
-        const modelName = modelEntry ? modelEntry.actual_model : 'gpt-oss:120b'; 
+        const { api_key, base_url, endpoint } = modelConfig;
+        const targetUrl = base_url || endpoint;
+        const modelName = modelConfig.model;
 
         const systemPrompt = buildSystemPrompt(mode);
         let fullPrompt;
-        
-        if (mode === 'auto' && conversationHistory.length > 0) {
-            let history = conversationHistory.map(e => `USER: ${e.user}\nASST: ${e.assistant}`).join('\n');
-            fullPrompt = `${systemPrompt}\n\n${history}\n\nUSER: ${userInput}\nASST:`;
+
+        const effectiveHistory = (history && history.length > 0) ? history : conversationHistory;
+
+        if (mode === 'auto' && effectiveHistory.length > 0) {
+            let historyText = effectiveHistory.map(e => `USER: ${e.user || e.prompt}\nASST: ${e.assistant || e.response}`).join('\n');
+            fullPrompt = `${systemPrompt}\n\n${historyText}\n\nUSER: ${userInput}\nASST:`;
         } else {
             fullPrompt = `${systemPrompt}\n\nUSER: ${userInput}\nASST:`;
         }
@@ -60,11 +61,19 @@ function queryOllama(userInput, mode, CONFIG, onToken) {
             }
         });
 
-        const url = new URL(endpoint);
+        let url;
+        try {
+            url = new URL(targetUrl);
+        } catch (err) {
+            isLLMRunning = false;
+            reject(new Error(`Invalid Online Model URL: "${targetUrl}". Please ensure the URL starts with http:// or https://`));
+            return;
+        }
+
         const options = {
             hostname: url.hostname,
-            port: 443,
-            path: url.pathname,
+            port: url.port || (url.protocol === 'https:' ? 443 : 80),
+            path: url.pathname + url.search,
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${api_key}`,
@@ -73,7 +82,8 @@ function queryOllama(userInput, mode, CONFIG, onToken) {
             }
         };
 
-        const req = https.request(options, (res) => {
+        const agent = url.protocol === 'https:' ? require('https') : require('http');
+        const req = agent.request(options, (res) => {
             let fullResponse = '';
 
             res.on('data', (chunk) => {
@@ -138,16 +148,11 @@ function getAvailableVirtualModels() {
 }
 
 function isVirtualModel(modelName) {
-    const credentials = loadOllamaCredentials();
-    if (!credentials || !credentials.ollama || !credentials.ollama.models) {
-        return false;
-    }
-    // Handle both "name" and "name (Online)" formats
-    const cleanName = modelName.replace(' (Online)', '').trim();
-    return credentials.ollama.models.some(m => m.virtual_name === cleanName);
+    // Delegate to model-registry for comprehensive check
+    return isOnlineModel(modelName);
 }
 
-async function testOllamaConnection(apiKey, endpoint, modelName) {
+async function testOllamaConnection(apiKey, targetUrl, modelName) {
     // Perform a minimal completion request to verify credentials
     const postData = JSON.stringify({
         model: modelName,
@@ -157,11 +162,11 @@ async function testOllamaConnection(apiKey, endpoint, modelName) {
     });
 
     try {
-        const url = new URL(endpoint);
+        const url = new URL(targetUrl);
         const options = {
             hostname: url.hostname,
-            port: 443,
-            path: url.pathname,
+            port: url.port || (url.protocol === 'https:' ? 443 : 80),
+            path: url.pathname + url.search,
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
@@ -171,8 +176,9 @@ async function testOllamaConnection(apiKey, endpoint, modelName) {
             timeout: 5000
         };
 
+        const agent = url.protocol === 'https:' ? require('https') : require('http');
         return new Promise((resolve) => {
-            const req = https.request(options, (res) => {
+            const req = agent.request(options, (res) => {
                 if (res.statusCode === 200) resolve({ success: true });
                 else resolve({ success: false, message: `HTTP ${res.statusCode}` });
             });
@@ -181,7 +187,7 @@ async function testOllamaConnection(apiKey, endpoint, modelName) {
             req.end();
         });
     } catch (e) {
-        return { success: false, message: e.message };
+        return { success: false, message: `Invalid URL: ${targetUrl}. Ensure it includes http:// or https://` };
     }
 }
 

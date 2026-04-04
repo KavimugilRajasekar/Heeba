@@ -3,25 +3,8 @@ const { C } = require('../ui/theme');
 const { getHeebaConfig } = require('../core/config-loader');
 
 const MODES = {
-  task: {
-    name: 'Dino',
-    prompt: 'heeba-task',
-    headerTitle: 'TASK MODE',
-    mascot: [
-      '\n                 __\n                / _)\n       _.----._/ /\n      /         /\n   __/ (  | (  |\n  /__.-\'|_|--|_|',
-      '\n                 __\n                / -)\n       _.----._/ /\n      /         /\n   __/ (  | (  |\n  /__.-\'|_|--|_|',
-      '\n                 __\n                / >)\n       _.----._/ /\n      /         /\n   __/ (  | (  |\n  /__.-\'|_|--|_|'
-    ],
-    statusLines: 'Workspace : ~/current-project\nActivity  : Editing | Creating | Debugging',
-    color: C.green,
-    tips: [
-      'Ask Heeba to create a component',
-      'Ask Heeba to debug an error',
-      'Ask Heeba to design a feature'
-    ]
-  },
   auto: {
-    name: 'Cat',
+    name: 'Auto',
     prompt: '※',
     headerTitle: 'AUTOMATION MODE',
     mascot: [

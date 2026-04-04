@@ -38,6 +38,9 @@
       "access_sensitive_information"
     ]
   },
+  "online_models": [],
+  "email_accounts": [],
+  "default_email_account": null,
   "intent_routing_rules": {
     "greeting": {
       "patterns": [
@@ -50,60 +53,39 @@
       "action": "greet_user",
       "response_type": " conversational"
     },
-    "code_task": {
-      "patterns": [
-        "write code",
-        "create function",
-        "make a",
-        "generate code",
-        "build",
-        "implement"
-      ],
-      "action": "code_generation",
-      "response_type": "structured_command",
-      "backend_command": {
-        "action": "generate_code",
-        "parameters": {
-          "task_description": "{extracted_description}",
-          "language": "{detected_language}"
-        }
-      }
-    },
-    "debug_task": {
-      "patterns": [
-        "debug",
-        "fix error",
-        "bug",
-        "isn't working",
-        "not working",
-        "broken"
-      ],
-      "action": "debug_task",
-      "response_type": "structured_command",
-      "backend_command": {
-        "action": "debug_code",
-        "parameters": {
-          "error_description": "{extracted_error}",
-          "context": "{relevant_code_context}"
-        }
-      }
-    },
     "file_analysis": {
       "patterns": [
         "analyze",
         "look at",
         "review",
         "check this file",
-        "what does this"
+        "what does this file do",
+        "file info"
       ],
       "action": "analyze_file",
       "response_type": "structured_command",
       "backend_command": {
         "action": "analyze_file",
         "parameters": {
-          "file_path": "{extracted_path}",
-          "analysis_type": "full"
+          "file_path": "{extracted_path}"
         }
+      }
+    },
+    "system_status": {
+      "patterns": [
+        "system status",
+        "system info",
+        "about system",
+        "memory usage",
+        "cpu info",
+        "version",
+        "status"
+      ],
+      "action": "get_system_info",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "get_system_info",
+        "parameters": {}
       }
     },
     "explanation": {
@@ -219,6 +201,24 @@
         }
       }
     },
+    "conversation_rename": {
+      "patterns": [
+        "rename this conversation",
+        "rename this turn",
+        "rename this branch",
+        "call this conversation",
+        "name this turn",
+        "set title for this"
+      ],
+      "action": "rename_conversation",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "rename_conversation",
+        "parameters": {
+          "title": "{extracted_conversation_title}"
+        }
+      }
+    },
     "session_delete": {
       "patterns": [
         "delete this session",
@@ -233,6 +233,618 @@
       "backend_command": {
         "action": "delete_session",
         "parameters": {}
+      }
+    },
+    "fetch_emails": {
+      "patterns": [
+        "fetch emails",
+        "show my emails",
+        "check my inbox",
+        "list my mail",
+        "get recent emails",
+        "show emails from the last",
+        "read my mail"
+      ],
+      "action": "fetch_emails",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "fetch_emails",
+        "parameters": {
+          "days": "{extracted_number_of_days}"
+        }
+      }
+    },
+    "send_email": {
+      "patterns": [
+        "send an email to",
+        "email to",
+        "compose a mail",
+        "mail to",
+        "send message to email",
+        "attach"
+      ],
+      "action": "send_email",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "send_email",
+        "parameters": {
+          "to": "{extracted_recipient}",
+          "subject": "{extracted_subject}",
+          "body": "{extracted_body}",
+          "attachments": "{extracted_file_paths_array}"
+        }
+      }
+    },
+    "read_email": {
+      "patterns": [
+        "read email",
+        "open email",
+        "view email",
+        "show me email",
+        "read #",
+        "open #",
+        "view #",
+        "read the one from",
+        "open the mail about",
+        "read the alert"
+      ],
+      "action": "read_email",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "read_email",
+        "parameters": {
+          "index": "{extracted_index}",
+          "uid": "{extracted_uid}"
+        }
+      }
+    },
+    "fetch_emails_by_date": {
+      "patterns": [
+        "emails from",
+        "show emails on",
+        "fetch emails for",
+        "list emails since",
+        "how many emails on"
+      ],
+      "action": "fetch_emails_by_date",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "fetch_emails_by_date",
+        "parameters": {
+          "from": "{ISO_DATETIME}",
+          "to": "{ISO_DATETIME}"
+        }
+      }
+    },
+    "fetch_emails_by_timerange": {
+      "patterns": [
+        "morning emails",
+        "afternoon emails",
+        "evening emails",
+        "night emails",
+        "today morning",
+        "yesterday evening"
+      ],
+      "action": "fetch_emails_by_timerange",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "fetch_emails_by_timerange",
+        "parameters": {
+          "date": "{YYYY-MM-DD}",
+          "time_range": "{morning|afternoon|evening|night}"
+        }
+      }
+    },
+    "fetch_emails_by_filter": {
+      "patterns": [
+        "emails from Amazon",
+        "invoice mail from",
+        "emails with subject",
+        "find mail about",
+        "search mail"
+      ],
+      "action": "fetch_emails_by_filter",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "fetch_emails_by_filter",
+        "parameters": {
+          "date": "{YYYY-MM-DD}",
+          "from_contains": "{string}",
+          "subject_contains": "{string}"
+        }
+      }
+    },
+    "fetch_unread_by_date": {
+      "patterns": [
+        "unread emails",
+        "what did I miss",
+        "any new mail from",
+        "any unread"
+      ],
+      "action": "fetch_unread_by_date",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "fetch_unread_by_date",
+        "parameters": {
+          "date": "{YYYY-MM-DD}"
+        }
+      }
+    },
+    "fetch_threads_by_sender": {
+      "patterns": [
+        "threads from",
+        "conversation with",
+        "mail history with"
+      ],
+      "action": "fetch_threads_by_sender",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "fetch_threads_by_sender",
+        "parameters": {
+          "sender": "{string}",
+          "date": "{YYYY-MM-DD}"
+        }
+      }
+    },
+    "export_emails_by_date": {
+      "patterns": [
+        "export emails",
+        "save emails to file",
+        "backup emails"
+      ],
+      "action": "export_emails_by_date",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "export_emails_by_date",
+        "parameters": {
+          "date": "{YYYY-MM-DD}",
+          "format": "{md|txt}"
+        }
+      }
+    },
+    "summarize_emails_by_date": {
+      "patterns": [
+        "summarize emails",
+        "give me a summary of",
+        "wrap up of today"
+      ],
+      "action": "summarize_emails_by_date",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "summarize_emails_by_date",
+        "parameters": {
+          "date": "{YYYY-MM-DD}"
+        }
+      }
+    },
+    "add_online_model": {
+      "patterns": [
+        "add online model",
+        "add model provider",
+        "register new model",
+        "add openrouter",
+        "add api model",
+        "add model",
+        "add ollama model"
+      ],
+      "action": "add_online_model",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "add_online_model",
+        "parameters": {
+          "id": "{unique_model_id}",
+          "type": "{ollama|openrouter|openai}",
+          "base_url": "{api_endpoint_url}",
+          "api_key": "{api_key}",
+          "model": "{model_name}"
+        }
+      }
+    },
+    "add_email_account": {
+      "patterns": [
+        "add email account",
+        "add new email",
+        "configure email account",
+        "add mail account",
+        "use this mail",
+        "store this email",
+        "add this mail",
+        "use this mail for fetch"
+      ],
+      "action": "add_email_account",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "add_email_account",
+        "parameters": {
+          "id": "{account_id}",
+          "email": "{email_address}",
+          "app_password": "{app_password}",
+          "imap_host": "{imap_host}",
+          "smtp_host": "{smtp_host}"
+        }
+      }
+    },
+    "delete_page": {
+      "patterns": [
+        "delete this page",
+        "delete current page",
+        "delete this turn",
+        "remove this page",
+        "delete branch",
+        "delete this branch"
+      ],
+      "action": "delete_page",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "delete_page",
+        "parameters": {
+          "scope": "{current|branch}"
+        }
+      }
+    },
+    "apply_rules": {
+      "patterns": [
+        "apply rules",
+        "run automation",
+        "process emails automatically"
+      ],
+      "action": "apply_rules",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "apply_rules",
+        "parameters": {}
+      }
+    },
+    "list_rules": {
+      "patterns": [
+        "list rules",
+        "show automation rules",
+        "what rules are configured"
+      ],
+      "action": "list_rules",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "list_rules",
+        "parameters": {}
+      }
+    },
+    "add_rule": {
+      "patterns": [
+        "add a rule",
+        "create automation rule",
+        "new rule for email"
+      ],
+      "action": "add_rule",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "add_rule",
+        "parameters": {
+          "name": "{string}",
+          "conditions": "{}",
+          "actions": "[]"
+        }
+      }
+    },
+    "search_emails": {
+      "patterns": [
+        "search emails",
+        "find emails",
+        "filter emails",
+        "search for"
+      ],
+      "action": "search_emails",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "search_emails",
+        "parameters": {
+          "filters": "{}"
+        }
+      }
+    },
+    "categorize_emails": {
+      "patterns": [
+        "categorize emails",
+        "sort emails by category",
+        "group emails by type"
+      ],
+      "action": "categorize_emails",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "categorize_emails",
+        "parameters": {
+          "days": "{number}"
+        }
+      }
+    },
+    "download_attachments": {
+      "patterns": [
+        "download attachments",
+        "save attachments from email",
+        "download files from mail"
+      ],
+      "action": "download_attachments",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "download_attachments",
+        "parameters": {
+          "index": "{number}",
+          "uid": "{string}"
+        }
+      }
+    },
+    "group_emails_by_thread": {
+      "patterns": [
+        "group emails by thread",
+        "show email threads",
+        "organize emails in threads"
+      ],
+      "action": "group_emails_by_thread",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "group_emails_by_thread",
+        "parameters": {
+          "days": "{number}"
+        }
+      }
+    },
+    "render_timeline": {
+      "patterns": [
+        "show timeline",
+        "email timeline",
+        "chronological view of emails",
+        "timeline for today"
+      ],
+      "action": "render_timeline",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "render_timeline",
+        "parameters": {
+          "days": "{number}"
+        }
+      }
+    },
+    "generate_digest": {
+      "patterns": [
+        "daily digest",
+        "summarize today emails",
+        "what did I get today",
+        "email summary"
+      ],
+      "action": "generate_digest",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "generate_digest",
+        "parameters": {
+          "date": "{YYYY-MM-DD}"
+        }
+      }
+    },
+    "weekly_digest": {
+      "patterns": [
+        "weekly digest",
+        "summarize this week emails",
+        "email summary for the week"
+      ],
+      "action": "weekly_digest",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "weekly_digest",
+        "parameters": {}
+      }
+    },
+    "show_followups": {
+      "patterns": [
+        "show follow ups",
+        "emails I sent without reply",
+        "pending follow ups",
+        "emails awaiting reply"
+      ],
+      "action": "show_followups",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "show_followups",
+        "parameters": {
+          "days": "{number}"
+        }
+      }
+    },
+    "send_quick_reply": {
+      "patterns": [
+        "reply yes",
+        "reply no",
+        "quick reply",
+        "reply noted"
+      ],
+      "action": "send_quick_reply",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "send_quick_reply",
+        "parameters": {
+          "index": "{number}",
+          "type": "{string}"
+        }
+      }
+    },
+    "list_quick_replies": {
+      "patterns": [
+        "list quick replies",
+        "show reply templates",
+        "what quick replies are available"
+      ],
+      "action": "list_quick_replies",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "list_quick_replies",
+        "parameters": {}
+      }
+    },
+    "detect_otp": {
+      "patterns": [
+        "find otp",
+        "extract otp",
+        "show verification code",
+        "what is the otp",
+        "detect otp"
+      ],
+      "action": "detect_otp",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "detect_otp",
+        "parameters": {
+          "index": "{number}",
+          "hours": "{number}"
+        }
+      }
+    },
+    "fetch_priority_unread": {
+      "patterns": [
+        "priority unread",
+        "important unread emails",
+        "unread sorted by importance"
+      ],
+      "action": "fetch_priority_unread",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "fetch_priority_unread",
+        "parameters": {}
+      }
+    },
+    "export_emails": {
+      "patterns": [
+        "export emails to file",
+        "save emails as markdown"
+      ],
+      "action": "export_emails",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "export_emails",
+        "parameters": {
+          "date": "{YYYY-MM-DD}",
+          "format": "{md|txt}"
+        }
+      }
+    },
+    "filter_by_time": {
+      "patterns": [
+        "morning emails",
+        "afternoon emails",
+        "evening emails",
+        "night emails"
+      ],
+      "action": "filter_by_time",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "filter_by_time",
+        "parameters": {
+          "date": "{YYYY-MM-DD}",
+          "time_range": "{morning|afternoon|evening|night}"
+        }
+      }
+    },
+    "email_stats": {
+      "patterns": [
+        "email statistics",
+        "email stats",
+        "how many emails this week"
+      ],
+      "action": "email_stats",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "email_stats",
+        "parameters": {
+          "days": "{number}"
+        }
+      }
+    },
+    "detect_spam": {
+      "patterns": [
+        "detect spam",
+        "find spam emails",
+        "show spam emails"
+      ],
+      "action": "detect_spam",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "detect_spam",
+        "parameters": {
+          "days": "{number}"
+        }
+      }
+    },
+    "bulk_mark_read": {
+      "patterns": [
+        "mark all as read",
+        "bulk mark read",
+        "mark emails as read"
+      ],
+      "action": "bulk_mark_read",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "bulk_mark_read",
+        "parameters": {
+          "category": "{string}"
+        }
+      }
+    },
+    "bulk_archive": {
+      "patterns": [
+        "bulk archive",
+        "archive all promotional",
+        "archive by category"
+      ],
+      "action": "bulk_archive",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "bulk_archive",
+        "parameters": {
+          "category": "{string}"
+        }
+      }
+    },
+    "email_to_task": {
+      "patterns": [
+        "extract tasks from email",
+        "convert email to tasks",
+        "find action items in email"
+      ],
+      "action": "email_to_task",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "email_to_task",
+        "parameters": {
+          "index": "{number}"
+        }
+      }
+    },
+    "narrate_email": {
+      "patterns": [
+        "narrate email",
+        "tell me about this email",
+        "explain this email"
+      ],
+      "action": "narrate_email",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "narrate_email",
+        "parameters": {
+          "index": "{number}",
+          "style": "{friendly|professional|casual}"
+        }
+      }
+    },
+    "narrate_inbox": {
+      "patterns": [
+        "narrate my inbox",
+        "tell me about my emails",
+        "what emails did I get"
+      ],
+      "action": "narrate_inbox",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "narrate_inbox",
+        "parameters": {
+          "days": "{number}"
+        }
       }
     }
   },
@@ -253,7 +865,19 @@
     "When user requests broad configuration changes (personality, etc.), output a JSON command for update_config",
     "When user wants to add an online model, output a JSON command for add_ollama_model",
     "When user asks to rename, name, or relabel the current session (e.g. 'rename this session to X'), output a JSON structured command with action rename_session and parameter name set to the exact name the user specified",
-    "When user asks to delete, remove, or erase the current session or conversation, output a JSON structured command with action delete_session and empty parameters"
+    "When user asks to rename the current conversation turn or branch (e.g. 'change this conversation title to X'), output a JSON structured command with action rename_conversation and parameter title set to the exact title specified",
+    "When user asks to delete, remove, or erase the current session or conversation, output a JSON structured command with action delete_session and empty parameters",
+    "When user asks to fetch, show, or list emails (e.g. 'show my emails from the last 3 days'), output a JSON structured command with action fetch_emails and parameter days set to the number of days specified by the user (default to 3 if not specified)",
+    "When user asks to send, compose, or mail someone (e.g. 'send an email to X with subject Y saying Z'), output a JSON structured command with action send_email with parameters to, subject, body, and optionally attachments extracted from the user's request. If the user mentions a file path (e.g., 'C:\\Users\\...'), include it in the attachments array.",
+    "RECEPTION ALIAS: If the user refers to 'reception', use the email address they explicitly mentioned earlier in the conversation. If no email was mentioned for reception, use 'reception' as the recipient and the backend will handle it if configured.",
+    "When user asks to read, open, or view a specific email (e.g. 'read the first email' or 'open #2'), output a JSON structured command with action read_email and parameter index set to the number the user specified",
+    "INTENT DISAMBIGUATION: If the user asks to open an email using a description (e.g., sender name, subject keyword) rather than a number, you MUST search the previously fetched email list in the conversation history for a match. Once found, use the corresponding index number in the read_email command.",
+    "When user wants to add an online model (e.g. 'add openrouter model'), output a JSON command with action add_online_model and parameters: id (unique name), type (ollama/openrouter/openai), base_url, api_key, and model",
+    "When user wants to add an email account, output a JSON command with action add_email_account and parameters: id, email, app_password (not regular password), imap_host, smtp_host",
+    "When user asks to delete the current page or branch (e.g. 'delete this page' or 'delete branch'), output a JSON command with action delete_page and scope set to 'current' or 'branch'",
+    "INTENT FILTERING: For advanced email fetching, provide ISO dates and specific filters: morning (05:00-12:00), afternoon (12:00-17:00), evening (17:00-21:00), night (21:00-05:00). If the user asks 'What did I miss yesterday?', use fetch_unread_by_date with yesterday's ISO date. If the user asks to 'summarize' or 'export', use the corresponding action with the target date.",
+    "HEEBA CORE RULE: Never hardcode models. All models (local GGUF and online) must be discovered dynamically at runtime via getAvailableModels(). Local models are scanned from engine/models/, online models come from heeba.json online_models array.",
+    "USER ADVICE: If a user wants to register or use an online model but you lack the credentials, ADVISE the user to provide the exact 'BaseUrl', 'API Key', 'Model ID', and 'Type' (e.g. OpenRouter, Ollama) so you can add them to heeba.json or credentials.json automatically."
   ],
   "output_format": {
     "conversational": {

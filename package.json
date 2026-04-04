@@ -8,12 +8,37 @@
   },
   "scripts": {
     "start": "node main.js",
-    "dev": "node main.js"
+    "dev": "node main.js",
+    "build:exe": "pkg ."
   },
-  "keywords": ["terminal", "ai"],
+  "keywords": [
+    "terminal",
+    "ai"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "blessed": "^0.1.81"
+    "blessed": "^0.1.81",
+    "html-to-text": "^9.0.5",
+    "imapflow": "^1.2.18",
+    "mailparser": "^3.9.6",
+    "nodemailer": "^8.0.4",
+    "pino": "^8.21.0"
+  },
+  "overrides": {},
+  "pkg": {
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist",
+    "assets": [
+      "heeba.json",
+      "credentials.json",
+      "src/**/*",
+      "node_modules/blessed/**/*"
+    ]
+  },
+  "devDependencies": {
+    "depcheck": "^1.4.7"
   }
 }
