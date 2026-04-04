@@ -1,7 +1,16 @@
 #!/usr/bin/env node
 const os = require('os');
 const blessed = require('blessed');
+
+// Handle --version flag early
 const logger = require('./src/utils/logger');
+
+// Handle --version flag early
+if (process.argv.includes('--version') || process.argv.includes('-v')) {
+  const { version } = require('./package.json');
+  console.log(`heeba v${version}`);
+  process.exit(0);
+}
 
 // Modules
 const { state, estimateTokens, getPathToPage, deletePage } = require('./src/core/state-manager');
@@ -37,10 +46,18 @@ const overlays = createOverlays(UI.container);
 // Stats loop
 setInterval(() => refreshStats(UI, screen), 1000);
 
-// Cleanup
-function cleanupAndExit() { stopServer(); process.exit(0); }
+// Cleanup - skip blessed destroy as it crashes in pkg snapshots
+let isExiting = false;
+function cleanupAndExit() {
+  if (isExiting) return;
+  isExiting = true;
+  stopServer();
+  // Don't call screen.destroy() - it crashes in pkg snapshot when terminated abruptly
+  process.exit(0);
+}
 process.on('SIGINT', cleanupAndExit);
 process.on('SIGTERM', cleanupAndExit);
+process.on('exit', () => { stopServer(); });
 process.on('exit', () => stopServer());
 
 // Command Logic
