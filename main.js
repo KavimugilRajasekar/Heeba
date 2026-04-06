@@ -27,6 +27,7 @@ const { C } = require('./src/ui/theme');
 const { MODES } = require('./src/utils/helpers');
 const { renderMarkdown } = require('./src/ui/markdown-renderer');
 const { launchTelegramMode } = require('./src/telegram/telegram-launcher');
+const { launchWebMode } = require('./src/web/web-launcher');
 
 
 // =============================================
@@ -49,7 +50,12 @@ const sessionId = sessionIdx !== -1 ? args[(sessionIdx + 1)] : null;
 const showMetrics = args.includes('-M') || args.includes('--metrics');
 const isLaunch = args.includes('--launch') || args.includes('-launch');
 const isLaunchTele = args.includes('--launch-tele') || args.includes('-launch-tele');
+const isLaunchWeb = args.includes('--launch-web') || args.includes('-launch-web');
 const isHelp = args.includes('--help') || args.includes('-h');
+
+// Web interface port
+const portIdx = args.indexOf('-p') !== -1 ? args.indexOf('-p') : args.indexOf('--port');
+const webPort = portIdx !== -1 ? parseInt(args[(portIdx + 1)], 10) : 7856;
 
 // Telegram sub-flags
 const teleListen = args.includes('-l');
@@ -77,6 +83,8 @@ function showHelp() {
 
   console.log(`\x1b[1mOPTIONS:\x1b[0m`);
   console.log(`  \x1b[33m--launch\x1b[0m                    Start the Interactive Terminal UI (TUI)`);
+  console.log(`  \x1b[33m--launch-web\x1b[0m                Start the Local Web Interface`);
+  console.log(`  \x1b[33m-p <port>\x1b[0m                   Port for web interface (default: 7856)`);
   console.log(`  \x1b[33m--help, -h\x1b[0m                  Show this help information`);
   console.log(`  \x1b[33m--version, -v\x1b[0m               Show version number`);
   console.log(`  \x1b[33m-m "<prompt>"\x1b[0m               Execute a natural language query in stateless mode`);
@@ -94,6 +102,8 @@ function showHelp() {
 
   console.log(`\x1b[1mEXAMPLES:\x1b[0m`);
   console.log(`  heeba --launch`);
+  console.log(`  heeba --launch-web`);
+  console.log(`  heeba --launch-web -p 9000`);
   console.log(`  heeba -m "Summarize my emails from this morning"`);
   console.log(`  heeba -m "Show my system status" -M`);
   console.log(`  heeba --launch-tele -l`);
@@ -221,6 +231,10 @@ async function runStateless(prompt, model) {
   }
 }
 
+// Check if we should enter Web mode
+if (isLaunchWeb) {
+  launchWebMode(webPort);
+} else
 // Check if we should enter Telegram mode
 if (isLaunchTele) {
   launchTelegramMode({

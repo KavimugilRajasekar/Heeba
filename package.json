@@ -25,7 +25,8 @@
     "node-telegram-bot-api": "^0.67.0",
     "nodemailer": "^8.0.4",
     "pino": "^8.21.0",
-    "qrcode-terminal": "^0.12.0"
+    "qrcode-terminal": "^0.12.0",
+    "ws": "^8.20.0"
   },
   "overrides": {},
   "pkg": {

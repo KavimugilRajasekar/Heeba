@@ -21,6 +21,7 @@ const CACHE_DIR = path.join(ROOT_PATH, '.cache', 'email');
 const EXPORT_DIR = path.join(ROOT_PATH, 'exports');
 const DOWNLOADS_DIR = path.join(ROOT_PATH, 'downloads', 'email');
 const AUTOMATION_DIR = path.join(ROOT_PATH, 'src', 'email', 'automation');
+const STATIC_PATH = path.join(ROOT_PATH, 'src', 'web', 'client');
 
 module.exports = {
   BASE_PATH,
@@ -33,5 +34,6 @@ module.exports = {
   CACHE_DIR,
   EXPORT_DIR,
   DOWNLOADS_DIR,
-  AUTOMATION_DIR
+  AUTOMATION_DIR,
+  STATIC_PATH
 };
