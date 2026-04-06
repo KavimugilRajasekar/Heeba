@@ -5,7 +5,9 @@ const nodemailer = require('nodemailer');
 const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
 
-const templatesPath = path.join(__dirname, 'templates.json');
+// pkg-compatible path for read-only bundled template
+const AUTOMATION_BASE = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..', '..', '..');
+const templatesPath = path.join(AUTOMATION_BASE, 'src', 'email', 'automation', 'templates.json');
 
 const loadTemplates = () => {
     if (fs.existsSync(templatesPath)) {

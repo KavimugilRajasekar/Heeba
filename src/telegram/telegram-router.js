@@ -6,8 +6,9 @@ const { parseCommandFromResponse, executeCommand } = require('../core/intent-exe
 const { state } = require('../core/state-manager');
 const { MODES } = require('../utils/helpers');
 
-// Persisted mapping of Telegram UID to Heeba Session
-const SESSIONS_PATH = path.join(__dirname, '..', '..', 'telegram-sessions.json');
+// pkg-compatible path for sessions file (must be on real disk, not snapshot)
+const SESSIONS_BASE = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..', '..');
+const SESSIONS_PATH = path.join(SESSIONS_BASE, 'telegram-sessions.json');
 
 /**
  * Loads Telegram sessions from disk

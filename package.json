@@ -37,7 +37,7 @@
     "icon": "assets/heeba.png",
     "assets": [
       "heeba.json",
-      "credentials.json",
+      "credentials.ex.json",
       "assets/**/*",
       "src/**/*",
       "node_modules/blessed/**/*"

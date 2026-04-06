@@ -6,6 +6,10 @@ const { HEEBA_JSON_PATH, CREDENTIALS_PATH } = require('../utils/paths');
 const { getHeebaConfig, reloadConfig } = require('./config-loader');
 const { ImapFlow } = require('imapflow');
 const nodemailer = require('nodemailer');
+const { decryptJson } = require('../utils/crypto');
+
+// Confidential encrypted credentials path
+const ENC_CREDENTIALS_PATH = CREDENTIALS_PATH.replace('.json', '.ex.json');
 
 // Get email account by ID, falls back to default or first account
 function getEmailAccount(accountId) {
@@ -29,9 +33,32 @@ function getEmailAccount(accountId) {
     return getLegacyEmailCredentials();
 }
 
-// Legacy credentials.json support
+// Legacy credentials.json support (decrypts encrypted credentials.ex.json)
 function getLegacyEmailCredentials() {
     try {
+        // Try encrypted credentials first
+        if (fs.existsSync(ENC_CREDENTIALS_PATH)) {
+            const encrypted = fs.readFileSync(ENC_CREDENTIALS_PATH, 'utf8');
+            const creds = decryptJson(encrypted);
+            if (Array.isArray(creds.email) && creds.email.length > 0) {
+                return {
+                    id: 'legacy',
+                    email: creds.email[0].user,
+                    app_password: creds.email[0].pass,
+                    imap_host: creds.email[0].host || 'imap.gmail.com',
+                    smtp_host: creds.email[0].smtp || 'smtp.gmail.com'
+                };
+            } else if (creds.email && typeof creds.email === 'object') {
+                return {
+                    id: 'legacy',
+                    email: creds.email.user,
+                    app_password: creds.email.pass,
+                    imap_host: creds.email.host || 'imap.gmail.com',
+                    smtp_host: creds.email.smtp || 'smtp.gmail.com'
+                };
+            }
+        }
+        // Fall back to plain credentials (not recommended)
         if (fs.existsSync(CREDENTIALS_PATH)) {
             const creds = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
             if (Array.isArray(creds.email) && creds.email.length > 0) {
