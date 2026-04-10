@@ -1,0 +1,47 @@
+{
+  "os": "Linux",
+  "tool_name": "w",
+  "category": "User Audit",
+  "flags": [
+    {
+      "flag": "-f",
+      "example_command": "w -f",
+      "purpose": "Toggle from/remote field.",
+      "security_use_case": "Show/hide remote source.",
+      "threat_detected": "Remote login source.",
+      "risk_if_misused": "None.",
+      "safe_followup": "w -f.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-h",
+      "example_command": "w -h",
+      "purpose": "Suppress header.",
+      "security_use_case": "Clean output for parsing.",
+      "threat_detected": "Clean parsing.",
+      "risk_if_misused": "None.",
+      "safe_followup": "w -h | awk '{print $1}'.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-s",
+      "example_command": "w -s",
+      "purpose": "Short format.",
+      "security_use_case": "Compact session info.",
+      "threat_detected": "Compact view.",
+      "risk_if_misused": "None.",
+      "safe_followup": "w -s.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "w -h | awk '{print $1,$3}' | grep -v '^root' | sort | uniq -c | sort -rn",
+      "why_powerful": "Sessions per non-root user.",
+      "security_context": "Detecting unauthorized account access."
+    }
+  ]
+}

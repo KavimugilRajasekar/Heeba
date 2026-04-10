@@ -8,10 +8,19 @@ const MODES = {
     prompt: '※',
     headerTitle: 'AUTOMATION MODE',
     mascot: [
-      '\n        /\\_/\\\n       ( o.o )\n        > ^ <',
-      '\n        /\\_/\\\n       ( -.- )\n        > ^ <',
-      '\n        /\\_/\\\n       ( o.o )\n        > o <'
-    ],
+  // Happy / curious
+  '\n        /\\_/\\\n       ( o.o )\n        > ^ <',
+  // Sad / worried
+  '\n        /\\_/\\\n       ( -.- )\n        > ^ <',
+  // Surprised / paws up
+  '\n        /\\_/\\\n       ( O.O )\n        > w <',
+  // Sleeping
+  '\n        /\\_/\\\n       ( -_- )\n        > . <',
+  // Playful / tongue out
+  '\n        /\\_/\\\n       ( o.o )\n        > p <',
+  // Angry / annoyed
+  '\n        /\\_/\\\n       ( `-´ )\n        > ^ <'
+],
     statusLines: 'Mode     : LLM-powered chat\nContext  : Conversation history maintained',
     color: C.yellow,
     tips: [

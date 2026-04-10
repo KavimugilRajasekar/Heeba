@@ -1,0 +1,58 @@
+{
+  "os": "Linux",
+  "tool_name": "lastb",
+  "category": "User Audit",
+  "flags": [
+    {
+      "flag": "-a",
+      "example_command": "lastb -a",
+      "purpose": "Display hostname in last column.",
+      "security_use_case": "See bad login sources.",
+      "threat_detected": "Failed login sources.",
+      "risk_if_misused": "None.",
+      "safe_followup": "lastb -a | head -100.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-f",
+      "example_command": "lastb -f /var/log/btmp.1",
+      "purpose": "Read from specific file.",
+      "security_use_case": "Historical bad logins.",
+      "threat_detected": "Historical brute force.",
+      "risk_if_misused": "None.",
+      "safe_followup": "lastb -f /var/log/btmp.1 | head.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-i",
+      "example_command": "lastb -i",
+      "purpose": "Display IP address.",
+      "security_use_case": "Numeric IP for threat intel.",
+      "threat_detected": "Bad logins from specific IPs.",
+      "risk_if_misused": "None.",
+      "safe_followup": "lastb -i | awk '{print $10}' | sort | uniq -c | sort -rn.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-n",
+      "example_command": "lastb -n 50",
+      "purpose": "Limit output lines.",
+      "security_use_case": "Quick recent bad logins.",
+      "threat_detected": "Recent failed attempts.",
+      "risk_if_misused": "None.",
+      "safe_followup": "lastb -n 50 -i.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "lastb -i | awk '{print $10}' | sort | uniq -c | sort -rn | head -20",
+      "why_powerful": "Count failed logins per IP.",
+      "security_context": "Detecting brute force sources."
+    }
+  ]
+}

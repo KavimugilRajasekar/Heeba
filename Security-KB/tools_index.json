@@ -1,0 +1,649 @@
+{
+  "Windows": {
+    "Event Logs": [
+      {
+        "tool": "auditpol",
+        "description": "Command-line tool to view and configure Windows Advanced Audit Policy for security event logging.",
+        "use_when": [
+          "Baseline audit coverage review for compliance and SOC visibility.",
+          "Verify auditing for privilege use, process creation, registry, and credential validation.",
+          "Create baseline before changes and for compliance documentation.",
+          "Plan comprehensive audit strategy.",
+          "SOC baseline audit review and compliance reporting."
+        ]
+      },
+      {
+        "tool": "Get-EventLog",
+        "description": "Legacy PowerShell cmdlet to query classic Windows Event Logs. Superseded by Get-WinEvent for modern systems but still useful for quick queries.",
+        "use_when": [
+          "Identify failed authentication attempts indicating brute force.",
+          "Track logons and privilege assignments for compromise investigation.",
+          "Rapid diagnostics for crashes, service failures, suspicious reboots.",
+          "Investigate incidents within last N days.",
+          "Monitor privileged account activity."
+        ]
+      },
+      {
+        "tool": "wevtutil",
+        "description": "",
+        "use_when": [
+          "Discover attacker-created or uncommon logs.",
+          "Investigate logons, process creation, privilege use.",
+          "Check whether logs were recently cleared or tampered.",
+          "Ensure proper forensic retention settings.",
+          "Preserve evidence before log rotation or tampering."
+        ]
+      }
+    ],
+    "System Integrity": [
+      {
+        "tool": "Get-FileHash",
+        "description": "PowerShell cmdlet to compute cryptographic hashes of files or streams for integrity verification and threat hunting.",
+        "use_when": [
+          "Verify file integrity against known-good or threat intel hashes.",
+          "Baseline system executables for compromise detection.",
+          "Verify integrity of frequently targeted files like hosts.",
+          "Hash suspicious files before writing to disk or during memory analysis.",
+          "Detect unauthorized modifications during incident response."
+        ]
+      },
+      {
+        "tool": "Get-ProcessMitigation",
+        "description": "",
+        "use_when": [
+          "Audit global exploit protection posture of the OS.",
+          "Compliance audit and baseline comparison across systems.",
+          "Investigate target process for exploit protection posture.",
+          "Identifies high-risk applications vulnerable to memory exploits.",
+          "Detects processes running without CFG which prevents code reuse attacks."
+        ]
+      },
+      {
+        "tool": "secedit",
+        "description": "",
+        "use_when": [
+          "Audit system security configuration against known-good baselines to identify policy violations.",
+          "Capture system security state for compliance, forensics, or baseline comparison.",
+          "Catch configuration errors before deployment."
+        ]
+      },
+      {
+        "tool": "sfc",
+        "description": "",
+        "use_when": [
+          "Assess integrity violations safely during investigation without altering evidence.",
+          "Check integrity of specific DLLs suspected to be compromised."
+        ]
+      }
+    ],
+    "User Audit": [
+      {
+        "tool": "Get-LocalUser",
+        "description": "PowerShell cmdlet to enumerate and audit local user accounts, their status, SIDs, and password properties for security assessment.",
+        "use_when": [
+          "Audit built-in and suspiciously named accounts.",
+          "Detect renamed built-in Administrator or Guest accounts.",
+          "Dormant account persistence and credential theft risk.",
+          "Credential hygiene and policy enforcement.",
+          "Built-in account abuse and privilege escalation detection."
+        ]
+      }
+    ],
+    "Antivirus": [
+      {
+        "tool": "Get-MpComputerStatus",
+        "description": "PowerShell cmdlet to retrieve Microsoft Defender Antivirus health, protection state, and signature status locally or remotely.",
+        "use_when": [
+          "Safe enterprise querying without overloading endpoints.",
+          "Initial endpoint triage during incident response.",
+          "Detecting defense evasion by attackers.",
+          "Ensuring high-value servers remain protected."
+        ]
+      },
+      {
+        "tool": "Get-MpThreat",
+        "description": "PowerShell cmdlet to retrieve Microsoft Defender Antivirus detected threat history and remediation status.",
+        "use_when": [
+          "Investigate what was detected and how Defender responded.",
+          "Incident investigation and scope assessment.",
+          "Finding active or partially remediated infections."
+        ]
+      }
+    ],
+    "Network Inspection": [
+      {
+        "tool": "Get-NetAdapter",
+        "description": "",
+        "use_when": [
+          "Verify operational status of main connectivity interfaces.",
+          "Discover covert network paths or tunneling interfaces.",
+          "Attackers may disable adapters to prevent monitoring or isolate system.",
+          "Detect data exfiltration, flooding, or hardware malfunction.",
+          "Baseline for detecting cloned or rogue MAC addresses."
+        ]
+      },
+      {
+        "tool": "Get-NetRoute",
+        "description": "",
+        "use_when": [
+          "Identify the default gateway and primary egress path used for outbound traffic.",
+          "Audit routing table for multi-homed hosts and detect unexpected routing via secondary adapters.",
+          "Detect routes injected by DHCP or dynamic routing protocols.",
+          "Audit IPv6 routes which may bypass IPv4-focused monitoring controls.",
+          "Validate gateway identity during suspected network interception."
+        ]
+      },
+      {
+        "tool": "Get-NetTCPConnection",
+        "description": "",
+        "use_when": [
+          "Identify active outbound sessions to public IPs that may indicate C2 or reverse shells.",
+          "Detect rogue web servers, web shells, or port-forwarding tools.",
+          "Find all processes communicating with known malicious infrastructure.",
+          "Ensure sensitive services are not exposed on external adapters.",
+          "Investigate suspicious processes for abnormal network activity."
+        ]
+      },
+      {
+        "tool": "Get-NetUDPEndpoint",
+        "description": "PowerShell cmdlet to retrieve UDP endpoint information including local address and port bindings.",
+        "use_when": [
+          "Find services bound to specific interfaces on multi-homed systems.",
+          "Identify services listening on specific UDP ports like DNS (53) or NTP (123).",
+          "Correlate UDP listening to specific services or malware.",
+          "Detect backdoors or unauthorized services using UDP.",
+          "Detect rogue processes listening on UDP ports."
+        ]
+      },
+      {
+        "tool": "netstat",
+        "description": "",
+        "use_when": [
+          "Identify listening services and established connections during incident response.",
+          "Correlate suspicious connections to specific processes.",
+          "Quick port-focused investigation during live incidents.",
+          "Focus on TCP connections typical of malware C2 traffic.",
+          "Detect unexpected gateway or route manipulation."
+        ]
+      }
+    ],
+    "Firewall": [
+      {
+        "tool": "Get-NetFirewallProfile",
+        "description": "",
+        "use_when": [
+          "Detect inconsistent security posture across Domain, Private, and Public profiles.",
+          "Verify inbound is blocked and logs exist for incident review.",
+          "Critical misconfiguration exposing system to attack.",
+          "Essential during incident response to trace connection attempts."
+        ]
+      },
+      {
+        "tool": "Get-NetFirewallRule",
+        "description": "PowerShell cmdlet to retrieve firewall rules from Windows Defender Firewall with Advanced Security.",
+        "use_when": [
+          "Find rules allowing RDP, SMB, or other sensitive services that attackers may enable for lateral movement.",
+          "Audit all currently active firewall rules that impact live traffic flow.",
+          "Review inbound rules that allow unsolicited connections into the system.",
+          "Identify all allow rules which could permit risky or unauthorized communication.",
+          "Detect rules active on Public profile which may expose the system on untrusted networks."
+        ]
+      },
+      {
+        "tool": "netsh",
+        "description": "",
+        "use_when": [
+          "Backup firewall configuration before changes and preserve evidence during incident response.",
+          "Quick verification that firewall protection is enabled across all network profiles.",
+          "Audit inbound allow rules that may expose services to attackers.",
+          "Initial audit during incident response to verify defenses and logging.",
+          "Finding unintended exposed services or ports."
+        ]
+      }
+    ],
+    "Firewall & Network Exposure Inspection": [
+      {
+        "tool": "Get-NetFirewallRule",
+        "description": "PowerShell cmdlet to audit Windows Defender Firewall rules for network exposure and security posture.",
+        "use_when": [
+          "Quickly audit which firewall rules are actively allowing or blocking traffic.",
+          "Identify inbound rules that expose services to the network or internet.",
+          "Audit allowed traffic paths that could be abused by malware.",
+          "Find rules related to RDP, WinRM, SMB, or other remote access services.",
+          "Detect sensitive services accidentally exposed on Public networks."
+        ]
+      }
+    ],
+    "Firewall Rule Inspection": [
+      {
+        "tool": "Get-NetFirewallRule",
+        "description": "PowerShell cmdlet to retrieve firewall rules by exact name or pattern from Windows Defender Firewall.",
+        "use_when": [
+          "Audit sensitive services like RDP, SMB, WinRM for exposure.",
+          "Quick review of live firewall behavior.",
+          "Ensure inbound exposure is minimal.",
+          "Find overly permissive rules.",
+          "Audit Public profile for strictness."
+        ]
+      },
+      {
+        "tool": "Get-NetFirewallRule",
+        "description": "",
+        "use_when": [
+          "Audit sensitive services like RDP, SMB, WinRM for exposure.",
+          "Quick review of live firewall behavior.",
+          "Ensure inbound exposure is minimal.",
+          "Find overly permissive rules.",
+          "Audit Public profile for strictness."
+        ]
+      }
+    ],
+    "Process Inspection": [
+      {
+        "tool": "Get-Process",
+        "description": "",
+        "use_when": [
+          "Quickly locate specific processes by name during triage or monitoring.",
+          "Detect DLL injection and suspicious modules in a target process.",
+          "Identify module injection or DLL hijacking.",
+          "Detect masquerading malware with mismatched metadata.",
+          "Detects elevated malware outside expected system directories."
+        ]
+      },
+      {
+        "tool": "Get-Service",
+        "description": "",
+        "use_when": [
+          "Locate all Defender-related services without knowing internal names.",
+          "Understand impact radius before modifying a critical service.",
+          "Ensure dependencies for network/security services are operational.",
+          "Locate all event-related services targeted during attacks to disable logging.",
+          "Surface non-system services that may be malicious or unwanted."
+        ]
+      },
+      {
+        "tool": "taskkill",
+        "description": "",
+        "use_when": []
+      },
+      {
+        "tool": "tasklist",
+        "description": "",
+        "use_when": [
+          "Identify suspicious processes using targeted filters such as memory, name, or user.",
+          "Detect suspicious DLLs injected into legitimate processes.",
+          "Understand what services svchost.exe or other processes are running.",
+          "Identify processes running under abnormal user privileges.",
+          "Export process list to SIEM or automated scripts for analysis."
+        ]
+      }
+    ],
+    "Scheduled Tasks": [
+      {
+        "tool": "Get-ScheduledTask",
+        "description": "",
+        "use_when": [
+          "Find PowerShell-related tasks often abused for persistence or lateral movement.",
+          "Audit Microsoft namespace for masqueraded or unauthorized tasks.",
+          "Detect unusual execution patterns indicating compromise.",
+          "Detect obfuscated PowerShell persistence via scheduled tasks.",
+          "Identify suspicious scheduled tasks created by software or attackers."
+        ]
+      },
+      {
+        "tool": "schtasks",
+        "description": "",
+        "use_when": [
+          "Audit all scheduled tasks on system to identify persistence mechanisms and unauthorized scheduled executions.",
+          "Output as CSV for import into security tools or databases for analysis."
+        ]
+      }
+    ],
+    "Windows Firewall": [
+      {
+        "tool": "Get-NetFirewallRule",
+        "description": "",
+        "use_when": [
+          "Find rules allowing RDP, SMB, or other sensitive services that attackers may enable for lateral movement.",
+          "Audit all currently active firewall rules that impact live traffic flow.",
+          "Review inbound rules that allow unsolicited connections into the system.",
+          "Identify all allow rules which could permit risky or unauthorized communication.",
+          "Detect rules active on Public profile which may expose the system on untrusted networks."
+        ]
+      }
+    ],
+    "Registry Security": [
+      {
+        "tool": "reg",
+        "description": "",
+        "use_when": [
+          "Hunt across registry hives for suspicious paths or persistence artifacts.",
+          "Find encoded PowerShell commands or script paths stored in registry.",
+          "Locate software-related registry keys for audit or cleanup.",
+          "Check numeric security-related configurations altered by malware.",
+          "Automated compliance checks of security registry configurations."
+        ]
+      }
+    ]
+  },
+  "Linux": {
+    "Intrusion Detection": [
+      {
+        "tool": "auditctl",
+        "description": "",
+        "use_when": [
+          "Verify audit is operational.",
+          "Review active monitoring rules.",
+          "Human-readable status.",
+          "Pre-change verification.",
+          "User account monitoring."
+        ]
+      },
+      {
+        "tool": "aureport",
+        "description": "",
+        "use_when": [
+          "Auth attempt summary.",
+          "Login/logout summary.",
+          "Configuration modifications.",
+          "Audit rule key usage.",
+          "Syscall activity summary."
+        ]
+      },
+      {
+        "tool": "ausearch",
+        "description": "",
+        "use_when": [
+          "Filter for specific event types.",
+          "Track specific user activity.",
+          "Track process audit events.",
+          "Track syscall activity.",
+          "Find file access events."
+        ]
+      }
+    ],
+    "User Audit": [
+      {
+        "tool": "chage",
+        "description": "",
+        "use_when": [
+          "Audit password policy.",
+          "Password policy compliance."
+        ]
+      },
+      {
+        "tool": "last",
+        "description": "",
+        "use_when": [
+          "See remote login sources.",
+          "Resolve IPs for readability.",
+          "Analyze historical data.",
+          "Complete forensic timestamps.",
+          "Numeric IPs for SIEM."
+        ]
+      },
+      {
+        "tool": "lastb",
+        "description": "",
+        "use_when": [
+          "See bad login sources.",
+          "Historical bad logins.",
+          "Numeric IP for threat intel.",
+          "Quick recent bad logins.",
+          "Detecting brute force sources."
+        ]
+      },
+      {
+        "tool": "passwd",
+        "description": "",
+        "use_when": [
+          "Emergency account response."
+        ]
+      },
+      {
+        "tool": "w",
+        "description": "",
+        "use_when": [
+          "Show/hide remote source.",
+          "Clean output for parsing.",
+          "Compact session info.",
+          "Detecting unauthorized account access."
+        ]
+      },
+      {
+        "tool": "who",
+        "description": "",
+        "use_when": [
+          "Complete user information.",
+          "Check last reboot.",
+          "Readable output with headers.",
+          "Check system run level.",
+          "Active session monitoring."
+        ]
+      }
+    ],
+    "Malware Scan": [
+      {
+        "tool": "clamscan",
+        "description": "",
+        "use_when": [
+          "Full recursive malware scan.",
+          "Clean output showing malware only.",
+          "Document scan results.",
+          "Custom threat signatures.",
+          "Detect unwanted apps."
+        ]
+      }
+    ],
+    "Log Analysis": [
+      {
+        "tool": "dmesg",
+        "description": "",
+        "use_when": [
+          "Correlate with app logs.",
+          "Focus on errors and warnings.",
+          "Kernel-space events only.",
+          "Time-bounded forensic analysis.",
+          "Forensic analysis."
+        ]
+      },
+      {
+        "tool": "journalctl",
+        "description": "",
+        "use_when": [
+          "Focus on system-level events.",
+          "Isolate current session events.",
+          "Audit specific service logs.",
+          "Focus on error-level events.",
+          "Time-bounded forensic analysis."
+        ]
+      }
+    ],
+    "Filesystem Audit": [
+      {
+        "tool": "find",
+        "description": "",
+        "use_when": [
+          "Detect recently modified files.",
+          "Detect permission/ownership changes.",
+          "Identify accessed sensitive files.",
+          "Audit setuid binaries.",
+          "Detect dual setuid/setgid binaries."
+        ]
+      }
+    ],
+    "Firewall": [
+      {
+        "tool": "iptables",
+        "description": "",
+        "use_when": [
+          "Review current firewall rules.",
+          "Audit NAT rules for unauthorized port forwarding.",
+          "Speed up rule review.",
+          "Identify which rules are matching traffic.",
+          "Reference rules for deletion."
+        ]
+      },
+      {
+        "tool": "nft",
+        "description": "",
+        "use_when": [
+          "Review complete ruleset.",
+          "Get handles for deletion.",
+          "Numeric for automation.",
+          "Pre-change documentation.",
+          "Incident response blocking."
+        ]
+      },
+      {
+        "tool": "ufw",
+        "description": "",
+        "use_when": [
+          "Check firewall state.",
+          "Test rule changes.",
+          "Establishing firewall baseline.",
+          "Hardening web server."
+        ]
+      }
+    ],
+    "Kernel Security": [
+      {
+        "tool": "lsmod",
+        "description": "",
+        "use_when": [
+          "List modules to detect unauthorized kernel extensions.",
+          "Detecting malicious modules.",
+          "Finding new/removed modules."
+        ]
+      },
+      {
+        "tool": "modprobe",
+        "description": "",
+        "use_when": [
+          "See module loading actions.",
+          "Test without actual loading.",
+          "Review current config.",
+          "Neutralizing rootkit module.",
+          "Finding persistence mechanisms."
+        ]
+      }
+    ],
+    "Process Inspection": [
+      {
+        "tool": "lsof",
+        "description": "",
+        "use_when": [
+          "Identify unexpected network listeners.",
+          "Investigate suspicious process.",
+          "Audit user activity.",
+          "Track specific daemon activity.",
+          "Narrow results: root user on port 22."
+        ]
+      },
+      {
+        "tool": "ps",
+        "description": "",
+        "use_when": [
+          "Complete process inventory.",
+          "View parent-child relationships.",
+          "Detect memory anomalies.",
+          "Detect multi-threaded malware.",
+          "Examine specific process."
+        ]
+      },
+      {
+        "tool": "pstree",
+        "description": "",
+        "use_when": [
+          "Process tree with PIDs.",
+          "Full command visibility.",
+          "Process creation order.",
+          "Trace ancestry.",
+          "Detect privilege changes."
+        ]
+      },
+      {
+        "tool": "top",
+        "description": "",
+        "use_when": [
+          "Adjust monitoring speed.",
+          "Focus on suspicious PIDs.",
+          "Monitor specific user.",
+          "Thread-level view.",
+          "Capture snapshots."
+        ]
+      }
+    ],
+    "System Integrity": [
+      {
+        "tool": "md5sum",
+        "description": "",
+        "use_when": [
+          "Verify integrity.",
+          "Configuration integrity."
+        ]
+      },
+      {
+        "tool": "sha256sum",
+        "description": "",
+        "use_when": [
+          "Verify integrity against baseline.",
+          "Hash binary files.",
+          "Safe for xargs -0.",
+          "System integrity baseline.",
+          "Detecting modified system files."
+        ]
+      }
+    ],
+    "Network Inspection": [
+      {
+        "tool": "netstat",
+        "description": "",
+        "use_when": [
+          "Identify established or listening TCP sockets to detect unauthorized network services, backdoors, or suspicious outbound connections.",
+          "Identify UDP listeners for DNS, DHCP, and other services.",
+          "Reveal all services waiting for incoming connections.",
+          "Comprehensive view of all network socket activity.",
+          "Speed up output and avoid DNS evasion."
+        ]
+      },
+      {
+        "tool": "ss",
+        "description": "",
+        "use_when": [
+          "Identify TCP connections with faster performance than netstat.",
+          "Monitor UDP endpoints.",
+          "Reveal all services awaiting connections.",
+          "Complete socket inventory.",
+          "Avoid DNS resolution delays."
+        ]
+      }
+    ],
+    "Hardening": [
+      {
+        "tool": "sysctl",
+        "description": "",
+        "use_when": [
+          "Review all hardening settings.",
+          "Extract specific value.",
+          "Establishing baseline.",
+          "Hardening against IP spoofing."
+        ]
+      }
+    ],
+    "Scheduled Tasks": [
+      {
+        "tool": "systemctl",
+        "description": "",
+        "use_when": [
+          "Review running services.",
+          "Check service state.",
+          "Check persistence.",
+          "Review scheduled tasks.",
+          "Review service config."
+        ]
+      }
+    ]
+  },
+  "Mac": {}
+}

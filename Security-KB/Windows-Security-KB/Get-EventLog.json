@@ -1,0 +1,130 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-EventLog",
+  "entity": "Get-EventLog",
+  "category": "Event Logs",
+  "description": "Legacy PowerShell cmdlet to query classic Windows Event Logs. Superseded by Get-WinEvent for modern systems but still useful for quick queries.",
+  "prerequisites": [
+    "PowerShell",
+    "Read access to event logs (Admin for Security log)",
+    "Best used on pre-Vista systems or small logs"
+  ],
+  "log_sources": [
+    "Security",
+    "System",
+    "Application",
+    "Custom classic logs"
+  ],
+  "modern_alternative": "Get-WinEvent",
+  "flags": [
+    {
+      "flag": "-LogName",
+      "example_command": "Get-EventLog -LogName Security -Newest 100 | Where-Object {$_.EntryType -eq 'FailureAudit'}",
+      "purpose": "Retrieve events from a specific log with optional filtering.",
+      "outputs": "Event objects with TimeGenerated, EntryType, Source, Message.",
+      "security_use_case": "Identify failed authentication attempts indicating brute force.",
+      "threat_detected": "Repeated failed logons from same source (credential stuffing/brute force).",
+      "detection_mapping": ["Brute force detection", "Authentication abuse"],
+      "risk_if_misused": "Performance issues on large logs; prefer Get-WinEvent.",
+      "safe_followup": "Correlate source IP; apply firewall or account lockout policy.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-InstanceId",
+      "example_command": "Get-EventLog -LogName Security -InstanceId 4624 | Select-Object TimeGenerated,EntryType,Message",
+      "purpose": "Filter events by Event ID (InstanceId). Note: Get-EventLog accepts only a single InstanceId value. For multiple IDs, use Get-WinEvent with FilterHashtable.",
+      "outputs": "Filtered security events by ID.",
+      "security_use_case": "Track logons and privilege assignments for compromise investigation.",
+      "threat_detected": "Successful logon followed by special privilege use (privilege escalation).",
+      "detection_mapping": ["Privilege escalation", "Account compromise"],
+      "note": "For multiple EventIDs, use: Get-WinEvent -LogName Security -FilterHashtable @{ID=4624,4625,4672}",
+      "risk_if_misused": "Exact ID match only; may miss related events. Multiple IDs require Get-WinEvent.",
+      "safe_followup": "Export results for timeline correlation.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Newest",
+      "example_command": "Get-EventLog -LogName System -Newest 50 -EntryType Error,Warning",
+      "purpose": "Limit output to most recent events by type.",
+      "outputs": "Recent error/warning events.",
+      "security_use_case": "Rapid diagnostics for crashes, service failures, suspicious reboots.",
+      "threat_detected": "System instability due to exploitation or tampering.",
+      "detection_mapping": ["Service abuse", "System tampering indicators"],
+      "risk_if_misused": "May miss older relevant events.",
+      "safe_followup": "Increase count or combine with -After.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-After",
+      "example_command": "Get-EventLog -LogName Security -After (Get-Date).AddDays(-7) -EntryType FailureAudit",
+      "purpose": "Time-bounded investigation using DateTime filter.",
+      "outputs": "Events within defined timeframe.",
+      "security_use_case": "Investigate incidents within last N days.",
+      "threat_detected": "Recent failed logons, account abuse, privilege misuse.",
+      "detection_mapping": ["Incident scoping", "Recent attack activity"],
+      "risk_if_misused": "Incorrect DateTime formatting.",
+      "safe_followup": "Adjust window as needed.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-UserName",
+      "example_command": "Get-EventLog -LogName Security -UserName *Administrator* -Newest 100",
+      "purpose": "Filter events associated with a specific username.",
+      "outputs": "User-focused event list.",
+      "security_use_case": "Monitor privileged account activity.",
+      "threat_detected": "Off-hours admin logons, unusual privilege usage.",
+      "detection_mapping": ["Privileged account monitoring", "Insider threat"],
+      "risk_if_misused": "String match may be inaccurate for domain accounts.",
+      "safe_followup": "Use SID where possible.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Message",
+      "example_command": "Get-EventLog -LogName Security -Message \"*powershell*\" -Newest 50",
+      "purpose": "Keyword search inside event messages.",
+      "outputs": "Events containing keyword.",
+      "security_use_case": "Detect PowerShell-based attack activity.",
+      "threat_detected": "Malicious scripts, lateral movement via PowerShell.",
+      "detection_mapping": ["Living off the land", "PowerShell abuse"],
+      "risk_if_misused": "Slow on large logs; limited wildcard support.",
+      "safe_followup": "Enable PowerShell module/script logging.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-List",
+      "example_command": "Get-EventLog -List | Where-Object {$_.Entries.Count -gt 0} | Select-Object Log,Entries",
+      "purpose": "List all event logs and record counts.",
+      "outputs": "Inventory of logs and sizes.",
+      "security_use_case": "Discover unusual or custom logs with attacker traces.",
+      "threat_detected": "Log manipulation or abnormal log growth/shrinkage.",
+      "detection_mapping": ["Log tampering", "Hidden artifacts"],
+      "risk_if_misused": "Some logs require elevation.",
+      "safe_followup": "Query suspicious logs individually.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "Get-WinEvent -LogName Security -FilterHashtable @{ID=4624,4625,4672,4688; StartTime=(Get-Date).AddDays(-1)} | Sort-Object TimeCreated",
+      "why_powerful": "Builds 24-hour compromise timeline across logon, privilege, and process events using Get-WinEvent for multiple EventIDs.",
+      "security_context": "Rapid incident response timeline."
+    },
+    {
+      "command": "Get-EventLog -LogName Application -EntryType Error -Newest 200 | Group-Object Source | Sort-Object Count -Descending",
+      "why_powerful": "Identifies noisy applications possibly under attack or failing due to exploitation.",
+      "security_context": "Vulnerability exploitation indicators."
+    },
+    {
+      "command": "Get-WinEvent -LogName Security -FilterHashtable @{ID=4720,4722,4723,4724,4725,4726; StartTime=(Get-Date).AddDays(-7)}",
+      "why_powerful": "Tracks all account lifecycle changes for insider threat detection using Get-WinEvent for multiple IDs.",
+      "security_context": "Unauthorized account manipulation."
+    }
+  ]
+}

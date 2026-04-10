@@ -1,0 +1,63 @@
+{
+  "os": "Linux",
+  "tool_name": "modprobe",
+  "category": "Kernel Security",
+  "flags": [
+    {
+      "flag": "-r",
+      "example_command": "modprobe -r <module_name>",
+      "purpose": "Remove kernel module.",
+      "security_use_case": "Emergency removal of suspicious module.",
+      "threat_detected": "Unload malicious module.",
+      "risk_if_misused": "Removing wrong module crashes system.",
+      "safe_followup": "lsmod to verify.",
+      "automation_safe": false,
+      "risk_level": "dangerous_never_auto"
+    },
+    {
+      "flag": "-v",
+      "example_command": "modprobe -v <module_name>",
+      "purpose": "Verbose output.",
+      "security_use_case": "See module loading actions.",
+      "threat_detected": "Unusual dependencies.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Check /etc/modprobe.d/.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-n",
+      "example_command": "modprobe -n -v <module_name>",
+      "purpose": "Dry-run mode.",
+      "security_use_case": "Test without actual loading.",
+      "threat_detected": "Verify module behavior.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Remove -n to actually load.",
+      "automation_safe": true,
+      "risk_level": "safe_to_auto_run"
+    },
+    {
+      "flag": "-c",
+      "example_command": "modprobe -c",
+      "purpose": "Dump module configuration.",
+      "security_use_case": "Review current config.",
+      "threat_detected": "Tampered module config.",
+      "risk_if_misused": "None.",
+      "safe_followup": "modprobe -c | grep <module>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "modprobe -r <rootkit_module> && lsmod | grep <module>",
+      "why_powerful": "Remove and verify.",
+      "security_context": "Neutralizing rootkit module."
+    },
+    {
+      "command": "modprobe -c | grep -E 'install|blacklist'",
+      "why_powerful": "Check module config.",
+      "security_context": "Finding persistence mechanisms."
+    }
+  ]
+}

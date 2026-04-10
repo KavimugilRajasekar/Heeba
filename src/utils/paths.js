@@ -29,6 +29,7 @@ const ENGINE_EXE       = path.join(ENGINE_DIR, 'inference-engine', 'llama-cli.ex
 const CACHE_DIR = path.join(ROOT_PATH, '.cache', 'email');
 const EXPORT_DIR = path.join(ROOT_PATH, 'exports');
 const DOWNLOADS_DIR = path.join(ROOT_PATH, 'downloads', 'email');
+const SESSION_FILE = path.join(ROOT_PATH, 'session.json');
 
 // Bundled source paths (internal - in pkg snapshot)
 const AUTOMATION_DIR = path.join(SNAPSHOT_ROOT, 'src', 'email', 'automation');
@@ -46,6 +47,7 @@ module.exports = {
   CACHE_DIR,
   EXPORT_DIR,
   DOWNLOADS_DIR,
+  SESSION_FILE,
   AUTOMATION_DIR,
   STATIC_PATH
 };

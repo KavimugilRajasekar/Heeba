@@ -1,0 +1,101 @@
+{
+  "os": "Linux",
+  "tool_name": "systemctl",
+  "category": "Scheduled Tasks",
+  "flags": [
+    {
+      "flag": "list-units",
+      "example_command": "systemctl list-units --type=service --state=running",
+      "purpose": "List running services.",
+      "security_use_case": "Review running services.",
+      "threat_detected": "Unauthorized services.",
+      "risk_if_misused": "None.",
+      "safe_followup": "systemctl status <svc>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "status",
+      "example_command": "systemctl status ssh.service",
+      "purpose": "Service detailed status.",
+      "security_use_case": "Check service state.",
+      "threat_detected": "Failed services.",
+      "risk_if_misused": "None.",
+      "safe_followup": "journalctl -u <svc>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "stop",
+      "example_command": "systemctl stop malicious.service",
+      "purpose": "Stop service.",
+      "security_use_case": "Stop suspicious service.",
+      "threat_detected": "Neutralize threat.",
+      "risk_if_misused": "May break system.",
+      "safe_followup": "systemctl disable.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "disable",
+      "example_command": "systemctl disable malicious.service",
+      "purpose": "Disable from boot.",
+      "security_use_case": "Prevent persistence.",
+      "threat_detected": "Remove persistence.",
+      "risk_if_misused": "May disable critical service.",
+      "safe_followup": "systemctl mask.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "is-enabled",
+      "example_command": "systemctl is-enabled ssh.service",
+      "purpose": "Check boot enabled status.",
+      "security_use_case": "Check persistence.",
+      "threat_detected": "Unexpected persistence.",
+      "risk_if_misused": "None.",
+      "safe_followup": "list-unit-files.",
+      "automation_safe": true,
+      "risk_level": "safe_to_auto_run"
+    },
+    {
+      "flag": "list-timers",
+      "example_command": "systemctl list-timers --all",
+      "purpose": "List scheduled timers.",
+      "security_use_case": "Review scheduled tasks.",
+      "threat_detected": "Malicious timers.",
+      "risk_if_misused": "None.",
+      "safe_followup": "systemctl status <timer>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "cat",
+      "example_command": "systemctl cat ssh.service",
+      "purpose": "Show unit file.",
+      "security_use_case": "Review service config.",
+      "threat_detected": "Tampered unit files.",
+      "risk_if_misused": "None.",
+      "safe_followup": "diff baseline.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "systemctl list-units --type=service --state=running --all | grep -v '^UNIT'",
+      "why_powerful": "All running services.",
+      "security_context": "Finding unauthorized services."
+    },
+    {
+      "command": "systemctl list-unit-files --type=service --state=enabled",
+      "why_powerful": "All boot-enabled services.",
+      "security_context": "Finding persistence mechanisms."
+    },
+    {
+      "command": "systemctl list-timers --all",
+      "why_powerful": "All scheduled timers.",
+      "security_context": "Finding systemd timer-based malware."
+    }
+  ]
+}

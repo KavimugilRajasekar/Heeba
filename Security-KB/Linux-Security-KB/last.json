@@ -1,0 +1,107 @@
+{
+  "os": "Linux",
+  "tool_name": "last",
+  "category": "User Audit",
+  "flags": [
+    {
+      "flag": "-a",
+      "example_command": "last -a",
+      "purpose": "Display hostname in last column.",
+      "security_use_case": "See remote login sources.",
+      "threat_detected": "Logins from unusual hosts.",
+      "risk_if_misused": "None.",
+      "safe_followup": "last -a | grep -v reboot.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-d",
+      "example_command": "last -d",
+      "purpose": "Translate IP to hostname.",
+      "security_use_case": "Resolve IPs for readability.",
+      "threat_detected": "Suspicious IPs.",
+      "risk_if_misused": "None.",
+      "safe_followup": "last -d | head -50.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-f",
+      "example_command": "last -f /var/log/wtmp.1",
+      "purpose": "Read from specific file.",
+      "security_use_case": "Analyze historical data.",
+      "threat_detected": "Historical patterns.",
+      "risk_if_misused": "None.",
+      "safe_followup": "last -f /var/log/wtmp.1 | head.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-F",
+      "example_command": "last -F",
+      "purpose": "Print full timestamps.",
+      "security_use_case": "Complete forensic timestamps.",
+      "threat_detected": "Full timeline.",
+      "risk_if_misused": "None.",
+      "safe_followup": "last -F | head -50.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-i",
+      "example_command": "last -i",
+      "purpose": "Display IP instead of hostname.",
+      "security_use_case": "Numeric IPs for SIEM.",
+      "threat_detected": "Logins from specific IPs.",
+      "risk_if_misused": "None.",
+      "safe_followup": "last -i | grep <IP>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-n",
+      "example_command": "last -n 50",
+      "purpose": "Limit output lines.",
+      "security_use_case": "Quick recent logins.",
+      "threat_detected": "Most recent activity.",
+      "risk_if_misused": "None.",
+      "safe_followup": "last -n 50 -a.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-p",
+      "example_command": "last -p '2024-01-15'",
+      "purpose": "Show who was present at time.",
+      "security_use_case": "Determine users at specific time.",
+      "threat_detected": "Users during breach.",
+      "risk_if_misused": "None.",
+      "safe_followup": "last -p '2024-01-15 10:00'.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-x",
+      "example_command": "last -x",
+      "purpose": "Show shutdown and run level changes.",
+      "security_use_case": "Detect unauthorized shutdowns.",
+      "threat_detected": "Unexpected shutdowns.",
+      "risk_if_misused": "None.",
+      "safe_followup": "last -x | head -20.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "last -a | grep -v reboot | head -100",
+      "why_powerful": "Recent user logins.",
+      "security_context": "Anomaly detection."
+    },
+    {
+      "command": "last -i | awk '{print $10}' | sort | uniq -c | sort -rn | head -20",
+      "why_powerful": "Logins per IP.",
+      "security_context": "Finding brute force sources."
+    }
+  ]
+}

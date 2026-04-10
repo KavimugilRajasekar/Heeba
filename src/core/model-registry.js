@@ -1,44 +1,52 @@
 // src/core/model-registry.js
-// Dynamic model registry: local GGUF + online from heeba.json + legacy credentials.json
+// Dynamic model registry: local GGUF + online from credentials.json
 const fs = require('fs');
 const path = require('path');
-const { HEEBA_JSON_PATH, CREDENTIALS_PATH, MODELS_DIR } = require('../utils/paths');
-const { getHeebaConfig, reloadConfig } = require('./config-loader');
+const { CREDENTIALS_PATH, MODELS_DIR } = require('../utils/paths');
 
-// Load legacy virtual models from credentials.json
-function getLegacyVirtualModels() {
+function getCredentials() {
     try {
         if (fs.existsSync(CREDENTIALS_PATH)) {
-            const creds = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
-            if (creds.ollama && Array.isArray(creds.ollama.models)) {
-                return creds.ollama.models.map(m => ({
-                    id: m.virtual_name,
-                    type: 'ollama',
-                    base_url: creds.ollama.endpoint || 'https://ollama.com/api/generate',
-                    api_key: creds.ollama.api_key || '',
-                    model: m.actual_model
-                }));
-            }
+            return JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
         }
     } catch (e) { /* silent */ }
+    return {};
+}
+
+function saveCredentials(creds) {
+    fs.writeFileSync(CREDENTIALS_PATH, JSON.stringify(creds, null, 2), 'utf8');
+}
+
+// Load legacy virtual models from credentials.json (ollama.models)
+function getLegacyVirtualModels() {
+    const creds = getCredentials();
+    if (creds.ollama && Array.isArray(creds.ollama.models)) {
+        return creds.ollama.models.map(m => ({
+            id: m.virtual_name,
+            type: 'ollama',
+            base_url: creds.ollama.endpoint || 'https://ollama.com/api/generate',
+            api_key: creds.ollama.api_key || '',
+            model: m.actual_model
+        }));
+    }
     return [];
 }
 
-// Get all models: local GGUF + online from heeba.json + legacy virtual
+// Get all models: local GGUF + online from credentials.json + legacy virtual
 function getAllModels() {
     // Local GGUF/BIN models
     const localModels = fs.existsSync(MODELS_DIR)
         ? fs.readdirSync(MODELS_DIR).filter(f => f.endsWith('.gguf') || f.endsWith('.bin'))
         : [];
 
-    const config = getHeebaConfig();
+    const creds = getCredentials();
 
-    // Online models from heeba.json
-    const onlineModels = (config.online_models || []).map(m => `${m.id} (Online)`);
+    // Online models from credentials.json
+    const onlineModels = (creds.online_models || []).map(m => `${m.id} (Online)`);
 
     // Legacy virtual models (backward compat) - mark with (Legacy) to distinguish
     const legacyModels = getLegacyVirtualModels()
-        .filter(lm => !config.online_models?.some(om => om.id === lm.id)) // Don't duplicate if already in online_models
+        .filter(lm => !(creds.online_models || []).some(om => om.id === lm.id)) // Don't duplicate if already in online_models
         .map(lm => `${lm.id} (Legacy)`);
 
     // Merge all, local first
@@ -59,11 +67,11 @@ function getAllModels() {
 function getOnlineModel(modelName) {
     if (!modelName) return null;
     const cleanId = modelName.replace(' (Online)', '').replace(' (Legacy)', '').trim();
-    const config = getHeebaConfig();
+    const creds = getCredentials();
 
-    // Check heeba.json online_models first
-    if (config.online_models) {
-        const found = config.online_models.find(m => m.id === cleanId);
+    // Check credentials.json online_models first
+    if (creds.online_models) {
+        const found = creds.online_models.find(m => m.id === cleanId);
         if (found) return found;
     }
 
@@ -79,10 +87,10 @@ function getOnlineModel(modelName) {
 function isOnlineModel(modelName) {
     if (!modelName) return false;
     const cleanId = modelName.replace(' (Online)', '').replace(' (Legacy)', '').trim();
-    const config = getHeebaConfig();
+    const creds = getCredentials();
 
-    // Check heeba.json
-    if (config.online_models?.some(m => m.id === cleanId)) return true;
+    // Check credentials.json
+    if (creds.online_models?.some(m => m.id === cleanId)) return true;
 
     // Check legacy
     const legacy = getLegacyVirtualModels();
@@ -91,33 +99,31 @@ function isOnlineModel(modelName) {
     return false;
 }
 
-// Add online model to heeba.json
+// Add online model to credentials.json
 function addOnlineModel(entry) {
-    const config = getHeebaConfig();
-    if (!config.online_models) config.online_models = [];
+    const creds = getCredentials();
+    if (!creds.online_models) creds.online_models = [];
 
-    const existingIdx = config.online_models.findIndex(m => m.id === entry.id);
+    const existingIdx = creds.online_models.findIndex(m => m.id === entry.id);
     if (existingIdx >= 0) {
-        config.online_models[existingIdx] = entry;
+        creds.online_models[existingIdx] = entry;
     } else {
-        config.online_models.push(entry);
+        creds.online_models.push(entry);
     }
 
-    fs.writeFileSync(HEEBA_JSON_PATH, JSON.stringify(config, null, 2), 'utf8');
-    reloadConfig();
+    saveCredentials(creds);
     return true;
 }
 
-// Delete online model from heeba.json
+// Delete online model from credentials.json
 function deleteOnlineModel(modelId) {
-    const config = getHeebaConfig();
-    if (!config.online_models) return false;
+    const creds = getCredentials();
+    if (!creds.online_models) return false;
 
-    const idx = config.online_models.findIndex(m => m.id === modelId);
+    const idx = creds.online_models.findIndex(m => m.id === modelId);
     if (idx >= 0) {
-        config.online_models.splice(idx, 1);
-        fs.writeFileSync(HEEBA_JSON_PATH, JSON.stringify(config, null, 2), 'utf8');
-        reloadConfig();
+        creds.online_models.splice(idx, 1);
+        saveCredentials(creds);
         return true;
     }
     return false;

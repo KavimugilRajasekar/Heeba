@@ -1,5 +1,8 @@
 // src/core/state-manager.js
 const { DEFAULT_CONFIG } = require('./config');
+const { SESSION_FILE } = require('../utils/paths');
+const fs = require('fs');
+const path = require('path');
 
 const state = {
   currentMode: 'auto',
@@ -112,6 +115,51 @@ const getParentAfterDelete = (session, pageId) => {
   return page?.parentId || null;
 };
 
+/**
+ * Load sessions from disk (session.json next to heeba.exe)
+ * Restores sessions across app restarts.
+ */
+function loadSessions() {
+  try {
+    if (fs.existsSync(SESSION_FILE)) {
+      const data = fs.readFileSync(SESSION_FILE, 'utf8');
+      const parsed = JSON.parse(data);
+      // Validate basic structure
+      if (Array.isArray(parsed.sessions)) {
+        state.sessions = parsed.sessions;
+        state.currentSessionIndex = parsed.currentSessionIndex ?? -1;
+        state.selectedSessionIndex = parsed.selectedSessionIndex ?? 0;
+        state.currentPageId = parsed.currentPageId ?? null;
+      }
+    }
+  } catch (e) {
+    // Silently ignore corrupt session files
+  }
+}
+
+/**
+ * Save sessions to disk (session.json next to heeba.exe)
+ * Called on every meaningful state change and at exit.
+ */
+function saveSessions() {
+  try {
+    const dir = path.dirname(SESSION_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const data = {
+      sessions: state.sessions,
+      currentSessionIndex: state.currentSessionIndex,
+      selectedSessionIndex: state.selectedSessionIndex,
+      currentPageId: state.currentPageId,
+      savedAt: new Date().toISOString()
+    };
+    fs.writeFileSync(SESSION_FILE, JSON.stringify(data, null, 2));
+  } catch (e) {
+    // Silently ignore write failures
+  }
+}
+
 module.exports = {
   state,
   getPathToPage,
@@ -120,5 +168,7 @@ module.exports = {
   calculatePathTokens,
   findLeafId,
   deletePage,
-  getParentAfterDelete
+  getParentAfterDelete,
+  loadSessions,
+  saveSessions
 };

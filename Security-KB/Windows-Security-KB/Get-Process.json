@@ -1,0 +1,90 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-Process",
+  "category": "Process Inspection",
+  "flags": [
+    {
+      "flag": "-Name",
+      "example_command": "Get-Process -Name notepad,calc | Select-Object Id,Name,Path,Company",
+      "purpose": "Retrieves processes by executable name to identify running applications and system processes.",
+      "security_use_case": "Quickly locate specific processes by name during triage or monitoring.",
+      "threat_detected": "Processes matching known malware names or unwanted applications.",
+      "risk_if_misused": "None; read-only. Names can be spoofed by malware.",
+      "safe_followup": "Check Path and hash with Get-FileHash; verify protections with Get-ProcessMitigation.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Id",
+      "example_command": "Get-Process -Id 1234 -Module -FileVersionInfo",
+      "purpose": "Retrieves detailed module and version information for a specific PID.",
+      "security_use_case": "Detect DLL injection and suspicious modules in a target process.",
+      "threat_detected": "Unsigned or unexpected DLLs loaded into legitimate processes.",
+      "risk_if_misused": "None; read-only. Snapshot may miss transient modules.",
+      "safe_followup": "Validate signatures with Get-AuthenticodeSignature; compare against baseline.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Module",
+      "example_command": "Get-Process -Id (Get-Process -Name svchost | Select-Object -First 1).Id -Module | Select ModuleName,FileName",
+      "purpose": "Lists DLL modules loaded into a process with paths.",
+      "security_use_case": "Identify module injection or DLL hijacking.",
+      "threat_detected": "Unknown DLLs inside critical processes like svchost or explorer.",
+      "risk_if_misused": "None; read-only. Advanced malware may hide modules.",
+      "safe_followup": "Check file existence, path legitimacy, and signatures.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-FileVersionInfo",
+      "example_command": "Get-Process -Name firefox | ForEach-Object {$_.FileVersionInfo} | Select ProductName,FileVersion,OriginalFilename,InternalName",
+      "purpose": "Shows embedded version metadata of executables.",
+      "security_use_case": "Detect masquerading malware with mismatched metadata.",
+      "threat_detected": "Fake system binary names with inconsistent version/company fields.",
+      "risk_if_misused": "None; read-only. Metadata can be forged.",
+      "safe_followup": "Cross-check with known-good copies and digital signatures.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-IncludeUserName",
+      "example_command": "Get-Process -IncludeUserName | Where-Object {$_.UserName -notmatch 'SYSTEM|LOCAL SERVICE|NETWORK SERVICE'}",
+      "purpose": "Shows which user account owns each process.",
+      "security_use_case": "Find processes running under unexpected or privileged accounts.",
+      "threat_detected": "Malware executing under Administrator or SYSTEM contexts.",
+      "risk_if_misused": "Requires admin privileges; otherwise access denied.",
+      "safe_followup": "Investigate why privileged accounts run user apps; consider Stop-Process if malicious.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-ComputerName",
+      "example_command": "Get-Process -ComputerName DC01 -Name lsass",
+      "purpose": "Remotely queries processes on another host via PowerShell remoting.",
+      "security_use_case": "Enterprise-wide investigation without interactive logon.",
+      "threat_detected": "Suspicious processes indicating lateral movement.",
+      "risk_if_misused": "Needs permissions and remoting enabled; sensitive in production.",
+      "safe_followup": "Use Invoke-Command for controlled remote inspection or remediation.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "Get-Process -IncludeUserName | Where-Object {$_.UserName -match 'Administrator|SYSTEM'} | Where-Object {$_.Path -notmatch '\\\\Windows\\\\|\\\\System32\\\\|\\\\SysWOW64\\\\'}",
+      "why_powerful": "Finds privileged processes running from non-standard paths.",
+      "security_context": "Detects elevated malware outside expected system directories."
+    },
+    {
+      "command": "Get-Process -Module | Where-Object {$_.FileName -notmatch 'C:\\\\Windows'} | Select Id,ProcessName,ModuleName,FileName",
+      "why_powerful": "Highlights modules loaded from outside Windows directories.",
+      "security_context": "Reveals injected or third-party code in processes."
+    },
+    {
+      "command": "Get-Process | ForEach-Object { try { $_.MainModule.FileName } catch {} } | Where-Object {$_ -notmatch 'C:\\\\Windows'} | Get-Item | Select FullName,Length,LastWriteTime,@{N='SHA256';E={(Get-FileHash $_.FullName -Algorithm SHA256).Hash}}",
+      "why_powerful": "Builds a hashed inventory of non-system executables currently running.",
+      "security_context": "Supports malware hunting and threat intel correlation using hashes."
+    }
+  ]
+}

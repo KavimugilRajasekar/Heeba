@@ -94,21 +94,40 @@ function queryOllama(userInput, mode, CONFIG, onToken, history = []) {
                 isLLMRunning = false;
                 try {
                     const json = JSON.parse(fullResponse);
+                    let responseText = null;
+
+                    // Ollama format: json.response
                     if (json.response) {
+                        responseText = json.response;
+                    }
+                    // OpenRouter text format: choices[0].text
+                    else if (json.choices && json.choices[0] && json.choices[0].text) {
+                        responseText = json.choices[0].text;
+                    }
+                    // OpenAI/standard format: choices[0].message.content
+                    else if (json.choices && json.choices[0] && json.choices[0].message) {
+                        responseText = json.choices[0].message.content;
+                    }
+                    // Generic fallback
+                    else if (typeof json === 'string') {
+                        responseText = json;
+                    }
+
+                    if (responseText) {
                         if (mode === 'auto') {
-                            conversationHistory.push({ user: userInput, assistant: json.response });
+                            conversationHistory.push({ user: userInput, assistant: responseText });
                             if (conversationHistory.length > 10) conversationHistory.shift();
                         }
-                        totalTokensUsed += json.eval_count || 0;
+                        totalTokensUsed += json.eval_count || json.usage?.total_tokens || 0;
                         if (onToken) {
-                            onToken(json.response);
+                            onToken(responseText);
                         }
-                        resolve(json.response);
+                        resolve(responseText);
                     } else {
-                        reject(new Error('Invalid response from Ollama API'));
+                        reject(new Error('Invalid response format from API'));
                     }
                 } catch (e) {
-                    reject(new Error('Failed to parse Ollama response: ' + e.message));
+                    reject(new Error('Failed to parse API response: ' + e.message));
                 }
             });
         });

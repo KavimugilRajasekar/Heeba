@@ -1,0 +1,84 @@
+{
+  "os": "Linux",
+  "tool_name": "nft",
+  "category": "Firewall",
+  "flags": [
+    {
+      "flag": "list ruleset",
+      "example_command": "nft list ruleset",
+      "purpose": "List all rules.",
+      "security_use_case": "Review complete ruleset.",
+      "threat_detected": "Unexpected rules.",
+      "risk_if_misused": "None.",
+      "safe_followup": "nft list table ip filter.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "add rule",
+      "example_command": "nft add rule ip filter input tcp dport 22 accept",
+      "purpose": "Add rule.",
+      "security_use_case": "Add allow/deny rules.",
+      "threat_detected": "Allow/block traffic.",
+      "risk_if_misused": "May block legitimate.",
+      "safe_followup": "nft list ruleset.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "flush ruleset",
+      "example_command": "nft flush ruleset",
+      "purpose": "Delete all rules.",
+      "security_use_case": "Emergency reset.",
+      "threat_detected": "Attacker modified ruleset.",
+      "risk_if_misused": "Completely exposes system.",
+      "safe_followup": "Restore from backup.",
+      "automation_safe": false,
+      "risk_level": "dangerous_never_auto"
+    },
+    {
+      "flag": "-a",
+      "example_command": "nft -a list ruleset",
+      "purpose": "Output rule handles.",
+      "security_use_case": "Get handles for deletion.",
+      "threat_detected": "Same audit.",
+      "risk_if_misused": "None.",
+      "safe_followup": "nft delete rule handle.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-n",
+      "example_command": "nft -n list ruleset",
+      "purpose": "Numeric output.",
+      "security_use_case": "Numeric for automation.",
+      "threat_detected": "Same.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Combine.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-f",
+      "example_command": "nft -f /etc/nftables.conf",
+      "purpose": "Load from file.",
+      "security_use_case": "Load config.",
+      "threat_detected": "Load attacker config.",
+      "safe_followup": "nft list ruleset.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "nft list ruleset > /root/nftables-backup-$(date +%Y%m%d).nft",
+      "why_powerful": "Backup ruleset.",
+      "security_context": "Pre-change documentation."
+    },
+    {
+      "command": "nft add rule ip filter input ip saddr 192.168.1.100 drop",
+      "why_powerful": "Block malicious IP.",
+      "security_context": "Incident response blocking."
+    }
+  ]
+}

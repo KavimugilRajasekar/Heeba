@@ -1,0 +1,183 @@
+{
+  "os": "Linux",
+  "tool_name": "ss",
+  "category": "Network Inspection",
+  "flags": [
+    {
+      "flag": "-t",
+      "example_command": "ss -t",
+      "purpose": "Display TCP sockets.",
+      "security_use_case": "Identify TCP connections with faster performance than netstat.",
+      "threat_detected": "Unauthorized TCP listeners, suspicious connections.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ss -tulpn.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-u",
+      "example_command": "ss -u",
+      "purpose": "Display UDP sockets.",
+      "security_use_case": "Monitor UDP endpoints.",
+      "threat_detected": "DNS tunneling, covert backdoors.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ss -ulpn.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-l",
+      "example_command": "ss -l",
+      "purpose": "Display only listening sockets.",
+      "security_use_case": "Reveal all services awaiting connections.",
+      "threat_detected": "Rogue listeners, hidden bind shells.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ss -tulpn.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-a",
+      "example_command": "ss -a",
+      "purpose": "Display all sockets (listening and non-listening).",
+      "security_use_case": "Complete socket inventory.",
+      "threat_detected": "All socket states including malware connections.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ss -tulpn.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-n",
+      "example_command": "ss -n",
+      "purpose": "Numeric output without resolving service names.",
+      "security_use_case": "Avoid DNS resolution delays.",
+      "threat_detected": "Malware using domains to hide IPs.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ss -tulpn.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-p",
+      "example_command": "ss -p",
+      "purpose": "Show process using the socket.",
+      "security_use_case": "Identify process ownership of sockets.",
+      "threat_detected": "Unknown processes holding sockets.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ps -p <PID>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-e",
+      "example_command": "ss -e",
+      "purpose": "Show detailed socket info including UID and inode.",
+      "security_use_case": "Determine socket owner for forensics.",
+      "threat_detected": "Sockets owned by unusual users.",
+      "risk_if_misused": "None.",
+      "safe_followup": "id <UID>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-m",
+      "example_command": "ss -m",
+      "purpose": "Show socket memory usage.",
+      "security_use_case": "Detect abnormal memory consumption.",
+      "threat_detected": "Socket memory exhaustion attacks.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ss -tulpn.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-o",
+      "example_command": "ss -o",
+      "purpose": "Show TCP timer information.",
+      "security_use_case": "Analyze TCP timers for anomalies.",
+      "threat_detected": "Abnormal timer states from C2 beaconing.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ss -ti.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-i",
+      "example_command": "ss -i",
+      "purpose": "Show internal TCP information.",
+      "security_use_case": "Deep TCP analysis for C2 detection.",
+      "threat_detected": "Unusual congestion algorithms, data exfiltration.",
+      "risk_if_misused": "None.",
+      "safe_followup": "tcpdump for packet analysis.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-4",
+      "example_command": "ss -4",
+      "purpose": "Filter to only IPv4 sockets.",
+      "security_use_case": "Reduce output for IPv4-specific incidents.",
+      "threat_detected": "IPv4-specific malware.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ss -6 for IPv6.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-6",
+      "example_command": "ss -6",
+      "purpose": "Filter to only IPv6 sockets.",
+      "security_use_case": "Detect IPv6-based backdoors.",
+      "threat_detected": "IPv6 tunneling, route shadowing.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ip -6 addr.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-s",
+      "example_command": "ss -s",
+      "purpose": "Print summary statistics.",
+      "security_use_case": "Quick overview of socket distribution.",
+      "threat_detected": "Spike in ESTABLISHED connections.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ss -tulpn.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-K",
+      "example_command": "ss -K",
+      "purpose": "Forcibly close sockets (requires root).",
+      "security_use_case": "Emergency shutdown of malicious connections.",
+      "threat_detected": "Terminate malicious connections.",
+      "risk_if_misused": "Can disrupt legitimate services.",
+      "safe_followup": "iptables to block source IP.",
+      "automation_safe": false,
+      "risk_level": "dangerous_never_auto"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "ss -tulpn",
+      "why_powerful": "Modern netstat replacement with process info.",
+      "security_context": "Discovering rogue network services."
+    },
+    {
+      "command": "ss -i -t",
+      "why_powerful": "Internal TCP state info reveals C2 patterns.",
+      "security_context": "Detecting C2 beaconing and data exfiltration."
+    },
+    {
+      "command": "ss -e -p",
+      "why_powerful": "Combines socket details with process info.",
+      "security_context": "Forensic correlation of sockets to processes."
+    },
+    {
+      "command": "ss -tulpn | grep ESTAB",
+      "why_powerful": "Filters to active connections with process info.",
+      "security_context": "Tracking active malware C2 sessions."
+    }
+  ]
+}

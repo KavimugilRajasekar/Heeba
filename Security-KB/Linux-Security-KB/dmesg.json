@@ -1,0 +1,134 @@
+{
+  "os": "Linux",
+  "tool_name": "dmesg",
+  "category": "Log Analysis",
+  "flags": [
+    {
+      "flag": "-T",
+      "example_command": "dmesg -T",
+      "purpose": "Human-readable timestamps.",
+      "security_use_case": "Correlate with app logs.",
+      "threat_detected": "Kernel events during breach.",
+      "risk_if_misused": "None.",
+      "safe_followup": "dmesg -T | grep -i error.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-l",
+      "example_command": "dmesg -l err,warn",
+      "purpose": "Filter by log level.",
+      "security_use_case": "Focus on errors and warnings.",
+      "threat_detected": "Kernel errors, driver issues.",
+      "risk_if_misused": "None.",
+      "safe_followup": "dmesg -l err,warn,crit.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-k",
+      "example_command": "dmesg -k",
+      "purpose": "Print only kernel messages.",
+      "security_use_case": "Kernel-space events only.",
+      "threat_detected": "Kernel panics, module loading.",
+      "risk_if_misused": "None.",
+      "safe_followup": "lsmod.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "--since",
+      "example_command": "dmesg --since '2024-01-15'",
+      "purpose": "Display records since time.",
+      "security_use_case": "Time-bounded forensic analysis.",
+      "threat_detected": "Kernel events during breach window.",
+      "risk_if_misused": "None.",
+      "safe_followup": "dmesg --since X --until Y.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-r",
+      "example_command": "dmesg -r",
+      "purpose": "Raw mode without stripping prefixes.",
+      "security_use_case": "Forensic analysis.",
+      "threat_detected": "Raw messages.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Parse with awk.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-C",
+      "example_command": "dmesg -C",
+      "purpose": "Clear the kernel ring buffer.",
+      "security_use_case": "Emergency clearing after capture.",
+      "threat_detected": "Attacker filling buffer.",
+      "risk_if_misused": "Destroys history.",
+      "safe_followup": "Save before clearing.",
+      "automation_safe": false,
+      "risk_level": "dangerous_never_auto"
+    },
+    {
+      "flag": "-c",
+      "example_command": "dmesg -c",
+      "purpose": "Clear after printing.",
+      "security_use_case": "Capture and clear in one step.",
+      "threat_detected": "Post-capture clearing.",
+      "risk_if_misused": "Destroys history.",
+      "safe_followup": "Save output first.",
+      "automation_safe": false,
+      "risk_level": "dangerous_never_auto"
+    },
+    {
+      "flag": "-w",
+      "example_command": "dmesg -w",
+      "purpose": "Wait for new messages.",
+      "security_use_case": "Real-time kernel monitoring.",
+      "threat_detected": "New kernel events.",
+      "risk_if_misused": "Ctrl+C to stop.",
+      "safe_followup": "Ctrl+C.",
+      "automation_safe": false,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-s",
+      "example_command": "dmesg -s 65536",
+      "purpose": "Query buffer size.",
+      "security_use_case": "Read entire buffer.",
+      "threat_detected": "More historical events.",
+      "risk_if_misused": "None.",
+      "safe_followup": "dmesg -s 131072.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "--json",
+      "example_command": "dmesg --json",
+      "purpose": "JSON output format.",
+      "security_use_case": "SIEM integration.",
+      "threat_detected": "Automated processing.",
+      "risk_if_misused": "None.",
+      "safe_followup": "jq.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "dmesg -T -l err,crit,alert | tail -100",
+      "why_powerful": "Critical kernel messages with readable timestamps.",
+      "security_context": "Kernel security events."
+    },
+    {
+      "command": "dmesg | grep -i 'usb\\|hid\\|input' | tail -50",
+      "why_powerful": "USB and input device events.",
+      "security_context": "Detecting malicious USB devices."
+    },
+    {
+      "command": "dmesg -k -T | grep -i 'module\\|insmod\\|rmmod'",
+      "why_powerful": "Kernel module activity.",
+      "security_context": "Detecting kernel rootkits."
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-FileHash",
+  "entity": "Get-FileHash",
+  "category": "System Integrity",
+  "description": "PowerShell cmdlet to compute cryptographic hashes of files or streams for integrity verification and threat hunting.",
+  "prerequisites": [
+    "PowerShell 4.0+",
+    "Read access to target files",
+    "Baseline hashes or trusted reference source for comparison"
+  ],
+  "log_sources": [
+    "File system",
+    "Downloaded artifacts",
+    "System binaries"
+  ],
+  "recommended_algorithms": ["SHA256", "SHA384", "SHA512"],
+  "flags": [
+    {
+      "flag": "-Algorithm",
+      "example_command": "Get-FileHash \"C:\\Windows\\System32\\notepad.exe\" -Algorithm SHA256",
+      "purpose": "Compute hash using a specified cryptographic algorithm.",
+      "outputs": "Hash, Algorithm, and Path of the file.",
+      "security_use_case": "Verify file integrity against known-good or threat intel hashes.",
+      "threat_detected": "Trojanized binaries, modified system files, malicious scripts.",
+      "detection_mapping": ["File integrity monitoring", "Binary tampering"],
+      "risk_if_misused": "Weak algorithms like MD5/SHA1 vulnerable to collision attacks.",
+      "safe_followup": "Validate with digital signature and compare with trusted catalog.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Path (batch)",
+      "example_command": "Get-ChildItem \"C:\\Windows\\System32\" -Filter *.exe -File | Select-Object -First 10 | Get-FileHash -Algorithm SHA256",
+      "purpose": "Hash multiple files for batch integrity verification.",
+      "outputs": "List of file hashes for comparison and baselining.",
+      "security_use_case": "Baseline system executables for compromise detection.",
+      "threat_detected": "Unauthorized executables or modified binaries in system directories.",
+      "detection_mapping": ["Baseline deviation", "Unauthorized binary deployment"],
+      "risk_if_misused": "Recursive scans on large paths are time-consuming.",
+      "safe_followup": "Store baseline securely; compare periodically.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-LiteralPath",
+      "example_command": "Get-FileHash -LiteralPath \"C:\\Windows\\System32\\drivers\\etc\\hosts\" -Algorithm SHA256",
+      "purpose": "Hash files with special characters without wildcard interpretation.",
+      "outputs": "Accurate hash of exact target file.",
+      "security_use_case": "Verify integrity of frequently targeted files like hosts.",
+      "threat_detected": "Hosts file tampering for phishing, DNS redirection, or C2.",
+      "detection_mapping": ["DNS manipulation", "Persistence mechanism"],
+      "risk_if_misused": "None (read-only).",
+      "safe_followup": "Inspect file content and restore if altered.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-InputStream",
+      "example_command": "$s=[System.IO.File]::OpenRead('C:\\malware.exe'); Get-FileHash -InputStream $s -Algorithm SHA256; $s.Close()",
+      "purpose": "Hash content from memory stream without relying on file path.",
+      "outputs": "Hash of in-memory content.",
+      "security_use_case": "Hash suspicious files before writing to disk or during memory analysis.",
+      "threat_detected": "Fileless or memory-only malware artifacts.",
+      "detection_mapping": ["Memory artifact validation", "Pre-execution analysis"],
+      "risk_if_misused": "Improper stream handling may cause resource leaks.",
+      "safe_followup": "Submit hash to threat intel sources for reputation check.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "integrity_workflow": [
+    "Compute SHA256 hash",
+    "Validate Authenticode signature (Get-AuthenticodeSignature)",
+    "Compare against trusted baseline or vendor catalog",
+    "Investigate deviations before remediation"
+  ],
+  "powerful_combinations": [
+    {
+      "command": "Get-ChildItem \"C:\\Windows\\System32\" -Filter *.exe -File | Get-FileHash -Algorithm SHA256 | Export-Csv system32_hashes.csv -NoTypeInformation",
+      "why_powerful": "Creates a baseline of executable hashes for future integrity comparison.",
+      "security_context": "Detect unauthorized modifications during incident response."
+    },
+    {
+      "command": "Get-ChildItem \"C:\\Program Files\" -Recurse -Include *.dll,*.exe -File -ErrorAction SilentlyContinue | Get-FileHash -Algorithm SHA256",
+      "why_powerful": "Hunts for suspicious or newly introduced binaries in Program Files.",
+      "security_context": "Common malware staging location detection."
+    },
+    {
+      "command": "$paths=@('C:\\Windows\\System32\\cmd.exe','C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe','C:\\Windows\\System32\\wscript.exe','C:\\Windows\\System32\\cscript.exe','C:\\Windows\\System32\\mshta.exe'); foreach($p in $paths){ if(Test-Path $p){ Get-FileHash $p -Algorithm SHA256 }}",
+      "why_powerful": "Verifies integrity of binaries commonly abused for living-off-the-land attacks.",
+      "security_context": "Detect trojanized command interpreters and script hosts."
+    }
+  ]
+}

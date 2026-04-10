@@ -1,0 +1,90 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-Service",
+  "category": "Process Inspection",
+  "flags": [
+    {
+      "flag": "-Name",
+      "example_command": "Get-Service -Name WinDefend,W32Time,EventLog | Select-Object Name,DisplayName,Status,StartType",
+      "purpose": "Retrieves services by internal service name to check status and startup configuration.",
+      "security_use_case": "Verify critical security services like Defender and Event Log are running and set to Automatic.",
+      "threat_detected": "Disabled antivirus or stopped event logging indicating tampering with security controls.",
+      "risk_if_misused": "Querying is read-only, but acting on results (stop/start) can affect system stability.",
+      "safe_followup": "If needed, use Start-Service and Set-Service -StartupType Automatic after confirming legitimacy.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-DisplayName",
+      "example_command": "Get-Service -DisplayName 'Windows Defender*' | Select-Object Name,Status,StartType,ServiceType",
+      "purpose": "Retrieves services by human-readable display name with wildcard support.",
+      "security_use_case": "Locate all Defender-related services without knowing internal names.",
+      "threat_detected": "Missing or altered Defender services suggesting tampering or replacement by malware.",
+      "risk_if_misused": "None; read-only. May return multiple results requiring filtering.",
+      "safe_followup": "Check dependencies and verify service binary path via Win32_Service PathName.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-DependentServices",
+      "example_command": "Get-Service -Name W32Time | Select-Object -ExpandProperty DependentServices | Select-Object Name,Status,StartType",
+      "purpose": "Lists services that depend on the specified service.",
+      "security_use_case": "Understand impact radius before modifying a critical service.",
+      "threat_detected": "Security services indirectly affected by a compromised or stopped parent service.",
+      "risk_if_misused": "None; read-only. Useful for safe remediation planning.",
+      "safe_followup": "Document dependencies before changes; restart in correct order if needed.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-RequiredServices",
+      "example_command": "Get-Service -Name Dhcp | Select-Object -ExpandProperty RequiredServices | Select-Object Name,Status",
+      "purpose": "Lists services required by the specified service to function.",
+      "security_use_case": "Ensure dependencies for network/security services are operational.",
+      "threat_detected": "Stopped dependencies preventing proper startup of security-related services.",
+      "risk_if_misused": "None; read-only. Dependency chains may be long.",
+      "safe_followup": "Start required services first; verify with dependency queries.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Include",
+      "example_command": "Get-Service -Include *event* | Select-Object Name,DisplayName,Status",
+      "purpose": "Includes services matching a pattern to find related services quickly.",
+      "security_use_case": "Locate all event-related services targeted during attacks to disable logging.",
+      "threat_detected": "Event services stopped to hide attacker activity.",
+      "risk_if_misused": "None; read-only. Pattern matching is broad.",
+      "safe_followup": "Cross-check with event logs to ensure logging is active.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Exclude",
+      "example_command": "Get-Service | Where-Object {$_.Status -eq 'Running'} | Where-Object {$_.DisplayName -notmatch 'Windows|Microsoft'} | Select-Object Name,DisplayName",
+      "purpose": "Excludes common Windows services to focus on third-party or unfamiliar services.",
+      "security_use_case": "Surface non-system services that may be malicious or unwanted.",
+      "threat_detected": "Unknown services persisting on the system indicating malware or PUPs.",
+      "risk_if_misused": "None; read-only. May hide legitimate third-party tools.",
+      "safe_followup": "Investigate unfamiliar services, verify binary path and signature.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "Get-Service | Where-Object {$_.StartType -eq 'Disabled' -and $_.Name -match 'Defend|Event|Firewall'} | Select-Object Name,Status,StartType",
+      "why_powerful": "Highlights disabled security-critical services often targeted by attackers.",
+      "security_context": "Detect post-compromise attempts to weaken host defenses."
+    },
+    {
+      "command": "Get-Service | Where-Object {$_.Status -eq 'Running'} | ForEach-Object { (Get-CimInstance Win32_Service -Filter \"Name='$($_.Name)'\").PathName } | Where-Object { $_ -notmatch 'C:\\Windows\\System32' }",
+      "why_powerful": "Finds running services executing from non-system paths where malware commonly resides.",
+      "security_context": "Detect rogue services from ProgramData, Temp, or user directories."
+    },
+    {
+      "command": "Get-Service | Where-Object {$_.Status -eq 'Running' -and $_.DisplayName -notmatch 'Microsoft|Windows'} | ForEach-Object { [PSCustomObject]@{ Name=$_.Name; DisplayName=$_.DisplayName; Path=(Get-CimInstance Win32_Service -Filter \"Name='$($_.Name)'\").PathName } }",
+      "why_powerful": "Surfaces active third-party services with their executable paths for review.",
+      "security_context": "Audit non-Microsoft services for risk, misconfiguration, or compromise."
+    }
+  ]
+}

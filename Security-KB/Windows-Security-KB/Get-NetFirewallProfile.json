@@ -1,0 +1,52 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-NetFirewallProfile",
+  "category": "Firewall",
+  "flags": [
+    {
+      "flag": "-Name",
+      "example_command": "Get-NetFirewallProfile -Name Public | Select-Object Enabled,DefaultInboundAction,DefaultOutboundAction,LogFileName",
+      "purpose": "Retrieve configuration of a specific firewall profile (Domain, Private, Public).",
+      "security_use_case": "Ensure Public profile is most restrictive for untrusted networks.",
+      "threat_detected": "Disabled firewall, permissive inbound rules, missing log configuration.",
+      "detection_pattern": "Public profile Enabled = False OR DefaultInboundAction = Allow OR LogFileName empty.",
+      "forensic_value": "Shows if system was exposed to unsolicited inbound traffic during compromise.",
+      "baseline_value": "Public profile should always be Enabled with DefaultInboundAction = Block and logging enabled.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Use Set-NetFirewallProfile to enforce restrictive defaults; audit rules with Get-NetFirewallRule.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-All",
+      "example_command": "Get-NetFirewallProfile -All | Select-Object Name,Enabled,DefaultInboundAction,DefaultOutboundAction,NotifyOnListen,LogAllowed",
+      "purpose": "Retrieve configuration of all firewall profiles in one command.",
+      "security_use_case": "Detect inconsistent security posture across Domain, Private, and Public profiles.",
+      "threat_detected": "One profile weaker than others creating a security gap.",
+      "detection_pattern": "Any profile where Enabled = False OR DefaultInboundAction = Allow.",
+      "forensic_value": "Helps identify which network context allowed unwanted traffic.",
+      "baseline_value": "All profiles Enabled, Inbound Blocked, logging active.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Standardize profiles using Set-NetFirewallProfile.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "Get-NetFirewallProfile -All | Select-Object Name,Enabled,DefaultInboundAction,DefaultOutboundAction,LogAllowed,LogBlocked,LogIgnored | Format-Table -AutoSize",
+      "why_powerful": "Displays full firewall posture including logging critical for investigations.",
+      "security_context": "Verify inbound is blocked and logs exist for incident review."
+    },
+    {
+      "command": "Get-NetFirewallProfile -All | Where-Object {$_.Enabled -eq $false -or $_.DefaultInboundAction -eq 'Allow'} | Select-Object Name,Enabled,DefaultInboundAction",
+      "why_powerful": "Finds profiles allowing unsolicited inbound connections.",
+      "security_context": "Critical misconfiguration exposing system to attack."
+    },
+    {
+      "command": "Get-NetFirewallProfile -Name Public | Select-Object -ExpandProperty LogFileName",
+      "why_powerful": "Locates firewall log file for analysis of dropped or allowed traffic.",
+      "security_context": "Essential during incident response to trace connection attempts."
+    }
+  ]
+}

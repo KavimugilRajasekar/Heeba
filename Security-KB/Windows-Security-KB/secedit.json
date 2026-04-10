@@ -1,0 +1,115 @@
+{
+  "os": "Windows",
+  "tool_name": "secedit",
+  "category": "System Integrity",
+  "mitre_attack": {
+    "tactic": ["Defense Evasion", "Persistence", "Privilege Escalation"],
+    "technique_id": "T1562.001",
+    "technique_name": "Impair Defenses: Security Policy Modification"
+  },
+  "detection_focus": [
+    "Weak password and lockout policies",
+    "Excessive user rights assignments (SeDebugPrivilege, SeTakeOwnershipPrivilege)",
+    "Audit policy disabled or reduced",
+    "Guest or anonymous access misconfiguration",
+    "Security policy drift from hardened baseline",
+    "Unexpected changes to local security database"
+  ],
+  "forensic_artifacts": [
+    "C:\\Windows\\Security\\Database\\secedit.sdb",
+    "C:\\Windows\\Security\\Logs\\scesrv.log",
+    "Registry: HKLM\\SECURITY\\Policy",
+    "Event Log: Security Event ID 4719 (System audit policy changed)",
+    "Event Log: Security Event ID 4739 (Domain policy changed)"
+  ],
+  "flags": [
+    {
+      "flag": "/analyze",
+      "example_command": "secedit /analyze /db C:\\Windows\\Security\\Database\\secedit.sdb /cfg analysis.cfg",
+      "purpose": "Analyzes current security settings against security templates and reports configuration drift and weaknesses.",
+      "security_use_case": "Audit system security configuration against known-good baselines to identify policy violations.",
+      "threat_detected": "Weak password policies, excessive privileges, disabled auditing, insecure user rights assignments.",
+      "risk_if_misused": "May produce warnings for legitimate business deviations; requires expert interpretation.",
+      "safe_followup": "Document deviations; compare with approved baseline; plan remediation via /configure.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/export",
+      "example_command": "secedit /export /cfg C:\\Security\\security_config.cfg /areas SECURITYPOLICY",
+      "purpose": "Exports current security policy to INF file for backup, analysis, or deployment.",
+      "security_use_case": "Capture system security state for compliance, forensics, or baseline comparison.",
+      "threat_detected": "N/A - export operation.",
+      "risk_if_misused": "Exported file contains sensitive security configuration; must be stored securely.",
+      "safe_followup": "Review and archive securely; compare with hardened baseline; use for change tracking.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/import",
+      "example_command": "secedit /import /db C:\\Windows\\Security\\Database\\secedit.sdb /cfg hardened_policy.cfg",
+      "purpose": "Imports security configuration into database for later application.",
+      "security_use_case": "Prepare standardized hardened security policy for deployment.",
+      "threat_detected": "N/A - preparation step.",
+      "risk_if_misused": "Incorrect policy may cause user or admin lockout after apply.",
+      "safe_followup": "Validate with /validate; test in non-production; apply using /configure.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/configure",
+      "example_command": "secedit /configure /db C:\\Windows\\Security\\Database\\secedit.sdb /cfg hardened_policy.cfg /areas SECURITYPOLICY",
+      "purpose": "Applies security configuration to the system from INF file.",
+      "security_use_case": "Enforce hardened system security baseline to reduce attack surface.",
+      "threat_detected": "N/A - hardening action.",
+      "risk_if_misused": "Overly strict policy can break services or lock administrators out.",
+      "safe_followup": "Always backup with /export first; monitor system after apply; keep rollback ready.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/generaterollback",
+      "example_command": "secedit /generaterollback /db C:\\Windows\\Security\\Database\\secedit.sdb /cfg rollback.inf",
+      "purpose": "Generates rollback INF to restore previous configuration if changes cause issues.",
+      "security_use_case": "Safety mechanism before applying major security changes.",
+      "threat_detected": "N/A - precautionary step.",
+      "risk_if_misused": "Rollback only valid for that exact state; later changes invalidate it.",
+      "safe_followup": "Store rollback securely; use /import and /configure if recovery needed.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/validate",
+      "example_command": "secedit /validate /cfg policy_to_check.cfg",
+      "purpose": "Validates syntax and structure of INF file before applying.",
+      "security_use_case": "Catch configuration errors before deployment.",
+      "threat_detected": "Invalid or malformed policies that could cause unpredictable behavior.",
+      "risk_if_misused": "None; validation only.",
+      "safe_followup": "Proceed to /import and /configure if validation succeeds.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "detection_queries": [
+    {
+      "command": "secedit /export /areas SECURITYPOLICY /cfg security_policy.inf && (Get-Content security_policy.inf | Findstr /i \"MinimumPasswordLength PasswordComplexity LockoutBadCount\")",
+      "why_powerful": "Immediately verifies password and lockout policy compliance from live system export.",
+      "security_context": "Detecting weakened credential policies used by attackers after privilege escalation."
+    },
+    {
+      "command": "secedit /analyze /db C:\\Windows\\Security\\Database\\secedit.sdb 2>&1 | Findstr /i \"warning error\"",
+      "why_powerful": "Surfaces policy analysis problems and potential security misconfigurations quickly.",
+      "security_context": "Rapid integrity assessment during incident response."
+    },
+    {
+      "command": "secedit /export /cfg baseline.inf /areas USER_RIGHTS && (Get-Content baseline.inf | Findstr /i \"SeDebugPrivilege SeTakeOwnershipPrivilege\")",
+      "why_powerful": "Identifies dangerous privilege assignments often abused by attackers.",
+      "security_context": "Privilege abuse detection and prevention."
+    }
+  ],
+  "tool_relationship": {
+    "paired_with": "gpresult /h, auditpol, whoami /priv",
+    "attacker_usage": "Attackers modify local security policy to weaken defenses, disable auditing, and grant dangerous privileges.",
+    "defender_usage": "Used for auditing, exporting, validating, and enforcing hardened security baselines across systems."
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-NetAdapter",
+  "category": "Network Inspection",
+  "flags": [
+    {
+      "flag": "-Physical",
+      "example_command": "Get-NetAdapter -Physical | Select-Object Name,InterfaceDescription,Status,MacAddress,LinkSpeed",
+      "purpose": "Show only physical network adapters excluding virtual, loopback, or container adapters.",
+      "security_use_case": "Identify real hardware network interfaces connected to physical networks.",
+      "threat_detected": "Rogue USB Ethernet devices, unauthorized hardware taps, unexpected virtualization.",
+      "detection_pattern": "Unknown MAC address or adapter description not matching known hardware inventory.",
+      "forensic_value": "Helps identify hardware-level network presence during compromise investigation.",
+      "baseline_value": "Establish approved physical adapter inventory for anomaly comparison.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Disable-NetAdapter if unauthorized; investigate hardware origin.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-Name",
+      "example_command": "Get-NetAdapter -Name Ethernet*,Wi-Fi* | Select-Object Name,Status,MacAddress,InterfaceMetric",
+      "purpose": "Target primary network adapters by name pattern.",
+      "security_use_case": "Verify operational status of main connectivity interfaces.",
+      "threat_detected": "Disabled adapters, suspicious renaming, or unexpected metrics.",
+      "detection_pattern": "Primary adapter in Down state or abnormal InterfaceMetric value.",
+      "forensic_value": "Shows if attacker disabled network connectivity or altered routing priority.",
+      "baseline_value": "Record expected names and metrics for comparison.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Enable-NetAdapter if disabled; audit why state changed.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-IncludeHidden",
+      "example_command": "Get-NetAdapter -IncludeHidden | Where-Object {$_.Status -eq 'Up'}",
+      "purpose": "Reveal hidden adapters used by VPNs, virtualization, or special drivers.",
+      "security_use_case": "Discover covert network paths or tunneling interfaces.",
+      "threat_detected": "Unauthorized VPN, tunnel, virtual switch, or malware-created adapter.",
+      "detection_pattern": "Hidden adapter in Up state without approved VPN/VM software.",
+      "forensic_value": "Critical for discovering covert exfiltration paths.",
+      "baseline_value": "List of approved hidden adapters from VPN/VM tools.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Investigate related software; disable if malicious.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "Get-NetAdapter -Physical | Where-Object {$_.Status -ne 'Up'} | Select-Object Name,Status,MacAddress,InterfaceDescription",
+      "why_powerful": "Detects disconnected or intentionally disabled physical adapters.",
+      "security_context": "Attackers may disable adapters to prevent monitoring or isolate system."
+    },
+    {
+      "command": "Get-NetAdapter -Physical | ForEach-Object { Get-NetAdapterStatistics -Name $_.Name } | Select-Object Name,ReceivedBytes,SentBytes,Errors",
+      "why_powerful": "Reveals unusual traffic volume or error rates indicating network abuse.",
+      "security_context": "Detect data exfiltration, flooding, or hardware malfunction."
+    },
+    {
+      "command": "Get-NetAdapter -Physical | Select-Object Name,MacAddress,InterfaceDescription | Sort-Object MacAddress | Get-Unique -AsString",
+      "why_powerful": "Creates hardware MAC inventory for spoofing detection.",
+      "security_context": "Baseline for detecting cloned or rogue MAC addresses."
+    }
+  ]
+}

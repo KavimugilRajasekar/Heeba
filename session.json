@@ -1,0 +1,16 @@
+{
+  "sessions": [
+    {
+      "id": "mnst2yj1",
+      "name": null,
+      "pages": {},
+      "rootPageId": null,
+      "createdAt": 1775819503693,
+      "lastUpdated": 1775819503693
+    }
+  ],
+  "currentSessionIndex": 0,
+  "selectedSessionIndex": 0,
+  "currentPageId": null,
+  "savedAt": "2026-04-10T11:11:43.693Z"
+}

@@ -42,11 +42,27 @@ Heeba provides **three operational interfaces**:
 
 ### Prerequisites
 
-- **Node.js** v18+
-- **llama.cpp** binaries in `engine/inference-engine/` *(for local models)*
+- **Node.js** v18+ (only needed for development — the `.exe` needs no Node.js)
+- **llama.cpp binaries** in `engine/inference-engine/` *(for local GGUF models)*
 - **GGUF models** in `engine/models/` *(optional — online models work without this)*
 
-### Installation
+### Portable Deployment
+
+After building (`npm run build:exe`), copy these files/folders next to `dist/heeba.exe`:
+
+```
+dist/
+├── heeba.exe
+├── engine/                    ← copy this folder from project root
+│   ├── inference-engine/      ← llama-cli.exe, llama-server.exe, *.dll
+│   └── models/                ← *.gguf model files
+├── heeba.json                 ← copy from project root
+└── credentials.json           ← (optional) copy for email/Ollama credentials
+```
+
+> **Important:** The `engine/` directory **must** be in the same folder as `heeba.exe`. When `heeba.exe` runs from any terminal directory, it automatically resolves paths relative to its own location — no PATH changes required.
+
+### Installation (Development)
 
 ```powershell
 npm install
@@ -175,8 +191,14 @@ Heeba is built with a clean layered architecture where each module has a single 
 heeba/
 ├── main.js                    ← Entry point, CLI parsing, TUI lifecycle
 ├── heeba.json                 ← Master config: identity, profile, intent rules
+├── credentials.json           ← Decrypted API keys and email credentials (git-ignored)
+├── credentials.ex.json        ← Encrypted credential reference template (for collaborators)
+├── session.json               ← Persisted TUI/Web sessions (created at runtime, next to exe)
 ├── assets/
 │   └── heeba.png              ← Application logo (used for .exe icon)
+├── engine/                    ← Local inference runtime (must be copied next to heeba.exe)
+│   ├── inference-engine/      ← llama-cli.exe, llama-server.exe, *.dll
+│   └── models/                ← *.gguf model files
 ├── src/
 │   ├── core/
 │   │   ├── engine.js          ← LLM inference orchestration (llama.cpp + Ollama)
@@ -298,7 +320,12 @@ npm run build:exe
 The output is placed in `dist/heeba.exe`. The build uses `pkg` and automatically bundles:
 - `heeba.json` — your configuration
 - `assets/heeba.png` — embedded as the `.exe` icon
+- `credentials.ex.json` — encrypted credential reference (for collaborator use)
 - All `src/` modules and relevant `node_modules`
+
+> **After building**, copy the `engine/` folder from the project root into `dist/` alongside `heeba.exe`. This folder contains the llama.cpp binaries and GGUF models and must be present for local model inference to work.
+
+> **Note:** `credentials.ex.json` is an encrypted credential template for collaborators. It is not loaded at runtime. For actual credentials, use `credentials.json` (decrypted format, git-ignored).
 
 ---
 
@@ -322,7 +349,7 @@ Heeba is **private by design**:
 - Local GGUF models run entirely offline — no requests leave your machine
 - Online model API calls go directly to your configured provider (OpenRouter, Ollama, etc.) — no middleware
 - Email credentials are stored locally in `heeba.json` — never transmitted
-- Conversation history is stored in-memory only for the TUI session; the Telegram session cache is local (`telegram-sessions.json`)
+- **Session persistence:** TUI and Web conversations survive app restarts via `session.json` stored next to `heeba.exe`. The Telegram session cache (`telegram-sessions.json`) is also local.
 
 ---
 

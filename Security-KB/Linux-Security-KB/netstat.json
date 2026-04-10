@@ -1,0 +1,194 @@
+{
+  "os": "Linux",
+  "tool_name": "netstat",
+  "category": "Network Inspection",
+  "flags": [
+    {
+      "flag": "-t",
+      "example_command": "netstat -t",
+      "purpose": "Display TCP protocol connections.",
+      "security_use_case": "Identify established or listening TCP sockets to detect unauthorized network services, backdoors, or suspicious outbound connections.",
+      "threat_detected": "Unauthorized SSH daemons, reverse shells bound to TCP ports, malware C2 communication.",
+      "risk_if_misused": "None; read-only command.",
+      "safe_followup": "ss -tulpn to cross-validate.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-u",
+      "example_command": "netstat -u",
+      "purpose": "Display UDP protocol connections.",
+      "security_use_case": "Identify UDP listeners for DNS, DHCP, and other services.",
+      "threat_detected": "DNS tunneling malware, covert UDP backdoors.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ss -ulpn to cross-validate.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-l",
+      "example_command": "netstat -l",
+      "purpose": "Show only listening sockets.",
+      "security_use_case": "Reveal all services waiting for incoming connections.",
+      "threat_detected": "Hidden bind shells, unauthorized services.",
+      "risk_if_misused": "None.",
+      "safe_followup": "netstat -tulpn for numeric output.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-a",
+      "example_command": "netstat -a",
+      "purpose": "Show both listening and non-listening sockets.",
+      "security_use_case": "Comprehensive view of all network socket activity.",
+      "threat_detected": "Established connections from malware.",
+      "risk_if_misused": "None.",
+      "safe_followup": "netstat -tulpn for full details.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-n",
+      "example_command": "netstat -n",
+      "purpose": "Show numerical addresses without DNS resolution.",
+      "security_use_case": "Speed up output and avoid DNS evasion.",
+      "threat_detected": "Malware using DNS to hide malicious destinations.",
+      "risk_if_misused": "None.",
+      "safe_followup": "netstat -tulpn.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-p",
+      "example_command": "netstat -tp",
+      "purpose": "Show PID and program name for each socket.",
+      "security_use_case": "Identify which process owns each connection.",
+      "threat_detected": "Unknown processes holding network connections.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ps -p <PID> for process details.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-e",
+      "example_command": "netstat -e",
+      "purpose": "Display additional user ID and inode information.",
+      "security_use_case": "Identify which user owns a network socket.",
+      "threat_detected": "Processes running as root with suspicious connections.",
+      "risk_if_misused": "None.",
+      "safe_followup": "id <username>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-o",
+      "example_command": "netstat -to",
+      "purpose": "Include TCP timer information.",
+      "security_use_case": "Detect abnormal TCP timer states.",
+      "threat_detected": "SYN flood remnants, C2 beaconing.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ss -to for faster timer details.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-r",
+      "example_command": "netstat -r",
+      "purpose": "Display kernel routing tables.",
+      "security_use_case": "Review routing configuration.",
+      "threat_detected": "Unauthorized routes, rogue gateway.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ip route show.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-i",
+      "example_command": "netstat -i",
+      "purpose": "Display table of network interfaces.",
+      "security_use_case": "Check for unauthorized interfaces.",
+      "threat_detected": "Rogue virtual interfaces, promiscuous mode.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ip link show.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-s",
+      "example_command": "netstat -s",
+      "purpose": "Display protocol statistics.",
+      "security_use_case": "Identify protocol-level anomalies.",
+      "threat_detected": "SYN flood, ICMP ping flood.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ip -s link for interface stats.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-c",
+      "example_command": "netstat -c",
+      "purpose": "Print continuously every second.",
+      "security_use_case": "Real-time monitoring during incident response.",
+      "threat_detected": "Rapid connections from malware.",
+      "risk_if_misused": "Continuous output can fill buffers.",
+      "safe_followup": "Ctrl+C; redirect to file.",
+      "automation_safe": false,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-M",
+      "example_command": "netstat -M",
+      "purpose": "Display masqueraded NAT connections.",
+      "security_use_case": "Identify NAT connections hiding source.",
+      "threat_detected": "Unauthorized NAT, IP masquerading.",
+      "risk_if_misused": "None.",
+      "safe_followup": "iptables -t nat -L.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-g",
+      "example_command": "netstat -g",
+      "purpose": "Display multicast group membership.",
+      "security_use_case": "Detect multicast C2 communication.",
+      "threat_detected": "Malware using multicast for C2.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ip maddr show.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-W",
+      "example_command": "netstat -W",
+      "purpose": "Wide output preventing IP truncation.",
+      "security_use_case": "Full IP visibility for automation.",
+      "threat_detected": "Truncated addresses may hide malicious IPs.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Combine with -n.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "netstat -tulpn",
+      "why_powerful": "Primary command for discovering rogue services - all listening TCP/UDP ports with numeric addresses and PIDs.",
+      "security_context": "Detecting unauthorized network listeners during compromise assessment."
+    },
+    {
+      "command": "netstat -an | grep ESTABLISHED",
+      "why_powerful": "Filters to only active connections revealing C2 traffic.",
+      "security_context": "Identifying active malware connections."
+    },
+    {
+      "command": "netstat -tulpn | grep -v LISTEN",
+      "why_powerful": "Shows non-listening endpoints - established, time-wait, close-wait.",
+      "security_context": "Detecting reverse shells and beaconing malware."
+    },
+    {
+      "command": "watch -n 1 'netstat -tuln'",
+      "why_powerful": "Real-time monitoring at 1-second intervals.",
+      "security_context": "Detecting ephemeral malware that creates short-lived listeners."
+    }
+  ]
+}

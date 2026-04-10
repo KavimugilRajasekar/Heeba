@@ -1,0 +1,126 @@
+{
+  "os": "Windows",
+  "tool_name": "schtasks",
+  "category": "Scheduled Tasks",
+  "mitre_attack": {
+    "tactic": ["Persistence", "Privilege Escalation", "Defense Evasion"],
+    "technique_id": "T1053.005",
+    "technique_name": "Scheduled Task"
+  },
+  "detection_focus": [
+    "Tasks executing powershell.exe with -enc or -encodedcommand",
+    "Tasks running from user-writable paths (AppData, Temp, Public)",
+    "Tasks outside \\Microsoft\\ namespace",
+    "Unexpected task authors not matching Microsoft or installed software",
+    "Suspicious execution times (logon, startup, frequent intervals)",
+    "Tasks invoking cmd.exe, wscript.exe, cscript.exe, mshta.exe"
+  ],
+  "forensic_artifacts": [
+    "C:\\Windows\\System32\\Tasks\\",
+    "Event Log: Microsoft-Windows-TaskScheduler/Operational",
+    "Registry: HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache",
+    "Security Event ID 4698 (task creation)",
+    "Security Event ID 4702 (task update)"
+  ],
+  "flags": [
+    {
+      "flag": "/Query",
+      "example_command": "schtasks /Query /FO LIST /V | Findstr /i \"TaskName Last Result\"",
+      "purpose": "Displays all scheduled tasks with detailed properties including last run result, next run time, and scheduled command.",
+      "security_use_case": "Audit all scheduled tasks on system to identify persistence mechanisms and unauthorized scheduled executions.",
+      "threat_detected": "Malicious scripts or executables scheduled by malware for persistence; tasks running from suspicious paths.",
+      "risk_if_misused": "None; read-only. Large amount of output requires filtering.",
+      "safe_followup": "Examine task actions for suspicious paths or encoded commands; export results for baseline comparison.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/Delete",
+      "example_command": "schtasks /Delete /TN \"MaliciousTask\" /F",
+      "purpose": "Deletes specified scheduled task from the system removing a persistence mechanism.",
+      "security_use_case": "Remove malware persistence by deleting scheduled task created by malicious software.",
+      "threat_detected": "N/A - removal of threat.",
+      "risk_if_misused": "Could delete legitimate tasks causing application failures; always verify before deletion.",
+      "safe_followup": "Document deleted task; investigate why it was created; ensure malware is fully removed.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/Create",
+      "example_command": "schtasks /Create /TN \"SecurityCheck\" /TR \"powershell.exe -EncodedCommand ...\" /SC DAILY /ST 09:00 /F",
+      "purpose": "Creates new scheduled task with specified name, command to execute, schedule, and options.",
+      "security_use_case": "Create legitimate security monitoring tasks for regular system integrity checks.",
+      "threat_detected": "Attackers creating scheduled tasks for persistence or regular C2 callback.",
+      "risk_if_misused": "Creating unnecessary tasks increases attack surface; verify legitimate need before creation.",
+      "safe_followup": "Document all created tasks; monitor for unexpected new tasks.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/Change",
+      "example_command": "schtasks /Change /TN \"SuspiciousTask\" /DISABLE",
+      "purpose": "Modifies properties of existing scheduled task including enabled/disabled state, user context, and schedule.",
+      "security_use_case": "Disable suspicious scheduled task without deleting for preservation of evidence while preventing execution.",
+      "threat_detected": "N/A - defensive action.",
+      "risk_if_misused": "Disabling task may alert attacker; investigate first.",
+      "safe_followup": "Investigate task source; examine task history; delete after analysis if confirmed malicious.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/Run",
+      "example_command": "schtasks /Run /TN \"SystemCheck\"",
+      "purpose": "Immediately runs scheduled task outside its normal schedule for immediate execution.",
+      "security_use_case": "Test newly created security monitoring tasks or manually execute legitimate scheduled jobs.",
+      "threat_detected": "Attackers manually triggering scheduled tasks to execute malicious commands.",
+      "risk_if_misused": "May cause system slowdown if task is resource-intensive; verify task legitimacy first.",
+      "safe_followup": "Monitor process creation logs and task output; check event logs for associated events.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/End",
+      "example_command": "schtasks /End /TN \"LongRunningTask\"",
+      "purpose": "Stops currently running instance of scheduled task.",
+      "security_use_case": "Stop runaway or hijacked scheduled task consuming resources or performing malicious actions.",
+      "threat_detected": "N/A - termination action.",
+      "risk_if_misused": "May interrupt legitimate operations; may not stop already-executing process.",
+      "safe_followup": "Monitor for task restart; investigate why task was running unexpectedly; check for reinfection.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/FO",
+      "example_command": "schtasks /Query /FO CSV /NH",
+      "purpose": "Specifies output format - LIST, TABLE, or CSV - for scheduled task query results.",
+      "security_use_case": "Output as CSV for import into security tools or databases for analysis.",
+      "threat_detected": "N/A - formatting option.",
+      "risk_if_misused": "None. Format selection depends on use case.",
+      "safe_followup": "Parse CSV output for automated analysis and alerting.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "detection_queries": [
+    {
+      "command": "schtasks /Query /FO CSV /V | ConvertFrom-Csv | Where-Object {$_.'Task To Run' -match 'powershell|cscript|wscript|cmd\\.exe|mshta'} | Select-Object 'TaskName','Last Run Time','Last Result','Task To Run'",
+      "why_powerful": "Finds all scheduled tasks executing script interpreters and command processors commonly abused by malware.",
+      "security_context": "Detecting fileless or obfuscated malware using legitimate Windows scripting binaries."
+    },
+    {
+      "command": "schtasks /Query /FO LIST /V | Findstr /i /C:\"TaskName:\" /C:\"Task To Run:\" /C:\"Status:\" /C:\"Last Run Result:\" | Findstr /i /V \"OK Disabled\"",
+      "why_powerful": "Shows detailed properties of all active tasks for comprehensive manual review.",
+      "security_context": "Baseline documentation and anomaly detection of scheduled task configuration."
+    },
+    {
+      "command": "schtasks /Query /FO CSV /V | ConvertFrom-Csv | Where-Object {$_.'Author' -notmatch 'Microsoft'} | Select-Object 'TaskName','Author','Task To Run'",
+      "why_powerful": "Identifies tasks not authored by Microsoft which deserve additional scrutiny.",
+      "security_context": "Spotting third-party or malicious scheduled tasks masquerading as system tasks."
+    }
+  ],
+  "tool_relationship": {
+    "paired_with": "Get-ScheduledTask",
+    "attacker_usage": "schtasks is commonly used by malware and scripts to create persistence from command prompt or batch files.",
+    "defender_usage": "Primarily used for auditing, disabling, and removing malicious scheduled tasks when PowerShell is unavailable."
+  }
+}

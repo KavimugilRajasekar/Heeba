@@ -1,0 +1,67 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-NetUDPEndpoint",
+  "category": "Network Inspection",
+  "description": "PowerShell cmdlet to retrieve UDP endpoint information including local address and port bindings.",
+  "prerequisites": [
+    "PowerShell 3.0+",
+    "NetTCPIP module",
+    "Admin privileges for full endpoint details"
+  ],
+  "log_sources": [
+    "Active UDP endpoint table",
+    "Network socket state"
+  ],
+  "flags": [
+    {
+      "flag": "-LocalAddress",
+      "example_command": "Get-NetUDPEndpoint -LocalAddress 127.0.0.1 | Select-Object LocalAddress,LocalPort,OwningProcess",
+      "purpose": "Filter UDP endpoints by local IP address.",
+      "security_use_case": "Find services bound to specific interfaces on multi-homed systems.",
+      "threat_detected": "Services unexpectedly bound to external interfaces.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Review service binding and firewall rules.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-LocalPort",
+      "example_command": "Get-NetUDPEndpoint -LocalPort 53,123 | Select-Object LocalAddress,LocalPort,OwningProcess",
+      "purpose": "Filter UDP endpoints by local port number.",
+      "security_use_case": "Identify services listening on specific UDP ports like DNS (53) or NTP (123).",
+      "threat_detected": "Unexpected UDP listeners potentially indicating malware or backdoors.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Identify owning process and verify legitimacy.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-OwningProcess",
+      "example_command": "Get-NetUDPEndpoint -OwningProcess (Get-Process -Name svchost).Id[0]",
+      "purpose": "Show UDP endpoints owned by a specific process ID.",
+      "security_use_case": "Correlate UDP listening to specific services or malware.",
+      "threat_detected": "Suspicious processes holding UDP endpoints.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Investigate process path and behavior.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "Get-NetUDPEndpoint | Where-Object {$_.LocalPort -notin 53,123,161,5353} | Select-Object LocalAddress,LocalPort,OwningProcess",
+      "why_powerful": "Finds non-standard UDP listeners that may indicate malware.",
+      "security_context": "Detect backdoors or unauthorized services using UDP."
+    },
+    {
+      "command": "Get-NetUDPEndpoint | ForEach-Object { Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue } | Where-Object {$_.Path -notmatch 'C:\\Windows'} | Select-Object Name,Path",
+      "why_powerful": "Identifies processes with UDP endpoints running from outside System32.",
+      "security_context": "Detect rogue processes listening on UDP ports."
+    },
+    {
+      "command": "Get-NetUDPEndpoint | Where-Object {$_.LocalAddress -notmatch '^(127\\.|::1)'} | Select-Object LocalAddress,LocalPort,OwningProcess",
+      "why_powerful": "Finds UDP endpoints bound to non-loopback addresses.",
+      "security_context": "Identify services exposed on network interfaces."
+    }
+  ]
+}

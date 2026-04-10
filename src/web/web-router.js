@@ -3,7 +3,7 @@
 
 const { queryLLM, cancelLLM } = require('../core/engine');
 const { parseCommandFromResponse, executeCommand } = require('../core/intent-executor');
-const { state, getPathToPage, estimateTokens, deletePage } = require('../core/state-manager');
+const { state, getPathToPage, estimateTokens, deletePage, saveSessions } = require('../core/state-manager');
 const { getAllModels } = require('../core/model-registry');
 const { loadHeebaConfig } = require('../core/config-loader');
 const { getBridgeData, createBridge, navigateBranch, switchToSession, switchToPage, removeBridge } = require('./session-bridge');
@@ -93,6 +93,7 @@ async function processPrompt(tabId, userInput, ws) {
 
     // Update bridge
     switchToSession(tabId, state.currentSessionIndex);
+    saveSessions();
   } else {
     session = state.sessions[state.currentSessionIndex];
   }
@@ -296,6 +297,7 @@ function handleWebSocketConnection(ws) {
               if (state.currentSessionIndex >= state.sessions.length) {
                 state.currentSessionIndex = state.sessions.length - 1;
               }
+              saveSessions();
               switchToSession(tabId, state.currentSessionIndex >= 0 ? state.currentSessionIndex : 0);
               broadcastStateUpdate(tabId, 'session_deleted', { sessionId: msg.sessionId });
             }
@@ -311,6 +313,7 @@ function handleWebSocketConnection(ws) {
               if (session) {
                 const newPageId = session.pages[msg.pageId]?.parentId || null;
                 deletePage(session, msg.pageId, msg.scope || 'current');
+                saveSessions();
                 switchToPage(tabId, newPageId);
                 broadcastStateUpdate(tabId, 'page_deleted', { newPageId });
               }

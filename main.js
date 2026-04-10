@@ -4,7 +4,7 @@ const blessed = require('blessed');
 const logger = require('./src/utils/logger');
 
 // Modules
-const { state, estimateTokens, getPathToPage, deletePage } = require('./src/core/state-manager');
+const { state, estimateTokens, getPathToPage, deletePage, loadSessions, saveSessions } = require('./src/core/state-manager');
 const { DEFAULT_CONFIG, getAvailableModels } = require('./src/core/config');
 const { getAllModels, isOnlineModel } = require('./src/core/model-registry');
 const { loadHeebaConfig } = require('./src/core/config-loader');
@@ -13,7 +13,7 @@ const { createOverlays, runBootSequence, startLoadingAnimation } = require('./sr
 const { requestRender, forceRender } = require('./src/ui/render-manager');
 const { requestScroll } = require('./src/ui/scroll-manager');
 const { queryLLM, cancelLLM, clearConversationHistory, stopServer, generateTurnTitle, getTotalTokensUsed } = require('./src/core/engine');
-const { parseCommandFromResponse, executeCommand } = require('./src/core/intent-executor');
+const { parseCommandFromResponse, executeCommand, isSecurityIntentTriggered, runSecurityAuditLoop, extractEmailFromPrompt } = require('./src/core/intent-executor');
 const { refreshStats } = require('./src/utils/stats-refresher');
 const {
   updateWelcomeCard, renderActivePage, showLoading, navigateToPage,
@@ -168,6 +168,34 @@ async function runStateless(prompt, model) {
   }
   console.log(`\x1b[90mQuery: "${prompt}"\x1b[0m\n`);
 
+  // Check if this is a security audit intent
+  const intentRules = heebaConfig.intent_routing_rules || {};
+  if (isSecurityIntentTriggered(prompt, intentRules)) {
+    console.log(`\x1b[35m⁜ Security Audit Mode Activated\x1b[0m\n`);
+    const emailTo = extractEmailFromPrompt(prompt);
+    const auditResult = await runSecurityAuditLoop(
+      prompt,
+      (p, mode) => queryLLM(p, mode, state.CONFIG, null),
+      15,
+      { emailTo }
+    );
+    if (auditResult && auditResult.conclusion) {
+      const c = auditResult.conclusion;
+      console.log(`\n\x1b[36m━━━ SECURITY AUDIT RESULTS ━━━\x1b[0m`);
+      console.log(`\x1b[33mScore:\x1b[0m ${c.security_score || 'Inconclusive'}`);
+      if (c.findings && c.findings.length > 0) {
+        console.log(`\x1b[33mFindings:\x1b[0m`);
+        c.findings.forEach((f, i) => console.log(`  ${i + 1}. ${f}`));
+      }
+      if (c.recommended_fixes && c.recommended_fixes.length > 0) {
+        console.log(`\x1b[33mRecommended Fixes:\x1b[0m`);
+        c.recommended_fixes.forEach((f, i) => console.log(`  ${i + 1}. ${f}`));
+      }
+      console.log(`\n\x1b[90mAudit completed in ${auditResult.iterations} iterations.\x1b[0m`);
+    }
+    return;
+  }
+
   let fullResponse = '';
   process.stdout.write(`\x1b[33m⁜ Heeba:\x1b[0m\n`);
 
@@ -261,6 +289,7 @@ if (isLaunchTele) {
   function cleanupAndExit() {
     if (isExiting) return;
     isExiting = true;
+    saveSessions();
     stopServer();
     process.exit(0);
   }
@@ -277,15 +306,16 @@ if (isLaunchTele) {
     if (trimmed === '[exit]') { cleanupAndExit(); return ''; }
 
     if (trimmed === '[delete page]') {
-      const session = (state.currentSessionIndex >= 0 && state.currentSessionIndex < state.sessions.length) 
+      const session = (state.currentSessionIndex >= 0 && state.currentSessionIndex < state.sessions.length)
           ? state.sessions[state.currentSessionIndex] : null;
       if (!session || !state.currentPageId) return 'No page to delete.';
       if (session.rootPageId === state.currentPageId) return 'Cannot delete the root page of a session.';
 
-      const parentId = session.pages[state.currentPageId]?.parentId;
+      const parentId = session.pages[state.currentPageId].parentId;
       deletePage(session, state.currentPageId, 'branch');
       state.currentPageId = parentId;
       state.userScrolledUp = false;
+      saveSessions();
       renderActivePage(UI, screen, state);
       return '';
     }
@@ -321,7 +351,8 @@ if (isLaunchTele) {
       session = { id: Date.now().toString(36), name: null, pages: {}, rootPageId: null, createdAt: Date.now(), lastUpdated: Date.now() };
       state.sessions.push(session);
       state.currentSessionIndex = state.sessions.length - 1;
-      state.currentPageId = null; 
+      state.currentPageId = null;
+      saveSessions();
     } else session = state.sessions[state.currentSessionIndex];
 
     const newPageId = Math.random().toString(36).substring(2, 9);
@@ -336,6 +367,40 @@ if (isLaunchTele) {
 
     const historyPath = getPathToPage(session, newPage.parentId);
     const llmHistory = historyPath.map(p => ({ user: p.prompt, assistant: p.response }));
+
+    // Check for security audit intent
+    const intentRules = state.CONFIG.intent_routing_rules || {};
+    if (isSecurityIntentTriggered(input, intentRules)) {
+      showLoading(UI, overlays, screen, state, false);
+      blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: `\n\x1b[35m  ⁜ Security Audit Mode Activated\x1b[0m`, fg: C.yellow });
+      requestRender();
+
+      const auditResult = await runSecurityAuditLoop(
+        input,
+        (p, mode) => queryLLM(p, mode, state.CONFIG, null),
+        15,
+        { isTUI: true, emailTo: extractEmailFromPrompt(input) }
+      );
+      if (auditResult && auditResult.conclusion) {
+        const c = auditResult.conclusion;
+        newPage.response = `━━━ SECURITY AUDIT RESULTS ━━━\n`;
+        newPage.response += `Score: ${c.security_score || 'Inconclusive'}\n\n`;
+        if (c.findings && c.findings.length > 0) {
+          newPage.response += `Findings:\n`;
+          c.findings.forEach((f, i) => { newPage.response += `  ${i + 1}. ${f}\n`; });
+          newPage.response += `\n`;
+        }
+        if (c.recommended_fixes && c.recommended_fixes.length > 0) {
+          newPage.response += `Recommended Fixes:\n`;
+          c.recommended_fixes.forEach((f, i) => { newPage.response += `  ${i + 1}. ${f}\n`; });
+        }
+        newPage.response += `\nAudit completed in ${auditResult.iterations} iterations.`;
+      }
+      renderActivePage(UI, screen, state);
+      state.isProcessingCommand = false;
+      setTimeout(() => { UI.inputBox.focus(); }, 30);
+      return;
+    }
 
     UI.welcomeCard.hide();
     updatePageIndicator(UI, state);
@@ -401,8 +466,8 @@ if (isLaunchTele) {
           currentPage: newPage,
           onSessionRenamed: (newName) => { if (state.currentSessionIndex === -1) UI.cardTitle.setContent(newName); renderIndexPage(UI, screen, state); requestRender(); },
           onConversationRenamed: (newTitle) => { renderIndexPage(UI, screen, state); requestRender(); },
-          onSessionDeleted: () => { if (state.currentSessionIndex >= 0 && state.currentSessionIndex < state.sessions.length) state.sessions.splice(state.currentSessionIndex, 1); state.currentSessionIndex = -1; state.currentPageId = null; state.userScrolledUp = false; renderActivePage(UI, screen, state); setTimeout(() => { UI.inputBox.focus(); }, 30); },
-          onPageDeleted: (newCurrentPageId) => { state.currentPageId = newCurrentPageId; state.userScrolledUp = false; renderActivePage(UI, screen, state); setTimeout(() => { UI.inputBox.focus(); }, 30); }
+          onSessionDeleted: () => { if (state.currentSessionIndex >= 0 && state.currentSessionIndex < state.sessions.length) state.sessions.splice(state.currentSessionIndex, 1); state.currentSessionIndex = -1; state.currentPageId = null; state.userScrolledUp = false; saveSessions(); renderActivePage(UI, screen, state); setTimeout(() => { UI.inputBox.focus(); }, 30); },
+          onPageDeleted: (newCurrentPageId) => { state.currentPageId = newCurrentPageId; state.userScrolledUp = false; saveSessions(); renderActivePage(UI, screen, state); setTimeout(() => { UI.inputBox.focus(); }, 30); }
         });
         if (result && result.success) {
           if (command.action === 'update_user_profile') updateWelcomeCard(UI, screen, state);
@@ -463,6 +528,7 @@ if (isLaunchTele) {
   // Start (TUI)
   (async () => {
     logger.info('APP', 'Starting Heeba Terminal');
+    loadSessions();
     updateWelcomeCard(UI, screen, state);
     forceRender();
     await runBootSequence(overlays, UI, screen, state.CONFIG);

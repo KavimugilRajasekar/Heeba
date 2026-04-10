@@ -1,0 +1,128 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-NetFirewallRule",
+  "category": "Firewall Rule Inspection",
+  "flags": [
+    {
+      "flag": "-Name",
+      "example_command": "Get-NetFirewallRule -Name \"RemoteDesktop*\" | Select DisplayName, Enabled, Direction, Action",
+      "purpose": "Retrieve firewall rules by exact name or wildcard.",
+      "security_use_case": "Audit sensitive services like RDP, SMB, WinRM for exposure.",
+      "threat_detected": "Lateral movement paths or brute force exposure.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Disable-NetFirewallRule or Set-NetFirewallRule.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Enabled",
+      "example_command": "Get-NetFirewallRule -Enabled True | Select DisplayName, Direction, Action",
+      "purpose": "Show only active rules affecting traffic now.",
+      "security_use_case": "Quick review of live firewall behavior.",
+      "threat_detected": "Unexpected allow rules.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Disable unnecessary rules.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Direction",
+      "example_command": "Get-NetFirewallRule -Direction Inbound | Select DisplayName, Action, Profile",
+      "purpose": "Filter inbound or outbound rules.",
+      "security_use_case": "Ensure inbound exposure is minimal.",
+      "threat_detected": "Inbound allow rules on Public network.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Restrict to Domain/Private.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Action",
+      "example_command": "Get-NetFirewallRule -Action Allow | Select DisplayName, Direction, Enabled",
+      "purpose": "Show rules explicitly allowing traffic.",
+      "security_use_case": "Find overly permissive rules.",
+      "threat_detected": "Any/Any/Any rules.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Tighten rule scope.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Profile",
+      "example_command": "Get-NetFirewallRule -Profile Public | Select DisplayName, Enabled, Action",
+      "purpose": "Filter rules by network profile.",
+      "security_use_case": "Audit Public profile for strictness.",
+      "threat_detected": "Domain rules active on Public.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Limit profile scope.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-PolicyStore",
+      "example_command": "Get-NetFirewallRule -PolicyStore ActiveStore | Select DisplayName, PolicyStoreSource",
+      "purpose": "Identify whether rule comes from Local, GPO, or Persistent store.",
+      "security_use_case": "Detect malicious rules pushed via Group Policy.",
+      "threat_detected": "Unauthorized GPO firewall rule insertion.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Review GPO or local policy source.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-AssociatedNetFirewallPortFilter",
+      "example_command": "Get-NetFirewallRule | Get-NetFirewallPortFilter | Select LocalPort, Protocol",
+      "purpose": "Reveal ports and protocols used by rules.",
+      "security_use_case": "Find open sensitive ports like 3389, 445, 5985.",
+      "threat_detected": "Unauthorized port exposure.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Restrict ports using Set-NetFirewallRule.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-AssociatedNetFirewallAddressFilter",
+      "example_command": "Get-NetFirewallRule | Get-NetFirewallAddressFilter | Select LocalAddress, RemoteAddress",
+      "purpose": "Show IP scope of rules.",
+      "security_use_case": "Detect rules allowing Any remote address.",
+      "threat_detected": "Open access from internet.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Restrict to trusted subnets.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-AssociatedNetFirewallApplicationFilter",
+      "example_command": "Get-NetFirewallRule | Get-NetFirewallApplicationFilter | Select Program",
+      "purpose": "Map rules to executable files.",
+      "security_use_case": "Detect malware granted firewall access.",
+      "threat_detected": "Unknown executable with allow rule.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Investigate executable and remove rule.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "Get-NetFirewallRule -Enabled True -Direction Inbound -Action Allow | Get-NetFirewallPortFilter | Select Name, LocalPort, Protocol",
+      "why_powerful": "Shows exactly which inbound ports are open right now.",
+      "security_context": "Detect exposed services vulnerable to exploitation."
+    },
+    {
+      "command": "Get-NetFirewallRule -Profile Public -Action Allow | Get-NetFirewallAddressFilter | Select Name, RemoteAddress",
+      "why_powerful": "Finds rules allowing traffic from any IP on Public network.",
+      "security_context": "Critical for laptop users on public Wi-Fi."
+    },
+    {
+      "command": "Get-NetFirewallRule | Get-NetFirewallApplicationFilter | Where {$_.Program -ne $null} | Select Name, Program",
+      "why_powerful": "Maps firewall exceptions to executables.",
+      "security_context": "Malware persistence and C2 communication detection."
+    },
+    {
+      "command": "Get-NetFirewallRule | Select DisplayName, PolicyStoreSource",
+      "why_powerful": "Reveals if rule came from GPO or local tampering.",
+      "security_context": "Detect policy-level compromise."
+    }
+  ]
+}

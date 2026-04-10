@@ -1,0 +1,85 @@
+{
+  "os": "Linux",
+  "tool_name": "pstree",
+  "category": "Process Inspection",
+  "flags": [
+    {
+      "flag": "-p",
+      "example_command": "pstree -p",
+      "purpose": "Show PIDs.",
+      "security_use_case": "Process tree with PIDs.",
+      "threat_detected": "Parent-child relationships.",
+      "risk_if_misused": "None.",
+      "safe_followup": "pstree -p | grep <PID>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-a",
+      "example_command": "pstree -ap",
+      "purpose": "Show command line args.",
+      "security_use_case": "Full command visibility.",
+      "threat_detected": "Malware with arguments.",
+      "risk_if_misused": "None.",
+      "safe_followup": "pstree -ap | grep pattern.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-n",
+      "example_command": "pstree -pn",
+      "purpose": "Sort by PID.",
+      "security_use_case": "Process creation order.",
+      "threat_detected": "PID order reveals timeline.",
+      "risk_if_misused": "None.",
+      "safe_followup": "pstree -pn | head.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-s",
+      "example_command": "pstree -s 1234",
+      "purpose": "Show parent processes.",
+      "security_use_case": "Trace ancestry.",
+      "threat_detected": "How malware was started.",
+      "risk_if_misused": "None.",
+      "safe_followup": "pstree -s <PID>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-u",
+      "example_command": "pstree -pu",
+      "purpose": "Show UID transitions.",
+      "security_use_case": "Detect privilege changes.",
+      "threat_detected": "Privilege escalation.",
+      "risk_if_misused": "None.",
+      "safe_followup": "pstree -pu.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-T",
+      "example_command": "pstree -Tp",
+      "purpose": "Hide threads.",
+      "security_use_case": "Cleaner output.",
+      "threat_detected": "Process-only view.",
+      "risk_if_misused": "None.",
+      "safe_followup": "pstree -Tp.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "pstree -s $(pgrep -f suspicious)",
+      "why_powerful": "Trace ancestry of suspicious process.",
+      "security_context": "Forensic process tracing."
+    },
+    {
+      "command": "pstree -pu | head -50",
+      "why_powerful": "UID transitions in first 50.",
+      "security_context": "Detecting privilege escalation."
+    }
+  ]
+}

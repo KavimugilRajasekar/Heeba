@@ -1,0 +1,61 @@
+{
+  "os": "Linux",
+  "tool_name": "sysctl",
+  "category": "Hardening",
+  "flags": [
+    {
+      "flag": "-a",
+      "example_command": "sysctl -a",
+      "purpose": "Display all kernel parameters.",
+      "security_use_case": "Review all hardening settings.",
+      "threat_detected": "Insecure defaults.",
+      "risk_if_misused": "None.",
+      "safe_followup": "grep -i 'net\\|ip'.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-n",
+      "example_command": "sysctl -n kernel.domainname",
+      "purpose": "Print only parameter value.",
+      "security_use_case": "Extract specific value.",
+      "threat_detected": "Read hardening param.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Compare baseline.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-w",
+      "example_command": "sysctl -w net.ipv4.conf.all.rp_filter=1",
+      "purpose": "Set kernel parameter.",
+      "security_use_case": "Harden kernel parameters.",
+      "threat_detected": "Setting insecure values.",
+      "safe_followup": "sysctl -a | grep param.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-p",
+      "example_command": "sysctl -p /etc/sysctl.conf",
+      "purpose": "Load settings from file.",
+      "security_use_case": "Apply hardening config.",
+      "threat_detected": "Load attacker-modified config.",
+      "safe_followup": "sysctl -a diff baseline.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "sysctl -a > /root/sysctl-baseline-$(date +%Y%m%d).txt",
+      "why_powerful": "Capture baseline.",
+      "security_context": "Establishing baseline."
+    },
+    {
+      "command": "sysctl -w net.ipv4.conf.all.rp_filter=1 && sysctl -w net.ipv4.conf.default.rp_filter=1",
+      "why_powerful": "Enable reverse path filtering.",
+      "security_context": "Hardening against IP spoofing."
+    }
+  ]
+}

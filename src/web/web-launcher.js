@@ -8,10 +8,11 @@ const { WebSocketServer } = require('ws');
 const { handleWebSocketConnection, handleApiRequest, setWebSocketServer } = require('./web-router');
 const { STATIC_PATH } = require('../utils/paths');
 const { loadHeebaConfig } = require('../core/config-loader');
-const { state } = require('../core/state-manager');
+const { state, loadSessions, saveSessions } = require('../core/state-manager');
 
 function launchWebMode(port = 7856) {
-  // Load config into state
+  // Load config into state and restore persisted sessions
+  loadSessions();
   const heebaConfig = loadHeebaConfig();
   Object.assign(state.CONFIG, heebaConfig);
 
@@ -78,10 +79,12 @@ function launchWebMode(port = 7856) {
   });
 
   process.on('SIGINT', () => {
+    saveSessions();
     server.close();
     process.exit(0);
   });
   process.on('SIGTERM', () => {
+    saveSessions();
     server.close();
     process.exit(0);
   });

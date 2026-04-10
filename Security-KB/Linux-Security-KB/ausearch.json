@@ -1,0 +1,167 @@
+{
+  "os": "Linux",
+  "tool_name": "ausearch",
+  "category": "Intrusion Detection",
+  "flags": [
+    {
+      "flag": "-m",
+      "example_command": "ausearch -m USER_LOGIN,CRYPTO_SESSION",
+      "purpose": "Search by message type.",
+      "security_use_case": "Filter for specific event types.",
+      "threat_detected": "Logins, crypto events, config changes.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -m USER_LOGIN.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-ui",
+      "example_command": "ausearch -ui 1000",
+      "purpose": "Search by login UID.",
+      "security_use_case": "Track specific user activity.",
+      "threat_detected": "Compromised user activity.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -ui 1000 --success no.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-p",
+      "example_command": "ausearch -p 1234",
+      "purpose": "Search by process ID.",
+      "security_use_case": "Track process audit events.",
+      "threat_detected": "Process syscalls and access.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -p 1234 -i.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-sc",
+      "example_command": "ausearch -sc execve",
+      "purpose": "Search by syscall name.",
+      "security_use_case": "Track syscall activity.",
+      "threat_detected": "execve reveals shell spawns.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -sc execve --success no.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-f",
+      "example_command": "ausearch -f /etc/shadow",
+      "purpose": "Search by filename.",
+      "security_use_case": "Find file access events.",
+      "threat_detected": "Shadow file access.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -f /etc/shadow -i.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-k",
+      "example_command": "ausearch -k passwd_changes",
+      "purpose": "Search by audit rule key.",
+      "security_use_case": "Find events by monitoring key.",
+      "threat_detected": "Tagged security events.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -k passwd_changes.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-sv",
+      "example_command": "ausearch -sv yes",
+      "purpose": "Filter by success/failure.",
+      "security_use_case": "Focus on failed or successful events.",
+      "threat_detected": "Failed execve may be attacks.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -sc execve --success no.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-i",
+      "example_command": "ausearch -i",
+      "purpose": "Interpret numeric to text.",
+      "security_use_case": "Human-readable output.",
+      "threat_detected": "Readable audit data.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -i > report.txt.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-ts",
+      "example_command": "ausearch -ts '2024-01-15 10:00:00'",
+      "purpose": "Start time for search.",
+      "security_use_case": "Begin forensic time window.",
+      "threat_detected": "Events from breach start.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -ts X -te Y.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-te",
+      "example_command": "ausearch -te '2024-01-15 18:00:00'",
+      "purpose": "End time for search.",
+      "security_use_case": "End forensic time window.",
+      "threat_detected": "Events before containment.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Use with -ts.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-a",
+      "example_command": "ausearch -a 12345",
+      "purpose": "Search by event ID.",
+      "security_use_case": "Retrieve all records for single syscall.",
+      "threat_detected": "Complete event record.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -a 12345 -i.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-x",
+      "example_command": "ausearch -x /usr/bin/passwd",
+      "purpose": "Search by executable path.",
+      "security_use_case": "Track privileged binary execution.",
+      "threat_detected": "passwd, sudo executions.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -x /usr/bin/sudo -i.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "--format",
+      "example_command": "ausearch --format csv",
+      "purpose": "Output format (raw, csv, text).",
+      "security_use_case": "SIEM integration.",
+      "threat_detected": "Automated parsing.",
+      "risk_if_misused": "None.",
+      "safe_followup": "splunk-forwarder.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "ausearch -m USER_LOGIN --success no --today -i",
+      "why_powerful": "Failed login attempts today.",
+      "security_context": "Detecting brute force."
+    },
+    {
+      "command": "ausearch -sc execve --success yes -i | tail -100",
+      "why_powerful": "Recent successful execve calls.",
+      "security_context": "Reconstructing attacker timeline."
+    },
+    {
+      "command": "ausearch -f /etc/shadow -i",
+      "why_powerful": "All shadow file events.",
+      "security_context": "Detecting privilege escalation."
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-ProcessMitigation",
+  "category": "System Integrity",
+  "flags": [
+    {
+      "flag": "-System",
+      "example_command": "Get-ProcessMitigation -System | Select-Object -ExpandProperty MitigationOptions",
+      "purpose": "Retrieves system-wide exploit protection policies such as DEP, ASLR, SEHOP, CFG and others.",
+      "security_use_case": "Audit global exploit protection posture of the OS.",
+      "threat_detected": "Disabled exploit mitigations exposing system to memory corruption and ROP attacks.",
+      "risk_if_misused": "None; read-only. Shows defaults that may differ from per-app settings.",
+      "safe_followup": "Use Set-ProcessMitigation or Windows Security Exploit Protection to enable protections.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Name",
+      "example_command": "Get-ProcessMitigation -Name explorer.exe -RunningProcesses",
+      "purpose": "Shows actual mitigations applied to currently running instances of a process.",
+      "security_use_case": "Verify browsers, document readers, and user-facing apps run with strong protections.",
+      "threat_detected": "Applications running without DEP/ASLR/CFG vulnerable to drive-by exploits.",
+      "risk_if_misused": "None; read-only. Runtime state may differ from registry configuration.",
+      "safe_followup": "Harden with Set-ProcessMitigation and restart the application.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-FullPolicy",
+      "example_command": "Get-ProcessMitigation -FullPolicy | ConvertTo-Json | Out-File mitigation_policy.json",
+      "purpose": "Exports full mitigation policy for all applications from registry.",
+      "security_use_case": "Compliance audit and baseline comparison across systems.",
+      "threat_detected": "Applications missing exploit protections creating weak points.",
+      "risk_if_misused": "None; read-only. Large output requires parsing.",
+      "safe_followup": "Compare against CIS baseline and enable missing mitigations.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-RegistryConfigFilePath",
+      "example_command": "Get-ProcessMitigation -RegistryConfigFilePath 'C:\\temp\\policy.xml'",
+      "purpose": "Reads mitigation settings from an exported XML policy file.",
+      "security_use_case": "Analyze policies from other systems before applying them.",
+      "threat_detected": "Weak policies imported from untrusted systems.",
+      "risk_if_misused": "Review file carefully before applying; may reduce security if misused.",
+      "safe_followup": "Validate XML, then apply using Set-ProcessMitigation if trusted.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-Id",
+      "example_command": "Get-ProcessMitigation -Id 1234",
+      "purpose": "Shows mitigation settings for a specific running process by PID.",
+      "security_use_case": "Investigate target process for exploit protection posture.",
+      "threat_detected": "Process with disabled mitigations susceptible to exploitation.",
+      "risk_if_misused": "Process may exit before action; settings are runtime view.",
+      "safe_followup": "Harden policy and restart process if required.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "Get-ProcessMitigation -FullPolicy | Where-Object {$_.DEP.Enable -eq 'OFF' -or $_.ASLR.Enable -eq 'OFF'} | Select-Object Name",
+      "why_powerful": "Finds applications lacking critical DEP or ASLR protections.",
+      "security_context": "Identifies high-risk applications vulnerable to memory exploits."
+    },
+    {
+      "command": "Get-Process | ForEach-Object { Get-ProcessMitigation -Id $_.Id -ErrorAction SilentlyContinue } | Where-Object {$_.CFG.Enable -eq 'OFF'}",
+      "why_powerful": "Correlates running processes with Control Flow Guard status.",
+      "security_context": "Detects processes running without CFG which prevents code reuse attacks."
+    },
+    {
+      "command": "Get-ProcessMitigation -System | Select-Object @{N='DEP';E={$_.DEP.Enable}}, @{N='ASLR';E={$_.ASLR.Enable}}, @{N='SEHOP';E={$_.SEHOP.Enable}}, @{N='CFG';E={$_.CFG.Enable}}",
+      "why_powerful": "Single-pane summary of system exploit protections.",
+      "security_context": "Quick verification of OS exploit protection baseline."
+    }
+  ]
+}
