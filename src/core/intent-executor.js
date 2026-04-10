@@ -464,6 +464,50 @@ async function runSecurityAuditLoop(userInput, queryFn, maxIterations = 15, opti
   return auditResult;
 }
 
+// Extract failure reason from error output
+function extractFailureReason(output) {
+  if (!output) return 'Unknown error';
+  // Common PowerShell error patterns
+  const lines = output.split('\n').filter(l => l.trim());
+  // Usually the first non-empty line after the command is the error
+  if (lines.length > 0) {
+    // Strip ANSI codes
+    const clean = lines[0].replace(/\x1b\[[0-9;]*m/g, '').trim();
+    if (clean.length > 5) return clean.substring(0, 120);
+  }
+  return 'Command failed - possibly requires elevation or unsupported flag';
+}
+
+// Attempt KB self-correction when a command fails
+// Loads the tool's KB, finds the first automation_safe flag, returns a corrected command
+function getKBSimplerCommand(toolName, originalCommand, errorOutput, os) {
+  try {
+    const kb = loadKBWithContext(toolName, os);
+    if (!kb || !kb.safe_flags || kb.safe_flags.length === 0) {
+      return null;
+    }
+
+    // Find the first safe flag that has a fallback example
+    const safeFlag = kb.safe_flags.find(f => f.example_command && f.safe_followup);
+    if (!safeFlag) {
+      // Use first safe flag with example
+      const fallback = kb.safe_flags.find(f => f.example_command);
+      if (!fallback) return null;
+      return {
+        command: fallback.example_command,
+        suggestion: `Try using safe flags: ${fallback.flag}`
+      };
+    }
+
+    return {
+      command: safeFlag.example_command,
+      suggestion: safeFlag.safe_followup || safeFlag.flag
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 // Infer category from tool name
 function inferCategoryFromTool(toolName, toolsIndex, os) {
   const osTools = toolsIndex[os] || {};
