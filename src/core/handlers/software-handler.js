@@ -215,7 +215,7 @@ foreach ($p in $paths) {
   }
 }
 $software | Sort-Object Name -Unique | ConvertTo-Json -Compress
-`.replace(/\n/g, ' ');
+`;
 
   const result = await executePowerShell(psCommand);
   if (!result.success) {
@@ -233,10 +233,10 @@ $software | Sort-Object Name -Unique | ConvertTo-Json -Compress
   lastSoftwareList = softwareList;
 
   const columns = [
-    { key: 'Name', name: 'Name', width: 35 },
-    { key: 'Version', name: 'Version', width: 16 },
-    { key: 'Publisher', name: 'Publisher', width: 22 },
-    { key: 'InstallDate', name: 'Installed', width: 12 }
+    { key: 'Name', name: 'Name', width: 25 },
+    { key: 'Version', name: 'Version', width: 10 },
+    { key: 'Publisher', name: 'Publisher', width: 15 },
+    { key: 'InstallDate', name: 'Installed', width: 10 }
   ];
 
   const rows = softwareList.map((sw, i) => ({

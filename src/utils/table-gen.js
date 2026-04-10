@@ -25,28 +25,33 @@ const pad = (str, len) => {
  */
 function formatGenericTable({ title, columns, rows, context, titleWidth }) {
   const termWidth = context?.screen?.width || 80;
-  const availableWidth = titleWidth || Math.max(50, termWidth - 10);
+  const availableWidth = titleWidth || Math.max(40, termWidth - 8);
 
-  // Calculate column widths: # column + dynamic columns
-  const wIdx = 4 + 1; // " # " column
-  const wExtraTotal = columns.reduce((sum, col) => sum + col.width + 2, 0);
-  const remWidth = availableWidth - wIdx - wExtraTotal - 4; // 4 for │ spacers
-
-  // Distribute remaining width: 60% to first column, rest to implicit column
-  const wMain = Math.floor(remWidth * 0.6);
-  const wSecondary = remWidth - wMain;
+  // wIdx is for the row index column "#"
+  const wIdx = 5; 
+  
+  // Calculate width already taken by secondary columns (index 1 to N)
+  const wSecondaryTotal = columns.slice(1).reduce((sum, col) => sum + col.width + 2, 0);
+  
+  // Remaining width for the main column (index 0)
+  // 4 for the outer │ and middle │ separators
+  const remWidth = availableWidth - wIdx - wSecondaryTotal - 6;
+  
+  // Dynamic calculation for the main column width, min 10
+  const wMain = Math.max(10, remWidth);
 
   // Build header
-  let headerTop = `┌${'─'.repeat(wIdx)}┬${'─'.repeat(wMain)}`;
+  let headerTop = `┌${'─'.repeat(Math.max(0, wIdx))}┬${'─'.repeat(Math.max(0, wMain))}`;
   let headerMid = `│ ${pad('#', wIdx - 1)}│ ${pad(columns[0]?.name || 'Name', wMain - 1)}`;
-  let headerBot = `├${'─'.repeat(wIdx)}┼${'─'.repeat(wMain)}`;
+  let headerBot = `├${'─'.repeat(Math.max(0, wIdx))}┼${'─'.repeat(Math.max(0, wMain))}`;
 
   // Additional columns
   for (let i = 1; i < columns.length; i++) {
     const col = columns[i];
-    headerTop += `┬${'─'.repeat(col.width)}`;
-    headerMid += `│ ${pad(col.name, col.width - 1)}`;
-    headerBot += `┼${'─'.repeat(col.width)}`;
+    const cw = Math.max(2, col.width);
+    headerTop += `┬${'─'.repeat(cw)}`;
+    headerMid += `│ ${pad(col.name, cw - 1)}`;
+    headerBot += `┼${'─'.repeat(cw)}`;
   }
 
   headerTop += '┐\n';
@@ -54,9 +59,9 @@ function formatGenericTable({ title, columns, rows, context, titleWidth }) {
   headerBot += '┤\n';
 
   // Footer
-  let footerBot = `└${'─'.repeat(wIdx)}┴${'─'.repeat(wMain)}`;
+  let footerBot = `└${'─'.repeat(Math.max(0, wIdx))}┴${'─'.repeat(Math.max(0, wMain))}`;
   for (let i = 1; i < columns.length; i++) {
-    footerBot += `┴${'─'.repeat(columns[i].width)}`;
+    footerBot += `┴${'─'.repeat(Math.max(2, columns[i].width))}`;
   }
   footerBot += '┘\n';
 
@@ -70,16 +75,17 @@ function formatGenericTable({ title, columns, rows, context, titleWidth }) {
     for (let i = 1; i < columns.length; i++) {
       const col = columns[i];
       const val = row[col.key] || '';
-      rowStr += `│ ${pad(truncate(String(val), col.width - 1), col.width - 1)}`;
+      const cw = Math.max(2, col.width);
+      rowStr += `│ ${pad(truncate(String(val), cw - 1), cw - 1)}`;
     }
     rowStr += '│\n';
     table += rowStr;
 
     if (idx < rows.length - 1) {
       // Row separator
-      let sep = `├${'─'.repeat(wIdx)}┼${'─'.repeat(wMain)}`;
+      let sep = `├${'─'.repeat(Math.max(0, wIdx))}┼${'─'.repeat(Math.max(0, wMain))}`;
       for (let i = 1; i < columns.length; i++) {
-        sep += `┼${'─'.repeat(columns[i].width)}`;
+        sep += `┼${'─'.repeat(Math.max(2, columns[i].width))}`;
       }
       sep += '┤\n';
       table += sep;
@@ -87,13 +93,17 @@ function formatGenericTable({ title, columns, rows, context, titleWidth }) {
   });
 
   if (rows.length === 0) {
-    const totalCols = 2 + columns.length - 1;
-    const totalW = columns.reduce((s, c) => s + c.width, 0) + wIdx + wMain + 4;
+    // Calculate total interior width for "No data found"
+    let totalW = wIdx + wMain + 2;
+    for (let i = 1; i < columns.length; i++) {
+      totalW += Math.max(2, columns[i].width) + 1;
+    }
     table += `│ ${pad('No data found', totalW - 1)}│\n`;
   }
 
   table += footerBot + `\`\`\``;
   return table;
 }
+
 
 module.exports = { formatGenericTable, truncate, pad };

@@ -28,6 +28,23 @@ const { MODES } = require('./src/utils/helpers');
 const { renderMarkdown } = require('./src/ui/markdown-renderer');
 const { launchTelegramMode } = require('./src/telegram/telegram-launcher');
 const { launchWebMode } = require('./src/web/web-launcher');
+const { printAuditStep } = require('./src/core/intent-executor');
+
+// Helper: Convert ANSI to Blessed tags
+function ansiToBlessedTags(str) {
+  if (!str) return '';
+  return str
+    .replace(/\x1b\[33m/g, '{yellow-fg}')
+    .replace(/\x1b\[36m/g, '{cyan-fg}')
+    .replace(/\x1b\[32m/g, '{green-fg}')
+    .replace(/\x1b\[31m/g, '{red-fg}')
+    .replace(/\x1b\[35m/g, '{magenta-fg}')
+    .replace(/\x1b\[34m/g, '{blue-fg}')
+    .replace(/\x1b\[90m/g, '{#666666-fg}')
+    .replace(/\x1b\[37m/g, '{white-fg}')
+    .replace(/\x1b\[1m/g, '{bold}')
+    .replace(/\x1b\[0m/g, '{/}');
+}
 
 
 // =============================================
@@ -379,7 +396,25 @@ if (isLaunchTele) {
         input,
         (p, mode) => queryLLM(p, mode, state.CONFIG, null),
         15,
-        { isTUI: true, emailTo: extractEmailFromPrompt(input) }
+        { 
+          isTUI: false, 
+          emailTo: extractEmailFromPrompt(input),
+          onStep: (step) => {
+            const formattedLines = printAuditStep(step, false, true); // silent=true
+            formattedLines.forEach(line => {
+              blessed.text({
+                parent: UI.outputArea,
+                top: state.lineCount++,
+                left: 0,
+                width: '100%',
+                content: `  ${ansiToBlessedTags(line)}`,
+                tags: true
+              });
+            });
+            requestScroll();
+            requestRender();
+          }
+        }
       );
       if (auditResult && auditResult.conclusion) {
         const c = auditResult.conclusion;

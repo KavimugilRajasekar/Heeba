@@ -50,6 +50,61 @@ function hasCommand(response) {
   return response.includes('"action"') && response.includes('"parameters"');
 }
 
+// Repair truncated JSON by closing open quotes and braces in correct order
+function repairTruncatedJson(str) {
+  if (!str) return str;
+  let result = str.trim();
+
+  // Remove trailing comma if exists
+  result = result.replace(/,\s*$/, '');
+
+  const stack = [];
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < result.length; i++) {
+    const char = result[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (!inString) {
+      if (char === '{' || char === '[') {
+        stack.push(char === '{' ? '}' : ']');
+      } else if (char === '}' || char === ']') {
+        if (stack.length > 0 && stack[stack.length - 1] === char) {
+          stack.pop();
+        }
+      }
+    }
+  }
+
+  // 1. Close string if still open
+  if (inString) {
+    result += '"';
+  }
+
+  // 2. Close containers in reverse order
+  while (stack.length > 0) {
+    const closingChar = stack.pop();
+    result += closingChar;
+  }
+
+  return result;
+}
+
+
 // Parse security command JSON from LLM response
 function parseSecurityCommandFromResponse(response) {
   // First check if this is a final conclusion - if so, don't parse as command
@@ -61,8 +116,8 @@ function parseSecurityCommandFromResponse(response) {
   const patterns = [
     /```json\s*(\{[\s\S]*?\})\s*```/,
     /```\s*(\{[\s\S]*?\})\s*```/,
-    /\{[\s\S]*?"tool"[\s\S]*?"command"[\s\S]*?\}/,
-    /\{[\s\S]*?"command"[\s\S]*?"reason"[\s\S]*?\}/
+    /(\{[\s\S]*?"tool"[\s\S]*?"command"[\s\S]*?\})/,
+    /(\{[\s\S]*?"command"[\s\S]*?"reason"[\s\S]*?\})/
   ];
 
   for (const pattern of patterns) {
@@ -71,31 +126,34 @@ function parseSecurityCommandFromResponse(response) {
       try {
         const jsonStr = match[1] || match[0];
         const parsed = JSON.parse(jsonStr);
-        // Validate required fields - must have tool+command
-        if (parsed.tool && parsed.command) {
-          return parsed;
-        }
-        // Also accept tool/command in other formats
-        if (parsed.command && parsed.reason) {
-          return { tool: 'direct', command: parsed.command, reason: parsed.reason };
+        if ((parsed.tool && parsed.command) || (parsed.command && parsed.reason)) {
+          return parsed.tool ? parsed : { tool: 'direct', ...parsed };
         }
       } catch (e) {
-        // Try extracting from nested match
+        // Try repairing if it's truncated
         try {
-          const nested = response.match(/\{[\s\S]*?\}/);
-          if (nested) {
-            const parsed = JSON.parse(nested[0]);
-            if (parsed.tool && parsed.command) {
-              return parsed;
-            }
-            if (parsed.command && parsed.reason) {
-              return { tool: 'direct', command: parsed.command, reason: parsed.reason };
-            }
+          const repaired = repairTruncatedJson(match[1] || match[0]);
+          const parsed = JSON.parse(repaired);
+          if ((parsed.tool && parsed.command) || (parsed.command && parsed.reason)) {
+            return parsed.tool ? parsed : { tool: 'direct', ...parsed };
           }
         } catch (e2) {}
       }
     }
   }
+
+  // Fallback: look for ANY JSON-like structure and try to repair it
+  const genericMatch = response.match(/\{[\s\S]*/);
+  if (genericMatch) {
+    try {
+      const repaired = repairTruncatedJson(genericMatch[0]);
+      const parsed = JSON.parse(repaired);
+      if ((parsed.tool && parsed.command) || (parsed.command && parsed.reason)) {
+        return parsed.tool ? parsed : { tool: 'direct', ...parsed };
+      }
+    } catch (e) {}
+  }
+
   return null;
 }
 
@@ -141,11 +199,11 @@ function buildSecurityAuditPrompt(userInput, toolsIndex, os, history = []) {
   const toolsCtx = buildToolsContextDetailed(toolsIndex, os);
   let prompt = `You are Heeba running a SECURITY AUDIT. You are in a RECURSIVE AGENT LOOP until you output a final conclusion.\n\n`;
   prompt += `CRITICAL RULES:\n`;
-  prompt += `1. You MUST output a JSON command object to run the next security check\n`;
-  prompt += `2. NEVER stop after just one command - you must run multiple checks\n`;
-  prompt += `3. Keep iterating through tools until you have enough evidence for a conclusion\n`;
-  prompt += `4. Output ONLY the JSON object - no explanatory text outside JSON\n`;
-  prompt += `5. When you have enough evidence, output FINAL JSON with security_score\n\n`;
+  prompt += `1. You MUST output a JSON object only. NO EXPLANATORY TEXT.\n`;
+  prompt += `2. NEVER stop after just one command - you must run multiple checks.\n`;
+  prompt += `3. Keep iterating through tools until you have enough evidence for a conclusion.\n`;
+  prompt += `4. Format: {"tool": "ToolName", "command": "cmd", "reason": "why"}\n`;
+  prompt += `5. When finished, output FINAL JSON: {"security_score": "Safe/At Risk", "findings": [], "recommended_fixes": []}\n\n`;
   prompt += `USER REQUEST: ${userInput}\n\n`;
   prompt += `AVAILABLE SECURITY TOOLS:\n${toolsCtx}\n\n`;
 
@@ -224,11 +282,17 @@ async function runSecurityAuditLoop(userInput, queryFn, maxIterations = 15, opti
   let iteration = 0;
   let conclusion = null;
 
+  // Main logger for the audit loop
+  const logStep = (step) => {
+    if (onStep) onStep(step);
+    printAuditStep(step, isTUI);
+  };
+
   // Emit setup info at start
-  printAuditStep({ phase: 'setup', iteration: 0, os, userInput, maxIterations, emailTo }, isTUI);
+  logStep({ phase: 'setup', iteration: 0, os, userInput, maxIterations, emailTo });
 
   // Emit loading tools_index
-  printAuditStep({ phase: 'loading_tools_index', iteration: 0, os }, isTUI);
+  logStep({ phase: 'loading_tools_index', iteration: 0, os });
 
   // Build initial prompt with tools context
   let prompt = buildSecurityAuditPrompt(userInput, toolsIndex, os, []);
@@ -237,29 +301,29 @@ async function runSecurityAuditLoop(userInput, queryFn, maxIterations = 15, opti
     iteration++;
 
     // Emit step begin
-    printAuditStep({ phase: 'begin', iteration, os }, isTUI);
+    logStep({ phase: 'begin', iteration, os });
 
     // Get LLM response with full context
     const llmResponse = await queryFn(prompt, 'auto');
 
     // Emit LLM reasoning/analysis
-    printAuditStep({
+    logStep({
       phase: 'llm_reasoning',
       iteration,
       llmReasoning: llmResponse.substring(0, 600),
       os
-    }, isTUI);
+    });
 
     // Check for final conclusion first
     if (isSecurityConclusion(llmResponse)) {
       try {
-        // Extract the conclusion JSON
-        const match = llmResponse.match(/\{[\s\S]*?\}/);
-        if (match) {
-          const parsed = JSON.parse(match[0]);
+        const repaired = repairTruncatedJson(llmResponse);
+        const jsonContent = extractJson(repaired);
+        if (jsonContent) {
+          const parsed = JSON.parse(jsonContent);
           if (parsed.security_score) {
             conclusion = parsed;
-            printAuditStep({ phase: 'conclusion', iteration, conclusion, os }, isTUI);
+            logStep({ phase: 'conclusion', iteration, conclusion, os });
             break;
           }
         }
@@ -274,13 +338,13 @@ async function runSecurityAuditLoop(userInput, queryFn, maxIterations = 15, opti
       const category = inferCategoryFromTool(secCmd.tool, toolsIndex, os);
 
       // Emit category selected
-      printAuditStep({
+      logStep({
         phase: 'category_selected',
         iteration,
         category,
         tool: secCmd.tool,
         os
-      }, isTUI);
+      });
 
       // Emit KB loading
       if (secCmd.tool !== 'direct') {
@@ -292,30 +356,32 @@ async function runSecurityAuditLoop(userInput, queryFn, maxIterations = 15, opti
           kbDescription: kb?.description || '',
           os
         }, isTUI);
+        // Also log via callback if it exists
+        if (onStep) onStep({ phase: 'kb_loading', iteration, toolName: secCmd.tool, kbDescription: kb?.description || '', os });
       }
 
       // Emit tool selected with reason
-      printAuditStep({
+      logStep({
         phase: 'tool_selected',
         iteration,
         toolName: secCmd.tool || 'direct',
         reason: secCmd.reason || '',
         category,
         os
-      }, isTUI);
+      });
 
       // Emit command planning
-      printAuditStep({
+      logStep({
         phase: 'command_planning',
         iteration,
         tool: secCmd.tool,
         reason: secCmd.reason || '',
         command: secCmd.command,
         os
-      }, isTUI);
+      });
 
       // Emit executing
-      printAuditStep({ phase: 'executing', iteration, os }, isTUI);
+      logStep({ phase: 'executing', iteration, os });
 
       // Get tool KB context for the next prompt
       const toolKB = secCmd.tool !== 'direct' ? getToolKBContext(secCmd.tool, os) : '';
@@ -341,7 +407,7 @@ async function runSecurityAuditLoop(userInput, queryFn, maxIterations = 15, opti
         const kbCorrection = getKBSimplerCommand(secCmd.tool, secCmd.command, execResult.raw_output || execResult.message, os);
         if (kbCorrection) {
           // Emit KB correction analysis
-          printAuditStep({
+          logStep({
             phase: 'kb_correction',
             iteration,
             toolName: secCmd.tool,
@@ -349,7 +415,7 @@ async function runSecurityAuditLoop(userInput, queryFn, maxIterations = 15, opti
             suggestion: kbCorrection.suggestion,
             correctedCommand: kbCorrection.command,
             os
-          }, isTUI);
+          });
 
           // Execute the corrected command
           const correctedResult = await commandHandlers.exec_security_command({
@@ -374,7 +440,7 @@ async function runSecurityAuditLoop(userInput, queryFn, maxIterations = 15, opti
       const nextCategory = history.length >= 3 ? 'Conclusion (sufficient data)' : inferNextCategory(history, toolsIndex, os);
 
       // Emit command done with analysis
-      printAuditStep({
+      logStep({
         phase: 'command_done',
         iteration,
         tool: secCmd.tool,
@@ -384,7 +450,7 @@ async function runSecurityAuditLoop(userInput, queryFn, maxIterations = 15, opti
         success: execResult.success,
         analysis: analyzeSecurityOutput(execResult.raw_output || execResult.message, secCmd.tool),
         os
-      }, isTUI);
+      });
 
       // Emit next tool decision
       printAuditStep({
@@ -606,7 +672,7 @@ function isSecurityIntentTriggered(userInput, intentRules) {
 }
 
 // Print audit step output - branches TUI vs stateless
-function printAuditStep(step, isTUI) {
+function printAuditStep(step, isTUI, silent = false) {
   const Y = '\x1b[33m';
   const C = '\x1b[36m';
   const G = '\x1b[32m';
@@ -617,7 +683,10 @@ function printAuditStep(step, isTUI) {
   const W = '\x1b[37m';
   const RST = '\x1b[0m';
 
+  const lines = [];
   const out = (line) => {
+    lines.push(line);
+    if (silent) return; // Don't print if silent
     if (isTUI) {
       process.stdout.write(line + '\n');
     } else {
@@ -778,6 +847,7 @@ function printAuditStep(step, isTUI) {
     default:
       break;
   }
+  return lines;
 }
 
 // Format security audit report -- ANSI-colored ASCII boxed

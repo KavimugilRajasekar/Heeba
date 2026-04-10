@@ -2,7 +2,14 @@
 const fs = require('fs');
 const path = require('path');
 const { queryLLM, getTotalTokensUsed } = require('../core/engine');
-const { parseCommandFromResponse, executeCommand } = require('../core/intent-executor');
+const { 
+  parseCommandFromResponse, 
+  executeCommand,
+  isSecurityIntentTriggered,
+  runSecurityAuditLoop,
+  extractEmailFromPrompt,
+  printAuditStep
+} = require('../core/intent-executor');
 const { state } = require('../core/state-manager');
 const { MODES } = require('../utils/helpers');
 
@@ -248,8 +255,59 @@ async function processMessage(uid, text, configOverride = {}) {
   
   // Merge config
   const config = { ...state.CONFIG, ...configOverride };
-  
-  let fullResponse = '';
+  const onUpdate = configOverride.onUpdate || null;
+
+  // Check for security audit intent FIRST
+  const intentRules = config.intent_routing_rules || {};
+  if (isSecurityIntentTriggered(text, intentRules)) {
+    try {
+      if (onUpdate) await onUpdate(`⁜ Security Audit Mode Activated`);
+      
+      const emailTo = extractEmailFromPrompt(text);
+      const auditResult = await runSecurityAuditLoop(
+        text,
+        (p, mode) => queryLLM(p, mode, config, null),
+        15,
+        { 
+          isTUI: false, 
+          emailTo,
+          onStep: async (step) => {
+            if (!onUpdate) return;
+            // Get formatted lines (silent=true means capture only)
+            const lines = printAuditStep(step, false, true); 
+            // Join lines and strip ANSI for Telegram
+            const cleanText = lines.join('\n').replace(/\x1b\[[0-9;]*m/g, '');
+            if (cleanText.trim()) {
+              await onUpdate(cleanText);
+            }
+          }
+        }
+      );
+
+      let summary = `✔️ *Security Audit Completed*\n`;
+      if (auditResult.conclusion) {
+        summary += `\nScore: *${auditResult.conclusion.security_score}*\n`;
+        if (auditResult.conclusion.findings) {
+           summary += `\n*Findings:*\n` + auditResult.conclusion.findings.map(f => `• ${f}`).join('\n');
+        }
+      }
+      
+      return {
+        text: summary,
+        log: {
+          time: new Date().toLocaleTimeString(),
+          uid,
+          prompt: text.substring(0, 20),
+          intent: 'system_security_testing',
+          handler: 'security_audit_loop',
+          status: 'Success'
+        }
+      };
+    } catch (e) {
+      console.error('Telegram Audit Error:', e);
+      return { text: `⚠️ Audit Error: ${e.message}`, log: { status: 'Failed' } };
+    }
+  }
   const startTime = Date.now();
   
   try {

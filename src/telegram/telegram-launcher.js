@@ -103,7 +103,16 @@ heeba --launch-tele -uid ${userId}`, { parse_mode: 'Markdown' });
         }
 
         if (msg.text && !msg.text.startsWith('/')) {
-          const result = await processMessage(msg.from.id, msg.text, { model: modelOverride || state.CONFIG.model });
+          const result = await processMessage(
+            msg.from.id, 
+            msg.text, 
+            { 
+              model: modelOverride || state.CONFIG.model,
+              onUpdate: async (stepText) => {
+                await sendSafe(msg.chat.id, stepText);
+              }
+            }
+          );
 
           // Console Log: [TIME] USER_ID | PROMPT → INTENT → HANDLER → STATUS
           const { log } = result;

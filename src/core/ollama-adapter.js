@@ -51,15 +51,45 @@ function queryOllama(userInput, mode, CONFIG, onToken, history = []) {
             fullPrompt = `${systemPrompt}\n\nUSER: ${userInput}\nASST:`;
         }
 
-        const postData = JSON.stringify({
-            model: modelName,
-            prompt: fullPrompt,
-            stream: false,
-            options: {
-                temperature: 0.7,
-                top_p: 0.9
-            }
-        });
+        let postDataObj = {};
+        const isChatApi = modelConfig.type === 'openrouter' || modelConfig.type === 'openai';
+
+        if (isChatApi) {
+            // Chat Completions format
+            const messages = [];
+            if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+            
+            // Add history if available
+            effectiveHistory.forEach(h => {
+                messages.push({ role: 'user', content: h.user || h.prompt });
+                messages.push({ role: 'assistant', content: h.assistant || h.response });
+            });
+            
+            messages.push({ role: 'user', content: userInput });
+
+            postDataObj = {
+                model: modelName,
+                messages: messages,
+                stream: false,
+                max_tokens: CONFIG.num_predict || 2048,
+                temperature: CONFIG.temperature || 0.7,
+                top_p: CONFIG.top_p || 0.9
+            };
+        } else {
+            // Ollama / Completion format
+            postDataObj = {
+                model: modelName,
+                prompt: fullPrompt,
+                stream: false,
+                options: {
+                    temperature: CONFIG.temperature || 0.7,
+                    top_p: CONFIG.top_p || 0.9,
+                    num_predict: CONFIG.num_predict || 2048
+                }
+            };
+        }
+
+        const postData = JSON.stringify(postDataObj);
 
         let url;
         try {
@@ -81,6 +111,7 @@ function queryOllama(userInput, mode, CONFIG, onToken, history = []) {
                 'Content-Length': Buffer.byteLength(postData)
             }
         };
+
 
         const agent = url.protocol === 'https:' ? require('https') : require('http');
         const req = agent.request(options, (res) => {

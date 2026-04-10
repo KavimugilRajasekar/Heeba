@@ -3,14 +3,58 @@
     {
       "id": "mnst2yj1",
       "name": null,
-      "pages": {},
-      "rootPageId": null,
+      "pages": {
+        "e85d2g6": {
+          "id": "e85d2g6",
+          "prompt": "[models",
+          "response": "",
+          "parentId": null,
+          "children": [],
+          "createdAt": 1775834348789,
+          "_streaming": false,
+          "tokens": 2
+        }
+      },
+      "rootPageId": "e85d2g6",
       "createdAt": 1775819503693,
-      "lastUpdated": 1775819503693
+      "lastUpdated": 1775834348789
+    },
+    {
+      "id": "mnt1xnpf",
+      "name": "System Apps",
+      "pages": {
+        "hakzpia": {
+          "id": "hakzpia",
+          "prompt": "list system apps !",
+          "response": "{ \"action\": \"list_software\", \"parameters\": {} }\n\n---\n✗ Failed: Failed to list software: ",
+          "parentId": null,
+          "children": [
+            "5m6milj"
+          ],
+          "createdAt": 1775834372933,
+          "_streaming": false,
+          "tokens": 17,
+          "title": "System Apps"
+        },
+        "5m6milj": {
+          "id": "5m6milj",
+          "prompt": "list system apps !",
+          "response": "{ \"action\": \"list_software\", \"parameters\": {} }\n\n---\n✗ Failed: Failed to list software: ",
+          "parentId": "hakzpia",
+          "children": [],
+          "createdAt": 1775834705434,
+          "_streaming": false,
+          "tokens": 17,
+          "title": "System Apps"
+        }
+      },
+      "rootPageId": "hakzpia",
+      "createdAt": 1775834372931,
+      "lastUpdated": 1775834705434
     }
   ],
-  "currentSessionIndex": 0,
+  "currentSessionIndex": -1,
   "selectedSessionIndex": 0,
   "currentPageId": null,
-  "savedAt": "2026-04-10T11:11:43.693Z"
+  "savedAt": "2026-04-10T15:25:16.037Z"
 }

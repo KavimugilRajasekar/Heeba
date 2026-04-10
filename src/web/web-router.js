@@ -1,14 +1,20 @@
 // src/web/web-router.js
 // Routes WebSocket and HTTP requests to core modules.
 
-const { queryLLM, cancelLLM } = require('../core/engine');
-const { parseCommandFromResponse, executeCommand } = require('../core/intent-executor');
+const { queryLLM, getTotalTokensUsed } = require('../core/engine');
+const { 
+  parseCommandFromResponse, 
+  executeCommand,
+  isSecurityIntentTriggered,
+  runSecurityAuditLoop,
+  extractEmailFromPrompt,
+  printAuditStep
+} = require('../core/intent-executor');
 const { state, getPathToPage, estimateTokens, deletePage, saveSessions } = require('../core/state-manager');
 const { getAllModels } = require('../core/model-registry');
 const { loadHeebaConfig } = require('../core/config-loader');
 const { getBridgeData, createBridge, navigateBranch, switchToSession, switchToPage, removeBridge } = require('./session-bridge');
 const { MODES } = require('../utils/helpers');
-const { getTotalTokensUsed } = require('../core/engine');
 
 let wss = null; // WebSocket server reference for broadcasting
 
@@ -131,6 +137,55 @@ async function processPrompt(tabId, userInput, ws) {
       sessionIndex: state.currentSessionIndex
     }
   }));
+
+  // Check for security audit intent FIRST
+  const intentRules = state.CONFIG.intent_routing_rules || {};
+  if (isSecurityIntentTriggered(userInput, intentRules)) {
+    try {
+      const emailTo = extractEmailFromPrompt(userInput);
+      const auditResult = await runSecurityAuditLoop(
+        userInput,
+        (p, mode) => queryLLM(p, mode, state.CONFIG, null),
+        15,
+        {
+          isTUI: false,
+          emailTo,
+          onStep: (step) => {
+            const lines = printAuditStep(step, false, true); // silent=true
+            const stepHtml = lines.join('<br>').replace(/\x1b\[[0-9;]*m/g, '');
+            ws.send(JSON.stringify({
+              type: 'token',
+              data: { token: `\n\n${stepHtml}`, pageId: newPageId }
+            }));
+          }
+        }
+      );
+
+      newPage._streaming = false;
+      let summary = `\n\n---\n✔️ Security Audit Completed\n`;
+      if (auditResult.conclusion) {
+        summary += `\nScore: **${auditResult.conclusion.security_score}**\n`;
+        if (auditResult.conclusion.findings) {
+          summary += `\nFindings:\n` + auditResult.conclusion.findings.map(f => `- ${f}`).join('\n');
+        }
+      }
+      newPage.response = summary;
+      
+      ws.send(JSON.stringify({
+        type: 'page_done',
+        data: {
+          pageId: newPageId,
+          response: newPage.response,
+          tokens: estimateTokens(newPage.prompt + newPage.response)
+        }
+      }));
+      return;
+    } catch (e) {
+      console.error('Web Audit Error:', e);
+      ws.send(JSON.stringify({ type: 'error', data: { message: e.message, pageId: newPageId } }));
+      return;
+    }
+  }
 
   let fullResponse = '';
 
