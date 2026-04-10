@@ -90,6 +90,90 @@ function convertEmailTableToTelegram(text) {
 }
 
 /**
+ * Converts a generic ```table block to a clean Telegram-friendly list.
+ * Parses any ASCII table (software, files, generic data) and renders as numbered emoji entries.
+ */
+function convertGenericTableToTelegram(text) {
+  if (!text) return '';
+
+  const tableBlockMatch = text.match(/```table\n([\s\S]*?)```/);
+  if (!tableBlockMatch) return null;
+
+  const tableContent = tableBlockMatch[1];
+  const lines = tableContent.split('\n').filter(l => l.trim());
+
+  // Extract title (line before the ```table block)
+  const titleMatch = text.match(/^(.*?)\n\n```table/);
+  const title = titleMatch ? titleMatch[1].trim() : 'Data';
+
+  // Detect if this is a software table (check for Version/Publisher columns)
+  const hasVersion = tableContent.includes('Version') || tableContent.includes('version');
+  const hasPublisher = tableContent.includes('Publisher') || tableContent.includes('publisher');
+  const hasInstallDate = tableContent.includes('Installed') || tableContent.includes('Install');
+
+  // Parse data rows: lines that start with │ and have a number in the first cell
+  const dataRows = [];
+  for (const line of lines) {
+    if (!line.startsWith('│')) continue;
+    const cells = line.split('│').map(c => c.trim()).filter(c => c.length > 0);
+    if (cells.length < 2) continue;
+    const idx = parseInt(cells[0]);
+    if (isNaN(idx)) continue; // Skip header row
+    dataRows.push(cells.slice(1)); // Remove index column
+  }
+
+  if (dataRows.length === 0) return null;
+
+  let output = `📋 *${title}*\n`;
+  output += '─────────────────────\n';
+
+  dataRows.forEach((row, i) => {
+    const emoji = ['🔹', '🔸', '🔺', '🔻'][i % 4];
+
+    if (hasVersion && hasPublisher) {
+      // Software table format
+      const name = row[0] || '';
+      const version = row[1] || '';
+      const publisher = row[2] || '';
+      output += `\n${emoji} *${idx = i + 1}.* ${name}\n`;
+      if (version) output += `   🏷 Version: ${version}\n`;
+      if (publisher) output += `   🏭 ${publisher}\n`;
+    } else if (hasInstallDate) {
+      // Software or file with install date
+      const name = row[0] || '';
+      const date = row[1] || '';
+      output += `\n${emoji} *${i + 1}.* ${name}\n`;
+      if (date) output += `   📅 ${date}\n`;
+    } else {
+      // Generic format
+      output += `\n${emoji} *${i + 1}.* ${row[0] || ''}\n`;
+      row.slice(1).forEach(cell => {
+        if (cell) output += `   └ ${cell}\n`;
+      });
+    }
+  });
+
+  output += '\n─────────────────────';
+
+  // Preserve hint text after the code block
+  const afterBlock = text.replace(/[\s\S]*```/, '').trim();
+  if (afterBlock) output += `\n_${afterBlock}_`;
+
+  return output;
+}
+
+/**
+ * Converts a software ```table block to a Telegram-friendly list.
+ */
+function convertSoftwareTableToTelegram(text) {
+  if (!text) return '';
+  if (!text.includes('Installed Software') && !text.includes('Installed Packages')) {
+    return null;
+  }
+  return convertGenericTableToTelegram(text);
+}
+
+/**
  * Converts a ```table email card (from read_email) to a clean Telegram message.
  */
 function convertEmailCardToTelegram(text) {
@@ -135,7 +219,15 @@ function convertEmailCardToTelegram(text) {
 function formatForTelegram(text) {
   if (!text) return '';
 
-  // Try email list table first
+  // Try software table first
+  const softwareResult = convertSoftwareTableToTelegram(text);
+  if (softwareResult) return softwareResult;
+
+  // Try generic table (handles software, files, any ```table block)
+  const genericResult = convertGenericTableToTelegram(text);
+  if (genericResult) return genericResult;
+
+  // Try email list table
   const listResult = convertEmailTableToTelegram(text);
   if (listResult) return listResult;
 

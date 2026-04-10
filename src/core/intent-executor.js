@@ -5,6 +5,7 @@ const sessionHandlers = require('./handlers/session-handler');
 const modelHandlers = require('./handlers/model-handler');
 const fileHandlers = require('./handlers/file-handler');
 const profileHandlers = require('./handlers/profile-handler');
+const softwareHandlers = require('./handlers/software-handler');
 const { loadToolsIndex, getToolsForOS } = require('./security-tools-index');
 const { loadKBWithContext, formatKBContext, getOS } = require('./kb-loader');
 
@@ -15,7 +16,8 @@ const commandHandlers = {
   ...sessionHandlers,
   ...modelHandlers,
   ...fileHandlers,
-  ...profileHandlers
+  ...profileHandlers,
+  ...softwareHandlers
 };
 
 // Parse JSON from LLM response

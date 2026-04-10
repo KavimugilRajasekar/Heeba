@@ -451,10 +451,67 @@
   }
 
   // ── Markdown ──
+  function parseTableToHtml(text) {
+    // Convert ```table blocks to HTML tables
+    if (!text || !text.includes('```table')) return null;
+
+    const match = text.match(/^(.*?)\n\n```table\n([\s\S]*?)```/);
+    if (!match) return null;
+
+    const title = match[1].trim();
+    const tableContent = match[2];
+    const lines = tableContent.split('\n').filter(l => l.trim() && l.startsWith('│'));
+
+    if (lines.length === 0) return null;
+
+    // Parse header row
+    const headerCells = lines[0].split('│').map(c => c.trim()).filter(c => c && c !== '#');
+    if (headerCells.length === 0) return null;
+
+    // Parse data rows (skip separator lines)
+    const dataRows = [];
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i].includes('─') || lines[i].includes('┼')) continue;
+      const cells = lines[i].split('│').map(c => c.trim()).filter(c => c);
+      if (cells.length >= 1 && !isNaN(parseInt(cells[0]))) {
+        dataRows.push(cells.slice(1));
+      }
+    }
+
+    let html = `<div class="table-wrapper"><div class="table-title">${escapeHtml(title)}</div>`;
+    html += '<table class="data-table"><thead><tr>';
+    headerCells.forEach(h => { html += `<th>${escapeHtml(h)}</th>`; });
+    html += '</tr></thead><tbody>';
+
+    dataRows.forEach(row => {
+      html += '<tr>';
+      for (let i = 0; i < headerCells.length; i++) {
+        html += `<td>${escapeHtml(row[i] || '')}</td>`;
+      }
+      html += '</tr>';
+    });
+
+    if (dataRows.length === 0) {
+      html += `<tr><td colspan="${headerCells.length}" class="empty-cell">No data found</td></tr>`;
+    }
+
+    html += '</tbody></table></div>';
+    return html;
+  }
+
   function renderMarkdown(text) {
     if (!text) return '';
     let h = text
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Handle table blocks specially
+    const tableMatch = h.match(/^(.*?)\n\n```table\n([\s\S]*?)```/);
+    if (tableMatch) {
+      const before = h.slice(0, tableMatch.index);
+      const after = h.slice(tableMatch.index + tableMatch[0].length);
+      const tableHtml = parseTableToHtml(tableMatch[0]);
+      return renderMarkdown(before) + (tableHtml || '') + renderMarkdown(after);
+    }
 
     h = h.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, l, c) => `<pre><code>${c.trim()}</code></pre>`);
     h = h.replace(/`([^`]+)`/g, '<code>$1</code>');

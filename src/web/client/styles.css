@@ -949,6 +949,45 @@ body {
 
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
+/* ── Data Table (for software list, generic tables) ── */
+.table-wrapper {
+  margin: 10px 0;
+  overflow-x: auto;
+}
+.table-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--grey-light);
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.data-table th {
+  background: var(--bg-4);
+  color: var(--grey-light);
+  padding: 6px 12px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid var(--border-light);
+}
+.data-table td {
+  padding: 5px 12px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+.data-table tr:hover td { background: var(--bg-4); }
+.data-table .empty-cell { text-align: center; color: var(--grey); font-style: italic; }
+
 /* ── Hidden ── */
 .hidden { display: none !important; }
 
