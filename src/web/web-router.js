@@ -15,6 +15,7 @@ const { getAllModels } = require('../core/model-registry');
 const { loadHeebaConfig } = require('../core/config-loader');
 const { getBridgeData, createBridge, navigateBranch, switchToSession, switchToPage, removeBridge } = require('./session-bridge');
 const { MODES } = require('../utils/helpers');
+const Formatter = require('../utils/formatter');
 
 let wss = null; // WebSocket server reference for broadcasting
 
@@ -152,7 +153,7 @@ async function processPrompt(tabId, userInput, ws) {
           emailTo,
           onStep: (step) => {
             const lines = printAuditStep(step, false, true); // silent=true
-            const stepHtml = lines.join('<br>').replace(/\x1b\[[0-9;]*m/g, '');
+            const stepHtml = Formatter.toHtml(lines.join('\n'));
             ws.send(JSON.stringify({
               type: 'token',
               data: { token: `\n\n${stepHtml}`, pageId: newPageId }
@@ -207,9 +208,11 @@ async function processPrompt(tabId, userInput, ws) {
     if (command && command.action) {
       const result = await executeCommand(command, buildContext(tabId));
       if (result && result.success) {
-        newPage.response += `\n\n---\n\u2713 ${result.message}`;
+        const sanitized = Formatter.toHtml(result.message);
+        newPage.response += `\n\n---\n${sanitized}`;
       } else if (result) {
-        newPage.response += `\n\n---\n\u2717 Failed: ${result.message}`;
+        const sanitized = Formatter.toHtml(result.message);
+        newPage.response += `\n\n---\n\u2717 Failed: ${sanitized}`;
       }
     }
 

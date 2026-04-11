@@ -500,12 +500,18 @@ const emailHandlers = {
 
   send_email: async (params) => {
     const { getEmailAccount } = require('../email-accounts');
+    const TreeReporter = require('../../utils/tree-reporter');
     const account = getEmailAccount(params.account_id);
     if (!account) return { success: false, message: 'Email credentials not configured.' };
 
     let { to, subject, body, attachments } = params;
     if (!to || !subject) return { success: false, message: 'Missing recipient (to) or subject.' };
     body = body || '';
+
+    const tree = new TreeReporter('Email Automation', 'Preparing communication');
+    tree.branch('Action', 'Send Email');
+    tree.leaf('To', to);
+    tree.leaf('Subject', subject);
 
     const { getHeebaConfig } = require('../config-loader');
     const config = getHeebaConfig();
@@ -529,34 +535,30 @@ const emailHandlers = {
       text: body
     };
 
-    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+    if (attachments && (Array.isArray(attachments) || typeof attachments === 'string')) {
+      const attArray = Array.isArray(attachments) ? attachments : [attachments];
+      tree.branch('Attachments', `${attArray.length} file(s) scanning`);
+      
       const path = require('path');
       const fsLocal = require('fs');
-      mailOptions.attachments = attachments.map(filePath => {
+      mailOptions.attachments = attArray.map(filePath => {
         const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath);
         if (fsLocal.existsSync(absolutePath)) {
+          tree.leaf('Attaching', path.basename(absolutePath));
           return { filename: path.basename(absolutePath), path: absolutePath };
         } else {
           throw new Error(`Attachment file not found: ${filePath}`);
         }
       });
-    } else if (attachments && typeof attachments === 'string') {
-        const path = require('path');
-        const fsLocal = require('fs');
-        const absolutePath = path.isAbsolute(attachments) ? attachments : path.join(process.cwd(), attachments);
-        if (fsLocal.existsSync(absolutePath)) {
-          mailOptions.attachments = [{ filename: path.basename(absolutePath), path: absolutePath }];
-        } else {
-          throw new Error(`Attachment file not found: ${attachments}`);
-        }
     }
 
     try {
       const info = await transporter.sendMail(mailOptions);
-      let msg = `Email sent successfully to ${to}! (ID: ${info.messageId})`;
-      if (mailOptions.attachments && mailOptions.attachments.length > 0) msg += ` with ${mailOptions.attachments.length} attachment(s).`;
-      return { success: true, message: msg };
-    } catch (err) { return { success: false, message: `SMTP Error: ${err.message}` }; }
+      tree.complete(`Sent Successfully (ID: ${info.messageId.substring(0, 15)}...)`);
+      return { success: true, message: tree.toString() };
+    } catch (err) { 
+        return { success: false, message: `SMTP Error: ${err.message}` }; 
+    }
   }
 };
 // Export merged handlers - wrap automation modules to provide lastMailList

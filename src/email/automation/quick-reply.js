@@ -17,7 +17,7 @@ const loadTemplates = () => {
 };
 
 module.exports = {
-    quick_reply: async (params, context) => {
+    quick_reply: async (params, context = {}) => {
         const account = getEmailAccount(params.account_id);
         if (!account) return { success: false, message: 'Email credentials not configured.' };
 
@@ -25,7 +25,7 @@ module.exports = {
         
         // Resolve by index if provided
         if (!to || !subject) {
-            const lastMailList = context.lastMailList || [];
+            const lastMailList = (context && context.lastMailList) ? context.lastMailList : [];
             let uid = params.uid;
             const idx = parseInt(index);
             if (!uid && !isNaN(idx) && idx > 0 && idx <= lastMailList.length) {

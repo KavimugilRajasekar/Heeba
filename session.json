@@ -9,15 +9,27 @@
           "prompt": "[models",
           "response": "",
           "parentId": null,
-          "children": [],
+          "children": [
+            "kzi5ira"
+          ],
           "createdAt": 1775834348789,
           "_streaming": false,
           "tokens": 2
+        },
+        "kzi5ira": {
+          "id": "kzi5ira",
+          "prompt": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "response": "",
+          "parentId": "e85d2g6",
+          "children": [],
+          "createdAt": 1775894816086,
+          "_streaming": false,
+          "tokens": 111
         }
       },
       "rootPageId": "e85d2g6",
       "createdAt": 1775819503693,
-      "lastUpdated": 1775834348789
+      "lastUpdated": 1775894816086
     },
     {
       "id": "mnt1xnpf",
@@ -59,10 +71,18 @@
       "rootPageId": null,
       "createdAt": 1775894670598,
       "lastUpdated": 1775894670598
+    },
+    {
+      "id": "mnu29ttp",
+      "name": null,
+      "pages": {},
+      "rootPageId": null,
+      "createdAt": 1775895406909,
+      "lastUpdated": 1775895406909
     }
   ],
-  "currentSessionIndex": 2,
+  "currentSessionIndex": 3,
   "selectedSessionIndex": 0,
   "currentPageId": null,
-  "savedAt": "2026-04-11T08:04:30.598Z"
+  "savedAt": "2026-04-11T08:16:46.909Z"
 }

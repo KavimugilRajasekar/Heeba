@@ -13,7 +13,7 @@ const { createOverlays, runBootSequence, startLoadingAnimation } = require('./sr
 const { requestRender, forceRender } = require('./src/ui/render-manager');
 const { requestScroll } = require('./src/ui/scroll-manager');
 const { queryLLM, cancelLLM, clearConversationHistory, stopServer, generateTurnTitle, getTotalTokensUsed } = require('./src/core/engine');
-const { parseCommandFromResponse, executeCommand, isSecurityIntentTriggered, runSecurityAuditLoop, extractEmailFromPrompt } = require('./src/core/intent-executor');
+const { parseCommandFromResponse, executeCommand, isSecurityIntentTriggered, runSecurityAuditLoop, extractEmailFromPrompt, isAppAuditIntentTriggered, runAppAuditLoop, printAppAuditStep } = require('./src/core/intent-executor');
 const { refreshStats } = require('./src/utils/stats-refresher');
 const {
   updateWelcomeCard, renderActivePage, showLoading, navigateToPage,
@@ -30,20 +30,11 @@ const { launchTelegramMode } = require('./src/telegram/telegram-launcher');
 const { launchWebMode } = require('./src/web/web-launcher');
 const { printAuditStep } = require('./src/core/intent-executor');
 
+const Formatter = require('./src/utils/formatter');
+
 // Helper: Convert ANSI to Blessed tags
 function ansiToBlessedTags(str) {
-  if (!str) return '';
-  return str
-    .replace(/\x1b\[33m/g, '{yellow-fg}')
-    .replace(/\x1b\[36m/g, '{cyan-fg}')
-    .replace(/\x1b\[32m/g, '{green-fg}')
-    .replace(/\x1b\[31m/g, '{red-fg}')
-    .replace(/\x1b\[35m/g, '{magenta-fg}')
-    .replace(/\x1b\[34m/g, '{blue-fg}')
-    .replace(/\x1b\[90m/g, '{#666666-fg}')
-    .replace(/\x1b\[37m/g, '{white-fg}')
-    .replace(/\x1b\[1m/g, '{bold}')
-    .replace(/\x1b\[0m/g, '{/}');
+  return Formatter.ansiToBlessed(str);
 }
 
 
@@ -207,6 +198,28 @@ async function runStateless(prompt, model) {
       if (c.recommended_fixes && c.recommended_fixes.length > 0) {
         console.log(`\x1b[33mRecommended Fixes:\x1b[0m`);
         c.recommended_fixes.forEach((f, i) => console.log(`  ${i + 1}. ${f}`));
+      }
+      console.log(`\n\x1b[90mAudit completed in ${auditResult.iterations} iterations.\x1b[0m`);
+    }
+    return;
+  }
+
+  // Check if this is an app audit intent
+  if (isAppAuditIntentTriggered(prompt, intentRules)) {
+    console.log(`\x1b[35m⁜ App Endpoint Audit Mode Activated\x1b[0m\n`);
+    const auditResult = await runAppAuditLoop(
+      prompt,
+      (p, mode) => queryLLM(p, mode, state.CONFIG, null),
+      15,
+      { isTUI: false }
+    );
+    if (auditResult && auditResult.conclusion) {
+      const c = auditResult.conclusion;
+      console.log(`\n\x1b[36m━━━ APP AUDIT RESULTS ━━━\x1b[0m`);
+      console.log(`\x1b[33mPort:\x1b[0m ${c.port || 'Unknown'}`);
+      if (c.endpoints && c.endpoints.length > 0) {
+        console.log(`\x1b[33mEndpoints Detected:\x1b[0m`);
+        c.endpoints.forEach((e, i) => console.log(`  ${i + 1}. [${e.method}] ${e.path} -> ${e.status} (${e.latency || 'N/A'})`));
       }
       console.log(`\n\x1b[90mAudit completed in ${auditResult.iterations} iterations.\x1b[0m`);
     }
@@ -398,6 +411,7 @@ if (isLaunchTele) {
         15,
         { 
           isTUI: false, 
+          silent: true,
           emailTo: extractEmailFromPrompt(input),
           onStep: (step) => {
             const formattedLines = printAuditStep(step, false, true); // silent=true
@@ -430,6 +444,63 @@ if (isLaunchTele) {
           c.recommended_fixes.forEach((f, i) => { newPage.response += `  ${i + 1}. ${f}\n`; });
         }
         newPage.response += `\nAudit completed in ${auditResult.iterations} iterations.`;
+      }
+      renderActivePage(UI, screen, state);
+      state.isProcessingCommand = false;
+      setTimeout(() => { UI.inputBox.focus(); }, 30);
+      return;
+    }
+
+    // Check for app audit intent
+    if (isAppAuditIntentTriggered(input, intentRules)) {
+      showLoading(UI, overlays, screen, state, false);
+      blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: `\n\x1b[35m  ⁜ App Endpoint Audit Mode Activated\x1b[0m`, fg: C.yellow });
+      requestRender();
+
+      const auditResult = await runAppAuditLoop(
+        input,
+        (p, mode) => queryLLM(p, mode, state.CONFIG, null),
+        15,
+        { 
+          isTUI: true, 
+          silent: true,
+          onStep: (step) => {
+             const lines = printAppAuditStep(step, true, true); // isTUI=true, silent=true
+             lines.forEach(line => {
+                blessed.text({
+                  parent: UI.outputArea,
+                  top: state.lineCount++,
+                  left: 0,
+                  width: '100%',
+                  content: `  ${ansiToBlessedTags(line)}`,
+                  tags: true
+                });
+             });
+             requestScroll();
+             requestRender();
+          }
+        }
+      );
+
+      if (auditResult && auditResult.conclusion) {
+        const c = auditResult.conclusion;
+        newPage.response = `━━━ APP AUDIT RESULTS ━━━\n\n`;
+        
+        if (c.detailed_table) {
+           newPage.response += c.detailed_table + '\n\n';
+        } else if (c.endpoints && c.endpoints.length > 0) {
+           newPage.response += `Port: ${c.port}\n\n`;
+           newPage.response += `| Method | Path | Status | Latency |\n`;
+           newPage.response += `|--------|------|--------|---------|\n`;
+           c.endpoints.forEach(e => {
+              newPage.response += `| ${e.method} | ${e.path} | ${e.status} | ${e.latency || 'N/A'} |\n`;
+           });
+           newPage.response += `\n`;
+        } else {
+           newPage.response += `Port: ${c.port}\nNo endpoints detected.\n\n`;
+        }
+        
+        newPage.response += `Summary: ${c.summary || 'Scan complete.'}`;
       }
       renderActivePage(UI, screen, state);
       state.isProcessingCommand = false;
@@ -506,10 +577,12 @@ if (isLaunchTele) {
         });
         if (result && result.success) {
           if (command.action === 'update_user_profile') updateWelcomeCard(UI, screen, state);
-          newPage.response += `\n\n---\n\u2713 ${result.message}`;
+          const sanitizedMessage = ansiToBlessedTags(result.message);
+          newPage.response += `\n\n---\n\u2713 ${sanitizedMessage}`;
           renderActivePage(UI, screen, state);
         } else if (result) {
-          newPage.response += `\n\n---\n\u2717 Failed: ${result.message}`;
+          const sanitizedMessage = ansiToBlessedTags(result.message);
+          newPage.response += `\n\n---\n\u2717 Failed: ${sanitizedMessage}`;
           renderActivePage(UI, screen, state);
         }
         setTimeout(() => { UI.inputBox.focus(); }, 30);

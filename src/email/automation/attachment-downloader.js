@@ -6,7 +6,7 @@ const { simpleParser } = require('mailparser');
 const { DOWNLOADS_DIR } = require('../../utils/paths');
 
 module.exports = {
-    download_attachments: async (params, context) => {
+    download_attachments: async (params, context = {}) => {
         const account = getEmailAccount(params.account_id);
         if (!account) return { success: false, message: 'Email credentials not configured.' };
 
@@ -47,7 +47,13 @@ module.exports = {
                     saved.push(att.filename);
                 }
 
-                return { success: true, message: `Downloaded ${saved.length} attachments to ${destDir}\nFiles: ${saved.join(', ')}` };
+                const TreeReporter = require('../../utils/tree-reporter');
+                const tree = new TreeReporter('Attachment Downloader', `Saving to ${dateStr}`);
+                tree.branch('Status', `Found ${saved.length} attachment(s)`);
+                saved.forEach(f => tree.leaf('File', f));
+                tree.complete(`Downloaded to ${destDir}`);
+                
+                return { success: true, message: tree.toString() };
             } finally { lock.release(); }
         } catch (err) { return { success: false, message: `Error: ${err.message}` }; }
         finally { await client.logout(); }

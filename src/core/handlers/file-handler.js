@@ -99,15 +99,16 @@ const fileHandlers = {
       cmd = `mv -f "${source}" "${destination}"`;
     }
 
+    const TreeReporter = require('../../utils/tree-reporter');
+    const tree = new TreeReporter('File Operation', 'Restructuring assets');
     const result = await execCommand(cmd);
-    const itemName = path.basename(source);
-    const destName = path.basename(destination);
 
     if (result.success) {
-      return {
-        success: true,
-        message: `✓ Moved "${itemName}" → "${destName}"\n  From: ${source}\n  To:   ${destination}`
-      };
+      tree.branch('Action', 'Move Item')
+          .leaf('From', source)
+          .leaf('To', destination)
+          .complete('Moved Successfully');
+      return { success: true, message: tree.toString() };
     } else {
       return { success: false, message: `✗ Move failed: ${result.message}` };
     }
@@ -134,13 +135,15 @@ const fileHandlers = {
     }
 
     const result = await execCommand(cmd);
-    const itemName = path.basename(source);
+    const TreeReporter = require('../../utils/tree-reporter');
+    const tree = new TreeReporter('File Operation', 'Duplicating assets');
 
     if (result.success) {
-      return {
-        success: true,
-        message: `✓ Copied "${itemName}" → "${path.basename(destination)}"\n  From: ${source}\n  To:   ${destination}`
-      };
+      tree.branch('Action', 'Copy Item')
+          .leaf('Source', source)
+          .leaf('Dest', destination)
+          .complete('Copied Successfully');
+      return { success: true, message: tree.toString() };
     } else {
       return { success: false, message: `✗ Copy failed: ${result.message}` };
     }
@@ -181,10 +184,14 @@ const fileHandlers = {
     }
 
     const result = await execCommand(cmd);
-    const itemName = path.basename(filePath);
+    const TreeReporter = require('../../utils/tree-reporter');
+    const tree = new TreeReporter('File Operation', 'Cleanup');
 
     if (result.success) {
-      return { success: true, message: `✓ Deleted "${itemName}" at ${filePath}` };
+      tree.branch('Action', 'Delete Item')
+          .leaf('Target', filePath)
+          .complete('Deleted Successfully');
+      return { success: true, message: tree.toString() };
     } else {
       return { success: false, message: `✗ Delete failed: ${result.message}` };
     }
@@ -226,6 +233,54 @@ const fileHandlers = {
       };
     } else {
       return { success: false, message: `✗ Rename failed: ${result.message}` };
+    }
+  },
+
+  /**
+   * List contents of a directory
+   * @param {Object} params - { path: string }
+   */
+  list_dir: async (params) => {
+    const { path: dirPath } = params;
+    const target = dirPath || '.';
+    const absolutePath = path.isAbsolute(target) ? target : path.join(process.cwd(), target);
+
+    if (!fs.existsSync(absolutePath)) {
+      return { success: false, message: `Directory not found: ${target}` };
+    }
+
+    try {
+      const items = fs.readdirSync(absolutePath);
+      let msg = `[Directory Listing: ${path.basename(absolutePath) || target}]\n`;
+      items.forEach(item => {
+        const stats = fs.statSync(path.join(absolutePath, item));
+        const type = stats.isDirectory() ? '[DIR]' : '     ';
+        msg += `  ${type} ${item}\n`;
+      });
+      return { success: true, message: msg };
+    } catch (err) {
+      return { success: false, message: `Error listing directory: ${err.message}` };
+    }
+  },
+
+  /**
+   * Read file content
+   * @param {Object} params - { path: string }
+   */
+  read_file: async (params) => {
+    const { path: filePath } = params;
+    if (!filePath) return { success: false, message: 'No path provided' };
+    const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath);
+
+    if (!fs.existsSync(absolutePath)) {
+      return { success: false, message: `File not found: ${filePath}` };
+    }
+
+    try {
+      const content = fs.readFileSync(absolutePath, 'utf8');
+      return { success: true, message: content };
+    } catch (err) {
+      return { success: false, message: `Error reading file: ${err.message}` };
     }
   }
 };

@@ -220,6 +220,8 @@ function convertEmailCardToTelegram(text) {
   return output;
 }
 
+const Formatter = require('../utils/formatter');
+
 /**
  * Master post-processor: detects and converts any table-format output to Telegram-friendly text.
  */
@@ -242,8 +244,8 @@ function formatForTelegram(text) {
   const cardResult = convertEmailCardToTelegram(text);
   if (cardResult) return cardResult;
 
-  // No table detected — strip any ANSI escape codes and return as-is
-  return text.replace(/\x1b\[[0-9;]*m/g, '');
+  // No table detected — strip any ANSI escape codes using Formatter and return as-is
+  return Formatter.toPlain(text);
 }
 
 /**
