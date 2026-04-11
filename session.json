@@ -51,10 +51,18 @@
       "rootPageId": "hakzpia",
       "createdAt": 1775834372931,
       "lastUpdated": 1775834705434
+    },
+    {
+      "id": "mnu1u1om",
+      "name": null,
+      "pages": {},
+      "rootPageId": null,
+      "createdAt": 1775894670598,
+      "lastUpdated": 1775894670598
     }
   ],
-  "currentSessionIndex": -1,
+  "currentSessionIndex": 2,
   "selectedSessionIndex": 0,
   "currentPageId": null,
-  "savedAt": "2026-04-10T15:25:16.037Z"
+  "savedAt": "2026-04-11T08:04:30.598Z"
 }
