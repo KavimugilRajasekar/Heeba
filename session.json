@@ -25,11 +25,32 @@
           "createdAt": 1775894816086,
           "_streaming": false,
           "tokens": 111
+        },
+        "0mtwqp0": {
+          "id": "0mtwqp0",
+          "prompt": "hi make a complete system analysis test !",
+          "response": "{\"action\":\"run_security_audit\",\"parameters\":{}}\n\n---\nSecurity audit initiated. Running recursive agent loop...",
+          "parentId": null,
+          "children": [
+            "z95n3ln"
+          ],
+          "createdAt": 1775903407015,
+          "_streaming": false,
+          "tokens": 22
+        },
+        "z95n3ln": {
+          "id": "z95n3ln",
+          "prompt": "what",
+          "response": "",
+          "parentId": "0mtwqp0",
+          "children": [],
+          "createdAt": 1775903427805,
+          "_streaming": true
         }
       },
       "rootPageId": "e85d2g6",
       "createdAt": 1775819503693,
-      "lastUpdated": 1775894816086
+      "lastUpdated": 1775903427805
     },
     {
       "id": "mnt1xnpf",
@@ -79,10 +100,56 @@
       "rootPageId": null,
       "createdAt": 1775895406909,
       "lastUpdated": 1775895406909
+    },
+    {
+      "id": "mnu6if6z",
+      "name": "User Greeting",
+      "pages": {
+        "raqk0yk": {
+          "id": "raqk0yk",
+          "prompt": "hi !",
+          "response": "Hey kavi! How can I help you today?",
+          "parentId": null,
+          "children": [
+            "wtwojxu"
+          ],
+          "createdAt": 1775902526317,
+          "_streaming": false,
+          "tokens": 10,
+          "title": "User Greeting"
+        },
+        "wtwojxu": {
+          "id": "wtwojxu",
+          "prompt": "list my mail accounts !",
+          "response": "I’m not set up with a specific command to list your mail accounts. Could you let me know which accounts you’d like to see, or provide any details you have handy?",
+          "parentId": "raqk0yk",
+          "children": [
+            "o0jcrxj"
+          ],
+          "createdAt": 1775902541706,
+          "_streaming": false,
+          "tokens": 46,
+          "title": "Mail Accounts"
+        },
+        "o0jcrxj": {
+          "id": "o0jcrxj",
+          "prompt": "make a system analysis regarding security",
+          "response": "{ \"action\": \"run_security_audit\", \"parameters\": {} }\n\n---\n✓ Security audit initiated. Running recursive agent loop...",
+          "parentId": "wtwojxu",
+          "children": [],
+          "createdAt": 1775902568196,
+          "_streaming": false,
+          "tokens": 24,
+          "title": "Security Audit"
+        }
+      },
+      "rootPageId": "raqk0yk",
+      "createdAt": 1775902526315,
+      "lastUpdated": 1775902568196
     }
   ],
-  "currentSessionIndex": 3,
+  "currentSessionIndex": 0,
   "selectedSessionIndex": 0,
-  "currentPageId": null,
-  "savedAt": "2026-04-11T08:16:46.909Z"
+  "currentPageId": "z95n3ln",
+  "savedAt": "2026-04-11T10:30:38.639Z"
 }

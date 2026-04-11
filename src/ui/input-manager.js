@@ -22,6 +22,7 @@ function setupInputHandlers(UI, screen, state, overlays, actions) {
 
   UI.inputBox.key('enter', async (ch, key) => {
     if (key.shift) return;
+    if (state.isProcessingCommand) return; // Guard against race conditions
     const command = UI.inputBox.getValue().trim();
     if (!command) {
       if (state.currentSessionIndex === -1 && state.sessions.length > 0) {

@@ -7,8 +7,11 @@ const {
   executeCommand,
   isSecurityIntentTriggered,
   runSecurityAuditLoop,
+  isAppAuditIntentTriggered,
+  runAppAuditLoop,
   extractEmailFromPrompt,
-  printAuditStep
+  printAuditStep,
+  printAppAuditStep
 } = require('../core/intent-executor');
 const { state } = require('../core/state-manager');
 const { MODES } = require('../utils/helpers');
@@ -310,7 +313,60 @@ async function processMessage(uid, text, configOverride = {}) {
       return { text: `⚠️ Audit Error: ${e.message}`, log: { status: 'Failed' } };
     }
   }
+
+  // Check for app audit intent
+  if (isAppAuditIntentTriggered(text, intentRules)) {
+    try {
+      if (onUpdate) await onUpdate(`⁜ App Endpoint Audit Mode Activated`);
+      
+      const auditResult = await runAppAuditLoop(
+        text,
+        (p, mode) => queryLLM(p, mode, config, null),
+        15,
+        { 
+          isTUI: false, 
+          onStep: async (step) => {
+            if (!onUpdate) return;
+            const lines = printAppAuditStep(step, false, true); // silent=true
+            const cleanText = lines.join('\n').replace(/\x1b\[[0-9;]*m/g, '');
+            if (cleanText.trim()) {
+              await onUpdate(cleanText);
+            }
+          }
+        }
+      );
+
+      let summary = `✔️ *App Audit Completed*\n`;
+      if (auditResult.conclusion) {
+        const c = auditResult.conclusion;
+        summary += `\nPort: *${c.port}*\n`;
+        if (c.endpoints && c.endpoints.length > 0) {
+          summary += `\n*Endpoints Detected:*\n`;
+          c.endpoints.forEach(e => {
+            summary += `• [${e.method}] ${e.path} -> ${e.status}\n`;
+          });
+        }
+        if (c.summary) summary += `\n*Summary:* ${c.summary}`;
+      }
+      
+      return {
+        text: summary,
+        log: {
+          time: new Date().toLocaleTimeString(),
+          uid,
+          prompt: text.substring(0, 20),
+          intent: 'app_endpoint_audit',
+          handler: 'app_audit_loop',
+          status: 'Success'
+        }
+      };
+    } catch (e) {
+      console.error('Telegram App Audit Error:', e);
+      return { text: `⚠️ Audit Error: ${e.message}`, log: { status: 'Failed' } };
+    }
+  }
   const startTime = Date.now();
+  let fullResponse = '';
   
   try {
     // Process through Heeba Engine

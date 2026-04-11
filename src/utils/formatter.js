@@ -44,18 +44,36 @@ const Formatter = {
     let html = str
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/\x1b\[33m/g, '<span style="color: #e5c07b">') // Yellow/Gold
-      .replace(/\x1b\[36m/g, '<span style="color: #56b6c2">') // Cyan
-      .replace(/\x1b\[32m/g, '<span style="color: #98c379">') // Green
-      .replace(/\x1b\[31m/g, '<span style="color: #e06c75">') // Red
-      .replace(/\x1b\[35m/g, '<span style="color: #c678dd">') // Magenta
-      .replace(/\x1b\[34m/g, '<span style="color: #61afef">') // Blue
-      .replace(/\x1b\[90m/g, '<span style="color: #666666">') // Gray
-      .replace(/\x1b\[1m/g, '<strong>')
-      .replace(/\x1b\[0m/g, '</span></strong></span></span></span></span></span></span></span>')
-      .replace(/\n/g, '<br>');
-    return html;
+      .replace(/>/g, '&gt;');
+
+    // Map ANSI colors to CSS
+    const colors = {
+      '33': '#e5c07b', // Yellow
+      '36': '#56b6c2', // Cyan
+      '32': '#98c379', // Green
+      '31': '#e06c75', // Red
+      '35': '#c678dd', // Magenta
+      '34': '#61afef', // Blue
+      '90': '#666666', // Gray
+      '37': '#ffffff'  // White
+    };
+
+    // Replace colors
+    for (const [code, hex] of Object.entries(colors)) {
+      const regex = new RegExp(`\\x1b\\[${code}m`, 'g');
+      html = html.replace(regex, `<span style="color: ${hex}">`);
+    }
+
+    // Bold
+    html = html.replace(/\x1b\[1m/g, '<strong>');
+
+    // Reset (close all tags)
+    // We count how many <span> and <strong> we opened
+    html = html.replace(/\x1b\[0m/g, (match, offset, full) => {
+        return '</strong></span></span></span></span></span></span></span>'; // Safe closure
+    });
+
+    return html.replace(/\n/g, '<br>');
   },
 
   /**
@@ -63,7 +81,7 @@ const Formatter = {
    */
   toTelegram: (str) => {
     if (!str) return '';
-    // Telegram is best served by stripping ANSI and using standard Markdown
+    // Telegram handles tree characters fine in plain text, just strip ANSI
     return Formatter.toPlain(str);
   }
 };

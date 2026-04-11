@@ -165,6 +165,18 @@ const heebaConfig = loadHeebaConfig();
 Object.assign(state.CONFIG, heebaConfig);
 logger.info('CONFIG', `Loaded heeba.json for user: ${heebaConfig.user_profile.name}`);
 
+// Helper: Display CLI Metrics
+function displayCLIMetrics() {
+  const totalTokens = getTotalTokensUsed();
+  const freeMem = (os.freemem() / (1024 * 1024 * 1024)).toFixed(2);
+  console.log(`\n\x1b[90m${'─'.repeat(40)}\x1b[0m`);
+  console.log(`\x1b[33mMetrics:\x1b[0m`);
+  console.log(`  ◈ Tokens Used: ${totalTokens}`);
+  console.log(`  ◈ Free RAM: ${freeMem} GB`);
+  console.log(`  ◈ Model: ${state.CONFIG.model}`);
+  console.log(`\x1b[90m${'─'.repeat(40)}\x1b[0m`);
+}
+
 // =============================================
 // Stateless CLI Mode Logic
 // =============================================
@@ -187,21 +199,14 @@ async function runStateless(prompt, model) {
       15,
       { emailTo }
     );
-    if (auditResult && auditResult.conclusion) {
-      const c = auditResult.conclusion;
-      console.log(`\n\x1b[36m━━━ SECURITY AUDIT RESULTS ━━━\x1b[0m`);
-      console.log(`\x1b[33mScore:\x1b[0m ${c.security_score || 'Inconclusive'}`);
-      if (c.findings && c.findings.length > 0) {
-        console.log(`\x1b[33mFindings:\x1b[0m`);
-        c.findings.forEach((f, i) => console.log(`  ${i + 1}. ${f}`));
-      }
-      if (c.recommended_fixes && c.recommended_fixes.length > 0) {
-        console.log(`\x1b[33mRecommended Fixes:\x1b[0m`);
-        c.recommended_fixes.forEach((f, i) => console.log(`  ${i + 1}. ${f}`));
-      }
-      console.log(`\n\x1b[90mAudit completed in ${auditResult.iterations} iterations.\x1b[0m`);
+    // Conclusion is already displayed by printAuditStep in the auditor
+    if (!auditResult || !auditResult.conclusion) {
+      console.log(`\x1b[31m✗ Security audit did not reach a conclusion.\x1b[0m`);
     }
-    return;
+
+    if (showMetrics) displayCLIMetrics();
+    stopServer();
+    process.exit(0);
   }
 
   // Check if this is an app audit intent
@@ -213,17 +218,14 @@ async function runStateless(prompt, model) {
       15,
       { isTUI: false }
     );
-    if (auditResult && auditResult.conclusion) {
-      const c = auditResult.conclusion;
-      console.log(`\n\x1b[36m━━━ APP AUDIT RESULTS ━━━\x1b[0m`);
-      console.log(`\x1b[33mPort:\x1b[0m ${c.port || 'Unknown'}`);
-      if (c.endpoints && c.endpoints.length > 0) {
-        console.log(`\x1b[33mEndpoints Detected:\x1b[0m`);
-        c.endpoints.forEach((e, i) => console.log(`  ${i + 1}. [${e.method}] ${e.path} -> ${e.status} (${e.latency || 'N/A'})`));
-      }
-      console.log(`\n\x1b[90mAudit completed in ${auditResult.iterations} iterations.\x1b[0m`);
+    // Conclusion is already displayed by printAppAuditStep in the auditor
+    if (!auditResult || !auditResult.conclusion) {
+      console.log(`\x1b[31m✗ App audit did not reach a conclusion.\x1b[0m`);
     }
-    return;
+
+    if (showMetrics) displayCLIMetrics();
+    stopServer();
+    process.exit(0);
   }
 
   let fullResponse = '';
@@ -269,16 +271,7 @@ async function runStateless(prompt, model) {
     }
 
     // Metrics
-    if (showMetrics) {
-      const totalTokens = getTotalTokensUsed();
-      const freeMem = (os.freemem() / (1024 * 1024 * 1024)).toFixed(2);
-      console.log(`\n\x1b[90m${'─'.repeat(40)}\x1b[0m`);
-      console.log(`\x1b[33mMetrics:\x1b[0m`);
-      console.log(`  ◈ Tokens Used: ${totalTokens}`);
-      console.log(`  ◈ Free RAM: ${freeMem} GB`);
-      console.log(`  ◈ Model: ${state.CONFIG.model}`);
-      console.log(`\x1b[90m${'─'.repeat(40)}\x1b[0m`);
-    }
+    if (showMetrics) displayCLIMetrics();
 
     stopServer();
     process.exit(0);
@@ -401,110 +394,145 @@ if (isLaunchTele) {
     // Check for security audit intent
     const intentRules = state.CONFIG.intent_routing_rules || {};
     if (isSecurityIntentTriggered(input, intentRules)) {
+      state.isProcessingCommand = true; // Set busy state immediately
       showLoading(UI, overlays, screen, state, false);
-      blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: `\n\x1b[35m  ⁜ Security Audit Mode Activated\x1b[0m`, fg: C.yellow });
+      
+      const startMsg = `\n\x1b[35m  ⁜ Security Audit Mode Activated\x1b[0m`;
+      blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: startMsg, fg: C.yellow });
+      
+      newPage.response = `━━━ SECURITY AUDIT INITIATED ━━━\n\n`;
       requestRender();
 
-      const auditResult = await runSecurityAuditLoop(
-        input,
-        (p, mode) => queryLLM(p, mode, state.CONFIG, null),
-        15,
-        { 
-          isTUI: false, 
-          silent: true,
-          emailTo: extractEmailFromPrompt(input),
-          onStep: (step) => {
-            const formattedLines = printAuditStep(step, false, true); // silent=true
-            formattedLines.forEach(line => {
-              blessed.text({
-                parent: UI.outputArea,
-                top: state.lineCount++,
-                left: 0,
-                width: '100%',
-                content: `  ${ansiToBlessedTags(line)}`,
-                tags: true
-              });
-            });
-            requestScroll();
-            requestRender();
-          }
-        }
-      );
-      if (auditResult && auditResult.conclusion) {
-        const c = auditResult.conclusion;
-        newPage.response = `━━━ SECURITY AUDIT RESULTS ━━━\n`;
-        newPage.response += `Score: ${c.security_score || 'Inconclusive'}\n\n`;
-        if (c.findings && c.findings.length > 0) {
-          newPage.response += `Findings:\n`;
-          c.findings.forEach((f, i) => { newPage.response += `  ${i + 1}. ${f}\n`; });
-          newPage.response += `\n`;
-        }
-        if (c.recommended_fixes && c.recommended_fixes.length > 0) {
-          newPage.response += `Recommended Fixes:\n`;
-          c.recommended_fixes.forEach((f, i) => { newPage.response += `  ${i + 1}. ${f}\n`; });
-        }
-        newPage.response += `\nAudit completed in ${auditResult.iterations} iterations.`;
-      }
-      renderActivePage(UI, screen, state);
-      state.isProcessingCommand = false;
-      setTimeout(() => { UI.inputBox.focus(); }, 30);
-      return;
-    }
-
-    // Check for app audit intent
-    if (isAppAuditIntentTriggered(input, intentRules)) {
-      showLoading(UI, overlays, screen, state, false);
-      blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: `\n\x1b[35m  ⁜ App Endpoint Audit Mode Activated\x1b[0m`, fg: C.yellow });
-      requestRender();
-
-      const auditResult = await runAppAuditLoop(
-        input,
-        (p, mode) => queryLLM(p, mode, state.CONFIG, null),
-        15,
-        { 
-          isTUI: true, 
-          silent: true,
-          onStep: (step) => {
-             const lines = printAppAuditStep(step, true, true); // isTUI=true, silent=true
-             lines.forEach(line => {
+      try {
+        const auditResult = await runSecurityAuditLoop(
+          input,
+          (p, mode) => queryLLM(p, mode, state.CONFIG, null),
+          15,
+          { 
+            isTUI: false, 
+            silent: true,
+            emailTo: extractEmailFromPrompt(input),
+            onStep: (step) => {
+              const formattedLines = printAuditStep(step, false, true); // silent=true
+              formattedLines.forEach(line => {
+                const ansiLine = `  ${ansiToBlessedTags(line)}`;
+                // Persist to page state
+                newPage.response += line + '\n';
+                
+                // Live update the UI
                 blessed.text({
                   parent: UI.outputArea,
                   top: state.lineCount++,
                   left: 0,
                   width: '100%',
-                  content: `  ${ansiToBlessedTags(line)}`,
+                  content: ansiLine,
                   tags: true
                 });
-             });
-             requestScroll();
-             requestRender();
+              });
+              requestScroll();
+              requestRender();
+            }
           }
-        }
-      );
+        );
 
-      if (auditResult && auditResult.conclusion) {
-        const c = auditResult.conclusion;
-        newPage.response = `━━━ APP AUDIT RESULTS ━━━\n\n`;
-        
-        if (c.detailed_table) {
-           newPage.response += c.detailed_table + '\n\n';
-        } else if (c.endpoints && c.endpoints.length > 0) {
-           newPage.response += `Port: ${c.port}\n\n`;
-           newPage.response += `| Method | Path | Status | Latency |\n`;
-           newPage.response += `|--------|------|--------|---------|\n`;
-           c.endpoints.forEach(e => {
-              newPage.response += `| ${e.method} | ${e.path} | ${e.status} | ${e.latency || 'N/A'} |\n`;
-           });
-           newPage.response += `\n`;
-        } else {
-           newPage.response += `Port: ${c.port}\nNo endpoints detected.\n\n`;
+        if (auditResult && auditResult.conclusion) {
+          const c = auditResult.conclusion;
+          newPage.response += `\n\n━━━ SECURITY AUDIT RESULTS ━━━\n`;
+          newPage.response += `Score: ${c.security_score || 'Inconclusive'}\n\n`;
+          if (c.findings && c.findings.length > 0) {
+            newPage.response += `Findings:\n`;
+            c.findings.forEach((f, i) => { newPage.response += `  ${i + 1}. ${f}\n`; });
+            newPage.response += `\n`;
+          }
+          if (c.recommended_fixes && c.recommended_fixes.length > 0) {
+            newPage.response += `Recommended Fixes:\n`;
+            c.recommended_fixes.forEach((f, i) => { newPage.response += `  ${i + 1}. ${f}\n`; });
+          }
+          newPage.response += `\nAudit completed in ${auditResult.iterations} iterations.`;
         }
-        
-        newPage.response += `Summary: ${c.summary || 'Scan complete.'}`;
+      } catch (err) {
+        const errorMsg = `\n\x1b[31m  ⚠ Audit Error: ${err.message}\x1b[0m`;
+        blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: errorMsg });
+        newPage.response += `\n\n[AUDIT FAILED]: ${err.message}`;
+      } finally {
+        renderActivePage(UI, screen, state);
+        state.isProcessingCommand = false;
+        setTimeout(() => { UI.inputBox.focus(); }, 30);
       }
-      renderActivePage(UI, screen, state);
-      state.isProcessingCommand = false;
-      setTimeout(() => { UI.inputBox.focus(); }, 30);
+      return;
+    }
+
+    // Check for app audit intent
+    if (isAppAuditIntentTriggered(input, intentRules)) {
+      state.isProcessingCommand = true; // Set busy state immediately
+      showLoading(UI, overlays, screen, state, false);
+      
+      const startMsg = `\n\x1b[35m  ⁜ App Endpoint Audit Mode Activated\x1b[0m`;
+      blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: startMsg, fg: C.yellow });
+      
+      newPage.response = `━━━ APP AUDIT INITIATED ━━━\n\n`;
+      requestRender();
+
+      try {
+        const auditResult = await runAppAuditLoop(
+          input,
+          (p, mode) => queryLLM(p, mode, state.CONFIG, null),
+          15,
+          { 
+            isTUI: true, 
+            silent: true,
+            onStep: (step) => {
+               const lines = printAppAuditStep(step, true, true); // isTUI=true, silent=true
+               lines.forEach(line => {
+                  const ansiLine = `  ${ansiToBlessedTags(line)}`;
+                  // Persist to page state
+                  newPage.response += line + '\n';
+
+                  // Live update the UI
+                  blessed.text({
+                    parent: UI.outputArea,
+                    top: state.lineCount++,
+                    left: 0,
+                    width: '100%',
+                    content: ansiLine,
+                    tags: true
+                  });
+               });
+               requestScroll();
+               requestRender();
+            }
+          }
+        );
+
+        if (auditResult && auditResult.conclusion) {
+          const c = auditResult.conclusion;
+          newPage.response += `\n\n━━━ APP AUDIT RESULTS ━━━\n\n`;
+          
+          if (c.detailed_table) {
+             newPage.response += c.detailed_table + '\n\n';
+          } else if (c.endpoints && c.endpoints.length > 0) {
+             newPage.response += `Port: ${c.port}\n\n`;
+             newPage.response += `| Method | Path | Status | Latency |\n`;
+             newPage.response += `|--------|------|--------|---------|\n`;
+             c.endpoints.forEach(e => {
+                newPage.response += `| ${e.method} | ${e.path} | ${e.status} | ${e.latency || 'N/A'} |\n`;
+             });
+             newPage.response += `\n`;
+          } else {
+             newPage.response += `Port: ${c.port}\nNo endpoints detected.\n\n`;
+          }
+          
+          newPage.response += `Summary: ${c.summary || 'Scan complete.'}`;
+        }
+      } catch (err) {
+        const errorMsg = `\n\x1b[31m  ⚠ App Audit Error: ${err.message}\x1b[0m`;
+        blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: errorMsg });
+        newPage.response += `\n\n[APP AUDIT FAILED]: ${err.message}`;
+      } finally {
+        renderActivePage(UI, screen, state);
+        state.isProcessingCommand = false;
+        setTimeout(() => { UI.inputBox.focus(); }, 30);
+      }
       return;
     }
 

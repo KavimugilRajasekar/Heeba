@@ -127,12 +127,19 @@ function queryOllama(userInput, mode, CONFIG, onToken, history = []) {
                     const json = JSON.parse(fullResponse);
                     let responseText = null;
 
+                    // Handle API Errors (OpenRouter/OpenAI format)
+                    if (json.error) {
+                        const errorMsg = json.error.message || json.error.code || 'Unknown API Error';
+                        reject(new Error(`API Error: ${errorMsg}`));
+                        return;
+                    }
+
                     // Ollama format: json.response
-                    if (json.response) {
+                    if (json.response !== undefined && json.response !== null) {
                         responseText = json.response;
                     }
                     // OpenRouter text format: choices[0].text
-                    else if (json.choices && json.choices[0] && json.choices[0].text) {
+                    else if (json.choices && json.choices[0] && json.choices[0].text !== undefined) {
                         responseText = json.choices[0].text;
                     }
                     // OpenAI/standard format: choices[0].message.content
@@ -144,7 +151,7 @@ function queryOllama(userInput, mode, CONFIG, onToken, history = []) {
                         responseText = json;
                     }
 
-                    if (responseText) {
+                    if (responseText !== null) {
                         if (mode === 'auto') {
                             conversationHistory.push({ user: userInput, assistant: responseText });
                             if (conversationHistory.length > 10) conversationHistory.shift();
@@ -155,10 +162,12 @@ function queryOllama(userInput, mode, CONFIG, onToken, history = []) {
                         }
                         resolve(responseText);
                     } else {
-                        reject(new Error('Invalid response format from API'));
+                        // Log full response for debugging if format is unknown
+                        console.error('Unknown API Response Format:', JSON.stringify(json, null, 2));
+                        reject(new Error('Invalid response format from API. Please check console for details.'));
                     }
                 } catch (e) {
-                    reject(new Error('Failed to parse API response: ' + e.message));
+                    reject(new Error('Failed to parse API response: ' + e.message + '\nRaw: ' + fullResponse.substring(0, 500)));
                 }
             });
         });

@@ -7,8 +7,11 @@ const {
   executeCommand,
   isSecurityIntentTriggered,
   runSecurityAuditLoop,
+  isAppAuditIntentTriggered,
+  runAppAuditLoop,
   extractEmailFromPrompt,
-  printAuditStep
+  printAuditStep,
+  printAppAuditStep
 } = require('../core/intent-executor');
 const { state, getPathToPage, estimateTokens, deletePage, saveSessions } = require('../core/state-manager');
 const { getAllModels } = require('../core/model-registry');
@@ -183,6 +186,57 @@ async function processPrompt(tabId, userInput, ws) {
       return;
     } catch (e) {
       console.error('Web Audit Error:', e);
+      ws.send(JSON.stringify({ type: 'error', data: { message: e.message, pageId: newPageId } }));
+      return;
+    }
+  }
+
+  // Check for app audit intent
+  if (isAppAuditIntentTriggered(userInput, intentRules)) {
+    try {
+      const auditResult = await runAppAuditLoop(
+        userInput,
+        (p, mode) => queryLLM(p, mode, state.CONFIG, null),
+        15,
+        {
+          isTUI: false,
+          onStep: (step) => {
+            const lines = printAppAuditStep(step, false, true); // silent=true
+            const stepHtml = Formatter.toHtml(lines.join('\n'));
+            ws.send(JSON.stringify({
+              type: 'token',
+              data: { token: `\n\n${stepHtml}`, pageId: newPageId }
+            }));
+          }
+        }
+      );
+
+      newPage._streaming = false;
+      let summary = `\n\n---\n✔️ App Audit Completed\n`;
+      if (auditResult.conclusion) {
+        summary += `\nPort: **${auditResult.conclusion.port}**\n`;
+        if (auditResult.conclusion.detailed_table) {
+          summary += `\n${auditResult.conclusion.detailed_table}\n`;
+        } else if (auditResult.conclusion.endpoints) {
+          summary += `\nEndpoints:\n` + auditResult.conclusion.endpoints.map(e => `- [${e.method}] ${e.path} -> ${e.status}`).join('\n');
+        }
+        if (auditResult.conclusion.summary) {
+          summary += `\nSummary: ${auditResult.conclusion.summary}\n`;
+        }
+      }
+      newPage.response = summary;
+
+      ws.send(JSON.stringify({
+        type: 'page_done',
+        data: {
+          pageId: newPageId,
+          response: newPage.response,
+          tokens: estimateTokens(newPage.prompt + newPage.response)
+        }
+      }));
+      return;
+    } catch (e) {
+      console.error('Web App Audit Error:', e);
       ws.send(JSON.stringify({ type: 'error', data: { message: e.message, pageId: newPageId } }));
       return;
     }

@@ -6,6 +6,7 @@ const modelHandlers = require('./handlers/model-handler');
 const fileHandlers = require('./handlers/file-handler');
 const profileHandlers = require('./handlers/profile-handler');
 const softwareHandlers = require('./handlers/software-handler');
+const weatherHandlers = require('./handlers/weather-handler');
 const { getOS } = require('./kb-loader');
 
 // Auditors (New Modular Structure)
@@ -20,7 +21,8 @@ const commandHandlers = {
   ...modelHandlers,
   ...fileHandlers,
   ...profileHandlers,
-  ...softwareHandlers
+  ...softwareHandlers,
+  ...weatherHandlers
 };
 
 // Parse JSON from LLM response
@@ -62,13 +64,29 @@ async function processLLMResponse(response, context = {}) {
 
 // Check if intent matches security testing
 function isSecurityIntentTriggered(userInput, intentRules) {
-  if (!intentRules || !intentRules.system_security_testing) return false;
   const input = userInput.toLowerCase();
-  const patterns = intentRules.system_security_testing.patterns || [];
-  for (const pattern of patterns) {
-    if (input.includes(pattern.toLowerCase())) return true;
+
+  // Check configurable patterns from heeba.json (if present)
+  if (intentRules && intentRules.system_security_testing) {
+    const patterns = intentRules.system_security_testing.patterns || [];
+    for (const pattern of patterns) {
+      if (input.includes(pattern.toLowerCase())) return true;
+    }
   }
-  const securityKeywords = ['malware', 'backdoor', 'firewall', 'vulnerability', 'threat', 'security audit'];
+
+  // Hardcoded security keywords — always checked
+  const securityKeywords = [
+    'malware', 'backdoor', 'firewall', 'vulnerability', 'threat',
+    'security audit', 'security scan', 'security check',
+    'open port', 'open service', 'listening port',
+    'scan my system', 'scan this system', 'scan system',
+    'check my system', 'system scan', 'system audit',
+    'is my system safe', 'is this system safe', 'this system safe',
+    'is my system secure', 'is this system secure', 'system is safe',
+    'disable service', 'validate service', 'unnecessary service',
+    'network scan', 'intrusion', 'antivirus', 'defender',
+    'audit my', 'hardening', 'exploit', 'patch', 'cve'
+  ];
   return securityKeywords.some(kw => input.includes(kw));
 }
 
@@ -77,6 +95,13 @@ function isAppAuditIntentTriggered(userInput, intentRules) {
   const input = userInput.toLowerCase();
   const appKeywords = ['backend', 'endpoint', 'api', 'port', 'route', 'server audit'];
   return appKeywords.some(kw => input.includes(kw));
+}
+
+// Extract email address from user input (for audit report delivery)
+function extractEmailFromPrompt(userInput) {
+  if (!userInput) return null;
+  const match = userInput.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  return match ? match[0] : null;
 }
 
 // Proxies to new modules for backward compatibility
@@ -106,5 +131,6 @@ module.exports = {
   printAuditStep,
   runAppAuditLoop,
   isAppAuditIntentTriggered,
-  printAppAuditStep
+  printAppAuditStep,
+  extractEmailFromPrompt
 };

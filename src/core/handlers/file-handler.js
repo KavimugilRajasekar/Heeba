@@ -282,6 +282,78 @@ const fileHandlers = {
     } catch (err) {
       return { success: false, message: `Error reading file: ${err.message}` };
     }
+  },
+
+  /**
+   * Test an HTTP endpoint using OS-native tools (curl / Invoke-WebRequest)
+   * @param {Object} params - { url: string, method?: string, body?: string, headers?: object }
+   */
+  test_endpoint: async (params) => {
+    const { url, method = 'GET', body, headers } = params;
+    if (!url) return { success: false, message: 'No URL provided. Usage: test_endpoint { url: "http://localhost:3000/api" }' };
+
+    const startTime = Date.now();
+    let cmd;
+
+    if (isWindows) {
+      // PowerShell Invoke-WebRequest with timing
+      let psCmd = `try { $sw = [System.Diagnostics.Stopwatch]::StartNew(); `;
+      psCmd += `$r = Invoke-WebRequest -Uri '${url}' -Method ${method} -UseBasicParsing -TimeoutSec 10`;
+      if (body) {
+        psCmd += ` -Body '${body.replace(/'/g, "''")}'`;
+        psCmd += ` -ContentType 'application/json'`;
+      }
+      if (headers && typeof headers === 'object') {
+        const headerEntries = Object.entries(headers);
+        if (headerEntries.length > 0) {
+          const headerStr = headerEntries.map(([k, v]) => `'${k}'='${v}'`).join(';');
+          psCmd += ` -Headers @{${headerStr}}`;
+        }
+      }
+      psCmd += `; $sw.Stop(); `;
+      psCmd += `Write-Output "STATUS: $($r.StatusCode) $($r.StatusDescription)"; `;
+      psCmd += `Write-Output "LATENCY: $($sw.ElapsedMilliseconds)ms"; `;
+      psCmd += `Write-Output "BODY: $($r.Content.Substring(0, [Math]::Min(500, $r.Content.Length)))"; `;
+      psCmd += `} catch { Write-Output "STATUS: ERROR"; Write-Output "LATENCY: $([Math]::Round(([System.Diagnostics.Stopwatch]::GetTimestamp() - $sw.ElapsedTicks) / [System.Diagnostics.Stopwatch]::Frequency * 1000))ms"; Write-Output "ERROR: $($_.Exception.Message)" }`;
+      cmd = psCmd;
+    } else {
+      // curl with timing on Unix
+      let curlCmd = `curl -s -o /tmp/heeba_test_body.txt -w "STATUS: %{http_code}\\nLATENCY: %{time_total}s\\n" -X ${method} '${url}' --max-time 10`;
+      if (body) {
+        curlCmd += ` -d '${body}' -H 'Content-Type: application/json'`;
+      }
+      if (headers && typeof headers === 'object') {
+        Object.entries(headers).forEach(([k, v]) => {
+          curlCmd += ` -H '${k}: ${v}'`;
+        });
+      }
+      curlCmd += ` && echo "BODY: $(head -c 500 /tmp/heeba_test_body.txt)"`;
+      cmd = curlCmd;
+    }
+
+    const result = await execCommand(cmd);
+    const elapsed = Date.now() - startTime;
+    const output = result.message || '';
+
+    // Parse status
+    const statusMatch = output.match(/STATUS:\s*(.+)/);
+    const latencyMatch = output.match(/LATENCY:\s*(.+)/);
+    const bodyMatch = output.match(/BODY:\s*([\s\S]*?)(?:$|ERROR:)/);
+    const errorMatch = output.match(/ERROR:\s*(.+)/);
+
+    const status = statusMatch ? statusMatch[1].trim() : (result.success ? 'OK' : 'ERROR');
+    const latency = latencyMatch ? latencyMatch[1].trim() : `${elapsed}ms`;
+    const responseBody = bodyMatch ? bodyMatch[1].trim() : '';
+    const error = errorMatch ? errorMatch[1].trim() : '';
+
+    let msg = `[Endpoint Test: ${method} ${url}]\n`;
+    msg += `  ◈ Status: ${status}\n`;
+    msg += `  ◈ Latency: ${latency}\n`;
+    if (responseBody) msg += `  ◈ Response: ${responseBody.substring(0, 200)}`;
+    if (error) msg += `  ◈ Error: ${error}`;
+
+    const isSuccess = !error && !status.includes('ERROR') && result.success;
+    return { success: isSuccess, message: msg, status, latency };
   }
 };
 

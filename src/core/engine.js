@@ -174,6 +174,7 @@ function stopServer() {
         serverProcess.kill();
         serverProcess = null;
     }
+    isLLMRunning = false;
 }
 
 function getLLMStatus() {

@@ -88,6 +88,27 @@
         "parameters": {}
       }
     },
+    "weather_info": {
+      "patterns": [
+        "weather",
+        "forecast",
+        "how is the weather",
+        "what's the weather",
+        "temperature in",
+        "is it raining",
+        "will it rain",
+        "weather update"
+      ],
+      "action": "get_weather",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "get_weather",
+        "parameters": {
+          "location": "{extracted_location}",
+          "units": "metric"
+        }
+      }
+    },
     "explanation": {
       "patterns": [
         "what is",

@@ -6,9 +6,9 @@
 
 ### Humanized Efficient Engine Bridging Automation
 
-**v1.3** · Local AI · Terminal-Native · Private by Design
+**v1.4** · Local AI · Terminal-Native · Private by Design
 
-[Quick Start](#-quick-start) · [CLI Reference](#-cli-reference) · [Telegram Interface](#-telegram-interface) · [Architecture](#-architecture) · [Email Suite](#-email-intelligence-suite)
+[Quick Start](#-quick-start) · [Auditors](#-auditors--security) · [Weather](#-weather-intelligence) · [CLI Reference](#-cli-reference) · [Architecture](#-architecture)
 
 </div>
 
@@ -35,6 +35,40 @@ Heeba provides **three operational interfaces**:
 - **Engine** — High-performance inference powered by `llama.cpp` or Ollama
 - **Bridge** — Translates natural language into structured system actions
 - **Automation** — Executes real email, file, and system workflows
+
+---
+
+## ◈ Auditors & Security
+
+Heeba v1.4 introduces **Recursive Autonomous Auditors** — a specialized reasoning engine that allows Heeba to act as an independent security and application analyst.
+
+### 🛡️ Autonomous Security Auditor
+Heeba can perform deep, recursive security scans of your local system. It identifies potential vulnerabilities, analyzes open ports, and suggests hardening fixes using a built-in **Security Knowledge Base (KB)**.
+
+- **Recursive Reasoning**: Uses a multi-step agent loop to identify tools, analyze output, and pivot based on findings.
+- **KB-Driven**: Automatically learns flags and safe usage patterns for tools like `netstat`, `auditd`, `ufw`, and more.
+- **Rich Visual Reports**: Generates color-coded tree reports and action-oriented summaries.
+- **Trigger**: *"Run a security audit"*, *"Is my system safe?"*, *"Check for open ports"*.
+
+### 🔍 App & Endpoint Auditor
+For developers, Heeba can analyze local backend projects to discover running services and test API health.
+
+- **Repository Analysis**: Recursively scans codebases to find port configurations and route definitions.
+- **Endpoint Testing**: Automatically verifies endpoint uptime, latency, and response bodies.
+- **Audit Logs**: Provides a step-by-step trace of the backend discovery process.
+- **Trigger**: *"Scan my backend project"*, *"Audit this server's endpoints"*.
+
+---
+
+## ◈ Weather Intelligence
+
+Powered by OpenWeather One Call API 3.0, Heeba provides real-time atmospheric data with extreme accuracy and "humanized" summaries.
+
+- **Current & Forecasts**: Hourly and daily weather details with "Feels Like", UV Index, and humidity.
+- **IP Location Discovery**: Ask *"How's the weather?"* and Heeba automatically detects your city via IP-based geolocation.
+- **Global Geocoding**: High-precision city name resolution for any location on Earth.
+- **Resilient Fallback**: Automatically switches between One Call 3.0 and standard 2.5 APIs based on your account's subscription tier.
+- **Trigger**: *"What's the weather?"*, *"Forecast for Chennai"*, *"Will it rain tomorrow?"*.
 
 ---
 
@@ -214,7 +248,14 @@ heeba/
 │   │       ├── file-handler.js     ← File metadata and analysis
 │   │       ├── profile-handler.js  ← User identity and tone updates
 │   │       ├── session-handler.js  ← Session rename, delete, branching
+│   │       ├── weather-handler.js  ← OpenWeather 3.0 + IP Geolocation
 │   │       └── model-handler.js    ← Online model registration
+│   ├── auditors/
+│   │   ├── security-auditor.js ← Recursive system audit agent loop
+│   │   └── app-auditor.js      ← Local project & endpoint discovery logic
+│   ├── security-kb/            ← OS-specific knowledge base for security tools
+│   │   ├── windows/            ← netstat, tasklist, etc.
+│   │   └── linux/              ← auditd, systemctl, ufw, etc.
 │   ├── telegram/
 │   │   ├── telegram-launcher.js   ← Bot init, listen/server mode, message chunking
 │   │   ├── telegram-router.js     ← Session state, Telegram-native formatting
