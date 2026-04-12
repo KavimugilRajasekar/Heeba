@@ -11,7 +11,8 @@ const {
   runAppAuditLoop,
   extractEmailFromPrompt,
   printAuditStep,
-  printAppAuditStep
+  printAppAuditStep,
+  runAgenticLoop
 } = require('../core/intent-executor');
 const { state, getPathToPage, estimateTokens, deletePage, saveSessions } = require('../core/state-manager');
 const { getAllModels } = require('../core/model-registry');
@@ -242,33 +243,48 @@ async function processPrompt(tabId, userInput, ws) {
     }
   }
 
-  let fullResponse = '';
-
   try {
-    await queryLLM(userInput, state.currentMode, state.CONFIG, (token) => {
-      fullResponse += token;
-      ws.send(JSON.stringify({
-        type: 'token',
-        data: { token, pageId: newPageId }
-      }));
-    }, llmHistory);
+    const agentResult = await runAgenticLoop(
+      userInput,
+      (p, mode) => queryLLM(p, mode, state.CONFIG, null, llmHistory),
+      5,
+      {
+        context: buildContext(tabId),
+        onStep: (step) => {
+          if (step.phase === 'planning') {
+            ws.send(JSON.stringify({
+              type: 'token',
+              data: { token: `\n\n\x1b[90m◈ Designing strategic plan...\x1b[0m\n`, pageId: newPageId }
+            }));
+          } else if (step.phase === 'plan_ready') {
+            let planMsg = `\n\x1b[33m◈ HEEBA'S ROADMAP:\x1b[0m\n`;
+            step.plan.forEach((s, i) => {
+              planMsg += `  ${i + 1}. ${s}\n`;
+            });
+            planMsg += `\x1b[90m${'─'.repeat(30)}\x1b[0m\n`;
+            ws.send(JSON.stringify({
+              type: 'token',
+              data: { token: planMsg, pageId: newPageId }
+            }));
+          } else if (step.phase === 'executing') {
+            ws.send(JSON.stringify({
+              type: 'token',
+              data: { token: `\n◈ [Step ${step.iteration}] ${step.stepTitle} → action: ${step.action}...\n`, pageId: newPageId }
+            }));
+          } else if (step.phase === 'result') {
+            const icon = step.success ? '✓' : '✗';
+            ws.send(JSON.stringify({
+              type: 'token',
+              data: { token: `${icon} ${step.result.split('\n')[0]}\n`, pageId: newPageId }
+            }));
+          }
+        }
+      }
+    );
 
     newPage._streaming = false;
-    newPage.response = fullResponse;
+    newPage.response = agentResult.finalResponse;
     newPage.tokens = estimateTokens(newPage.prompt + newPage.response);
-
-    // Check for commands
-    const command = parseCommandFromResponse(fullResponse);
-    if (command && command.action) {
-      const result = await executeCommand(command, buildContext(tabId));
-      if (result && result.success) {
-        const sanitized = Formatter.toHtml(result.message);
-        newPage.response += `\n\n---\n${sanitized}`;
-      } else if (result) {
-        const sanitized = Formatter.toHtml(result.message);
-        newPage.response += `\n\n---\n\u2717 Failed: ${sanitized}`;
-      }
-    }
 
     ws.send(JSON.stringify({
       type: 'page_done',

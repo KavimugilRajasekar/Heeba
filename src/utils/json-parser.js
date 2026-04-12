@@ -15,9 +15,9 @@ function parseCommandFromResponse(response) {
     }
   }
 
-  // Try to find anything that looks like a JSON object containing "action" or "command"
-  const anyJsonMatch = response.match(/\{[\s\S]*" (action|command)"[\s\S]*\}/) || 
-                       response.match(/\{[\s\S]*"(action|command)"[\s\S]*\}/);
+  // Try to find anything that looks like a JSON object containing "action", "command", or "plan"
+  const anyJsonMatch = response.match(/\{[\s\S]*" (action|command|plan)"[\s\S]*\}/) || 
+                       response.match(/\{[\s\S]*"(action|command|plan)"[\s\S]*\}/);
   
   if (anyJsonMatch) {
     try {

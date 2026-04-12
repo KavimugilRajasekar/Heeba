@@ -22,27 +22,62 @@ async function runAgenticLoop(userInput, queryFn, commandHandlers, options = {})
   let iteration = 0;
   let finalResponse = '';
   let lastResult = null;
+  let plan = [];
+  let currentStepIndex = 0;
 
   // Signal the start of the loop
   if (onStep) onStep({ phase: 'start', userInput });
+
+  // === PHASE 1: PLANNING ===
+  try {
+    if (onStep) onStep({ phase: 'planning' });
+    
+    const planningPrompt = `You are a strategic planner. Analyze the user request and create a step-by-step plan using the available tools.
+USER REQUEST: "${userInput}"
+
+Your response MUST be a JSON object containing a "plan" key which is an array of strings. Each string should be a clear, tactical step.
+Format: { "plan": ["Step 1", "Step 2", ...] }`;
+
+    const planResponse = await queryFn(planningPrompt, 'auto');
+    const parsedPlan = parseCommandFromResponse(planResponse);
+    
+    if (parsedPlan && Array.isArray(parsedPlan.plan)) {
+      plan = parsedPlan.plan;
+      if (onStep) onStep({ phase: 'plan_ready', plan });
+    }
+  } catch (err) {
+    if (onStep) onStep({ phase: 'error', message: `Planning failed: ${err.message}` });
+    // Continue without a plan if planning fails
+  }
 
   while (iteration < maxIterations) {
     iteration++;
 
     // Construct the prompt for this iteration
-    // If it's the first iteration, just use the input. 
-    // Otherwise, we provide the history of actions and results.
     let currentPrompt = userInput;
-    if (history.length > 0) {
+    
+    if (plan.length > 0) {
       currentPrompt = `USER REQUEST: ${userInput}\n\n`;
-      currentPrompt += `PREVIOUS ACTIONS AND RESULTS:\n`;
-      history.forEach((h, i) => {
-        currentPrompt += `Step ${i+1}:\nAction: ${h.action}\nResult: ${h.result}\n\n`;
+      currentPrompt += `STRATEGIC PLAN:\n`;
+      plan.forEach((step, idx) => {
+        const marker = idx === currentStepIndex ? '➤ ' : (idx < currentStepIndex ? '✓ ' : '  ');
+        currentPrompt += `${marker}Step ${idx + 1}: ${step}\n`;
       });
-      currentPrompt += `Based on the above results, provide your next action or final response to the user.`;
+      currentPrompt += `\nCURRENT STEP: ${currentStepIndex + 1} of ${plan.length}\n\n`;
     }
 
-    if (onStep) onStep({ phase: 'thinking', iteration });
+    if (history.length > 0) {
+      if (plan.length === 0) currentPrompt = `USER REQUEST: ${userInput}\n\n`;
+      currentPrompt += `PREVIOUS ACTIONS AND RESULTS:\n`;
+      history.forEach((h, i) => {
+        currentPrompt += `Step ${i + 1}:\nAction: ${h.action}\nResult: ${h.result}\n\n`;
+      });
+      currentPrompt += `Based on the latest results and the current step in your plan, provide your next action or final response to the user.`;
+    } else if (plan.length > 0) {
+      currentPrompt += `Execute the first step of the plan.`;
+    }
+
+    if (onStep) onStep({ phase: 'thinking', iteration, currentStep: currentStepIndex + 1 });
 
     // Query the LLM
     const llmResponse = await queryFn(currentPrompt, 'auto');
@@ -52,7 +87,13 @@ async function runAgenticLoop(userInput, queryFn, commandHandlers, options = {})
 
     if (command && command.action) {
       // Execute the command
-      if (onStep) onStep({ phase: 'executing', iteration, action: command.action, parameters: command.parameters || command.payload });
+      if (onStep) onStep({ 
+        phase: 'executing', 
+        iteration, 
+        action: command.action, 
+        parameters: command.parameters || command.payload,
+        stepTitle: plan[currentStepIndex] || 'General Action'
+      });
 
       let result;
       try {
@@ -75,7 +116,20 @@ async function runAgenticLoop(userInput, queryFn, commandHandlers, options = {})
         result: resultStr 
       });
 
-      if (onStep) onStep({ phase: 'result', iteration, result: resultStr, success: result.success });
+      // If successful, we consider the current step progressed
+      // Note: In some cases one step might take multiple actions, but for Option A 
+      // we'll try a simple index increment for now.
+      if (result.success && currentStepIndex < plan.length) {
+        currentStepIndex++;
+      }
+
+      if (onStep) onStep({ 
+        phase: 'result', 
+        iteration, 
+        result: resultStr, 
+        success: result.success,
+        nextStepIndex: currentStepIndex
+      });
       
       // Update last result
       lastResult = result;

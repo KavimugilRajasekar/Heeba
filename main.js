@@ -238,12 +238,17 @@ async function runStateless(prompt, model) {
       {
         context: { screen: null, UI: null, config: state.CONFIG },
         onStep: (step) => {
-          if (step.phase === 'executing') {
-            process.stdout.write(`\n\x1b[32m◈ Executing Action: ${step.action}...\x1b[0m\n`);
+          if (step.phase === 'planning') {
+            process.stdout.write(`\x1b[90m◈ Designing strategic plan...\x1b[0m\r`);
+          } else if (step.phase === 'plan_ready') {
+            const TreeReporter = require('./src/utils/tree-reporter');
+            const tree = new TreeReporter('Strategic Roadmap', 'Front-loaded approach');
+            step.plan.forEach((s, i) => tree.branch(`Step ${i + 1}`, s));
+            process.stdout.write(`\n${tree.toString()}\n`);
+          } else if (step.phase === 'executing') {
+            process.stdout.write(`\n\x1b[32m◈ [Step ${step.iteration}] ${step.stepTitle} → Action: ${step.action}...\x1b[0m\n`);
           } else if (step.phase === 'result') {
             if (step.success) {
-               // Render the result nicely - maybe use TreeReporter if it's already used by handler
-               // But usually the handler returns its own formatted message.
                process.stdout.write(`\x1b[32m✓ ${step.result.split('\n')[0]}\x1b[0m\n`);
             } else {
                process.stdout.write(`\x1b[31m✗ Failed: ${step.result.split('\n')[0]}\x1b[0m\n`);
@@ -564,15 +569,27 @@ if (isLaunchTele) {
             onPageDeleted: (newCurrentPageId) => { state.currentPageId = newCurrentPageId; state.userScrolledUp = false; saveSessions(); renderActivePage(UI, screen, state); setTimeout(() => { UI.inputBox.focus(); }, 30); }
           },
           onStep: (step) => {
-            if (!thinkingDestroyed && thinkingEl) { 
+            const isStartOrPlanning = step.phase === 'start' || step.phase === 'planning';
+            if (!thinkingDestroyed && thinkingEl && !isStartOrPlanning) { 
               clearInterval(thinkingInterval); 
               thinkingEl.destroy(); 
               thinkingEl = null; 
               thinkingDestroyed = true; 
             }
 
-            if (step.phase === 'executing') {
-              const msg = `\n\n◈ Executing Action: ${step.action}...`;
+            if (step.phase === 'planning') {
+              if (thinkingEl) thinkingEl.setContent(`  ${thinkingFrames[frame]} Designing strategic plan...`);
+              requestRender();
+            } else if (step.phase === 'plan_ready') {
+              let planMsg = `\n\x1b[33m◈ HEEBA'S ROADMAP:\x1b[0m\n`;
+              step.plan.forEach((s, i) => {
+                planMsg += `  ${i + 1}. ${s}\n`;
+              });
+              planMsg += `\x1b[90m${'─'.repeat(30)}\x1b[0m\n`;
+              newPage.response += planMsg;
+              renderActivePage(UI, screen, state);
+            } else if (step.phase === 'executing') {
+              const msg = `\n◈ [Step ${step.iteration}] ${step.stepTitle} → action: ${step.action}...`;
               newPage.response += msg;
               renderActivePage(UI, screen, state);
               if (!state.userScrolledUp) requestScroll();

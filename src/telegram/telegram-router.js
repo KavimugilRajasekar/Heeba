@@ -11,7 +11,8 @@ const {
   runAppAuditLoop,
   extractEmailFromPrompt,
   printAuditStep,
-  printAppAuditStep
+  printAppAuditStep,
+  runAgenticLoop
 } = require('../core/intent-executor');
 const { state } = require('../core/state-manager');
 const { MODES } = require('../utils/helpers');
@@ -365,68 +366,56 @@ async function processMessage(uid, text, configOverride = {}) {
       return { text: `⚠️ Audit Error: ${e.message}`, log: { status: 'Failed' } };
     }
   }
-  const startTime = Date.now();
-  let fullResponse = '';
-  
   try {
-    // Process through Heeba Engine
-    await queryLLM(text, MODES.auto, config, (token) => {
-      fullResponse += token;
-    }, session.history);
-
-    // Check for commands
-    const command = parseCommandFromResponse(fullResponse);
-    let displayResponse = fullResponse;
-    let intentName = 'None';
-    let handlerName = 'None';
-
-    if (command && command.action) {
-      intentName = command.action;
-      // Clean up response for display
-      displayResponse = fullResponse.replace(/```json\s*[\s\S]*?```/g, '').trim();
-      if (displayResponse.includes('{') && displayResponse.includes('"action"')) {
-        displayResponse = displayResponse.replace(/\{[\s\S]*"action"[\s\S]*\}/g, '').trim();
-      }
-
-      // Execute command
-      const result = await executeCommand(command, { screen: null, UI: null, config });
-      if (result) {
-        handlerName = command.action;
-        // Format handler output for Telegram (converts ASCII tables → clean lists)
-        const formattedResult = formatForTelegram(result.message);
-        if (result.success) {
-          displayResponse = formattedResult; // Replace displayResponse with clean handler output
-        } else {
-          displayResponse += `\n\n❌ ${result.message}`;
+    const agentResult = await runAgenticLoop(
+      text,
+      (p, mode) => queryLLM(p, mode, config, null, session.history),
+      5,
+      {
+        context: { screen: null, UI: null, config },
+        onStep: async (step) => {
+          if (!onUpdate) return;
+          if (step.phase === 'planning') {
+            await onUpdate(`◈ Designing strategic plan...`);
+          } else if (step.phase === 'plan_ready') {
+            let planMsg = `📋 *Strategic Roadmap*\n─────────────────────\n`;
+            step.plan.forEach((s, i) => {
+              planMsg += `*${i + 1}.* ${s}\n`;
+            });
+            planMsg += `─────────────────────`;
+            await onUpdate(planMsg);
+          } else if (step.phase === 'executing') {
+            await onUpdate(`◈ [Step ${step.iteration}] ${step.stepTitle}\nAction: \`${step.action}\``);
+          } else if (step.phase === 'result') {
+            const icon = step.success ? '✅' : '❌';
+            const cleanResult = formatForTelegram(step.result.split('\n')[0]);
+            await onUpdate(`${icon} ${cleanResult}`);
+          }
         }
       }
-    }
+    );
 
     // Update history for statefulness
-    session.history.push({ user: text, assistant: fullResponse });
-    // Keep history manageable (e.g., last 10 turns)
+    session.history.push({ user: text, assistant: agentResult.finalResponse });
     if (session.history.length > 10) session.history.shift();
     
     session.last_accessed = Date.now();
     sessions[uid] = session;
     saveSessions(sessions);
 
-    // Final formatting pass for any remaining table / ANSI output
-    const finalText = formatForTelegram(displayResponse);
-
-    const status = 'Success';
-    const log = {
-        time: new Date().toLocaleTimeString(),
-        uid,
-        prompt: text.substring(0, 20),
-        intent: intentName,
-        handler: handlerName,
-        status
-    };
+    // Final formatting pass
+    const finalText = formatForTelegram(agentResult.finalResponse);
 
     return {
       text: finalText,
-      log
+      log: {
+        time: new Date().toLocaleTimeString(),
+        uid,
+        prompt: text.substring(0, 20),
+        intent: 'agentic_loop',
+        handler: 'multiple',
+        status: 'Success'
+      }
     };
 
   } catch (error) {
