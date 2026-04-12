@@ -84,12 +84,12 @@ function convertEmailTableToTelegram(text) {
   if (dataRows.length === 0) return null;
 
   // Build Telegram-friendly output
-  let output = `📬 *${title}*\n`;
+  let output = `✉ *${title}*\n`;
   output += `─────────────────────\n`;
   dataRows.forEach(row => {
     output += `\n*${row.idx}.* ${row.subject}\n`;
-    output += `   👤 ${row.from}\n`;
-    output += `   📅 ${row.date}\n`;
+    output += `   (From): ${row.from}\n`;
+    output += `   (Date): ${row.date}\n`;
   });
   output += `\n─────────────────────`;
 
@@ -135,29 +135,29 @@ function convertGenericTableToTelegram(text) {
 
   if (dataRows.length === 0) return null;
 
-  let output = `📋 *${title}*\n`;
+  let output = `[List] *${title}* \n`;
   output += '─────────────────────\n';
 
   dataRows.forEach((row, i) => {
-    const emoji = ['🔹', '🔸', '🔺', '🔻'][i % 4];
+    const glyph = '•';
 
     if (hasVersion && hasPublisher) {
       // Software table format
       const name = row[0] || '';
       const version = row[1] || '';
       const publisher = row[2] || '';
-      output += `\n${emoji} *${idx = i + 1}.* ${name}\n`;
-      if (version) output += `   🏷 Version: ${version}\n`;
-      if (publisher) output += `   🏭 ${publisher}\n`;
+      output += `\n${glyph} *${idx = i + 1}.* ${name}\n`;
+      if (version) output += `   🏷 Ver: ${version}\n`;
+      if (publisher) output += `   🏭 Pub: ${publisher}\n`;
     } else if (hasInstallDate) {
       // Software or file with install date
       const name = row[0] || '';
       const date = row[1] || '';
-      output += `\n${emoji} *${i + 1}.* ${name}\n`;
-      if (date) output += `   📅 ${date}\n`;
+      output += `\n${glyph} *${i + 1}.* ${name}\n`;
+      if (date) output += `   (Date): ${date}\n`;
     } else {
       // Generic format
-      output += `\n${emoji} *${i + 1}.* ${row[0] || ''}\n`;
+      output += `\n${glyph} *${i + 1}.* ${row[0] || ''}\n`;
       row.slice(1).forEach(cell => {
         if (cell) output += `   └ ${cell}\n`;
       });
@@ -210,11 +210,11 @@ function convertEmailCardToTelegram(text) {
     }
   }
 
-  let output = `📧 *Email*\n`;
+  let output = `✉ *Email*\n`;
   output += `─────────────────────\n`;
   if (meta.subject) output += `*Subject:* ${meta.subject}\n`;
-  if (meta.from)    output += `*From:* ${meta.from}\n`;
-  if (meta.date)    output += `*Date:* ${meta.date}\n`;
+  if (meta.from)    output += `*(From):* ${meta.from}\n`;
+  if (meta.date)    output += `*(Date):* ${meta.date}\n`;
   output += `─────────────────────\n`;
   if (bodyContent) {
     // No truncation here — sendSafe() in the launcher handles chunking at 4096 chars
@@ -290,7 +290,7 @@ async function processMessage(uid, text, configOverride = {}) {
         }
       );
 
-      let summary = `✔️ *Security Audit Completed*\n`;
+      let summary = `√ *Security Audit Completed*\n`;
       if (auditResult.conclusion) {
         summary += `\nScore: *${auditResult.conclusion.security_score}*\n`;
         if (auditResult.conclusion.findings) {
@@ -337,7 +337,7 @@ async function processMessage(uid, text, configOverride = {}) {
         }
       );
 
-      let summary = `✔️ *App Audit Completed*\n`;
+      let summary = `√ *App Audit Completed*\n`;
       if (auditResult.conclusion) {
         const c = auditResult.conclusion;
         summary += `\nPort: *${c.port}*\n`;
@@ -387,7 +387,7 @@ async function processMessage(uid, text, configOverride = {}) {
           } else if (step.phase === 'executing') {
             await onUpdate(`◈ [Step ${step.iteration}] ${step.stepTitle}\nAction: \`${step.action}\``);
           } else if (step.phase === 'result') {
-            const icon = step.success ? '✅' : '❌';
+            const icon = step.success ? '√' : '[X]';
             const cleanResult = formatForTelegram(step.result.split('\n')[0]);
             await onUpdate(`${icon} ${cleanResult}`);
           }

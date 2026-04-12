@@ -271,7 +271,7 @@ function analyzeSecurityOutput(output, tool) {
   // Firewall checks
   if (tool === 'netsh' || lower.includes('firewall')) {
     if (lower.includes('state on') || lower.includes('enabled')) insights.push('Firewall is ENABLED');
-    else if (lower.includes('state off') || lower.includes('disabled')) insights.push('⚠ Firewall is DISABLED');
+    else if (lower.includes('state off') || lower.includes('disabled')) insights.push('!  Firewall is DISABLED');
     const profileMatch = output.match(/(domain|private|public)\s+profile/gi);
     if (profileMatch) insights.push(`Profiles found: ${profileMatch.join(', ')}`);
   }
@@ -285,7 +285,7 @@ function analyzeSecurityOutput(output, tool) {
     // Check for suspicious ports
     const suspiciousPorts = ['4444', '5555', '1337', '31337', '6666', '6667'];
     for (const port of suspiciousPorts) {
-      if (output.includes(`:${port}`)) insights.push(`⚠ Suspicious port ${port} detected`);
+      if (output.includes(`:${port}`)) insights.push(`! Suspicious port ${port} detected`);
     }
   }
 
@@ -296,14 +296,14 @@ function analyzeSecurityOutput(output, tool) {
     // Check for suspicious processes
     const suspiciousProcs = ['mimikatz', 'nc.exe', 'ncat', 'powershell -enc', 'certutil'];
     for (const proc of suspiciousProcs) {
-      if (lower.includes(proc.toLowerCase())) insights.push(`⚠ Suspicious process: ${proc}`);
+      if (lower.includes(proc.toLowerCase())) insights.push(`! Suspicious process: ${proc}`);
     }
   }
 
   // Windows Defender / antivirus
   if (lower.includes('defender') || lower.includes('antivirus') || lower.includes('antimalware')) {
     if (lower.includes('enabled') || lower.includes('true')) insights.push('Antivirus protection is active');
-    if (lower.includes('disabled') || lower.includes('false')) insights.push('⚠ Antivirus may be disabled');
+    if (lower.includes('disabled') || lower.includes('false')) insights.push('! Antivirus may be disabled');
     const sigMatch = output.match(/(?:signature|definition)\s*(?:version|update).*?(\d[\d.]+)/i);
     if (sigMatch) insights.push(`Signature ver: ${sigMatch[1]}`);
   }
@@ -337,7 +337,7 @@ function analyzeSecurityOutput(output, tool) {
   // Encryption / BitLocker
   if (lower.includes('bitlocker') || lower.includes('encryption')) {
     if (lower.includes('protection on') || lower.includes('encrypted')) insights.push('Drive encryption is active');
-    else if (lower.includes('protection off') || lower.includes('not encrypted')) insights.push('⚠ Drive is NOT encrypted');
+    else if (lower.includes('protection off') || lower.includes('not encrypted')) insights.push('! Drive is NOT encrypted');
   }
 
   // Updates / patches
@@ -354,10 +354,10 @@ function analyzeSecurityOutput(output, tool) {
 
   // Generic error or access denied
   if (lower.includes('access is denied') || lower.includes('access denied')) {
-    insights.push('⚠ Access denied — elevated privileges may be needed');
+    insights.push('! Access denied — elevated privileges may be needed');
   }
   if (lower.includes('not recognized') || lower.includes('is not recognized')) {
-    insights.push('⚠ Tool not found on this system');
+    insights.push('! Tool not found on this system');
   }
 
   // Fallback: summarize output size
@@ -414,7 +414,7 @@ function printAuditStep(step, isTUI, silent = false) {
         catCount = cats.length;
         cats.forEach(cat => { toolCount += (osTools[cat] || []).length; });
       }
-      capture(`  ${D}├─${RST} 🔧 ${C}Security toolkit loaded${RST}`);
+      capture(`  ${D}├─${RST} ⚒ ${C}Security toolkit loaded${RST}`);
       if (toolCount > 0) {
         capture(`  ${D}│  └─${RST} ${D}${toolCount} tool(s) across ${catCount} categor${catCount === 1 ? 'y' : 'ies'}${RST}`);
       }
@@ -423,12 +423,12 @@ function printAuditStep(step, isTUI, silent = false) {
     }
 
     case 'category_selected':
-      capture(`  ${D}├─ [Step ${step.iteration}]${RST} 🛡️  ${Y}Scan Category:${RST} ${M}${B}${step.category}${RST}`);
+      capture(`  ${D}├─ [Step ${step.iteration}]${RST} ◎  ${Y}Scan Category:${RST} ${M}${B}${step.category}${RST}`);
       break;
 
     case 'kb_loading': {
       const desc = step.kbDescription ? ` — ${step.kbDescription.substring(0, 60)}` : '';
-      capture(`  ${D}│  ├─ KB:${RST}   ${D}📚 Knowledge base loaded for ${C}${step.toolName}${RST}${D}${desc}${RST}`);
+      capture(`  ${D}│  ├─ KB:${RST}   ${D}▤ Knowledge base loaded for ${C}${step.toolName}${RST}${D}${desc}${RST}`);
       break;
     }
 
@@ -444,7 +444,7 @@ function printAuditStep(step, isTUI, silent = false) {
       break;
 
     case 'executing':
-      capture(`  ${D}│  ├─ ⏳ Running...${RST}`);
+      capture(`  ${D}│  ├─ ⚙ Running...${RST}`);
       break;
 
     case 'command_done': {
@@ -455,11 +455,11 @@ function printAuditStep(step, isTUI, silent = false) {
       const insight = step.analysis || 'Processed.';
       const insightParts = insight.split(' │ ');
       if (insightParts.length <= 2) {
-        capture(`  ${D}│  └─ ${G}▸ ${insight}${RST}`);
+        capture(`  ${D}│  └─ ${G}» ${insight}${RST}`);
       } else {
         capture(`  ${D}│  └─ ${G}▸ Findings:${RST}`);
         insightParts.forEach((part, i) => {
-          const isWarning = part.includes('⚠');
+          const isWarning = part.includes('!');
           const color = isWarning ? Y : G;
           const connector = i < insightParts.length - 1 ? '├' : '└';
           capture(`  ${D}│     ${connector}─${RST} ${color}${part.trim()}${RST}`);
@@ -467,21 +467,21 @@ function printAuditStep(step, isTUI, silent = false) {
       }
 
       if (step.nextCategory) {
-        capture(`  ${D}│     ${M}↪ Next focus: ${step.nextCategory}${RST}`);
+        capture(`  ${D}│     ${M}↳ Next focus: ${step.nextCategory}${RST}`);
       }
       capture('');
       break;
     }
 
     case 'kb_correction':
-      capture(`  ${D}│  ├─${RST} ${Y}⟲ KB Self-Correction${RST}`);
+      capture(`  ${D}│  ├─${RST} ${Y}↻ KB Self-Correction${RST}`);
       capture(`  ${D}│  │  ├─ Failure:${RST} ${R}${step.failureReason?.substring(0, 80) || 'Command failed'}${RST}`);
       capture(`  ${D}│  │  ├─ Fix:${RST}     ${G}${step.suggestion}${RST}`);
       capture(`  ${D}│  │  └─ Retry:${RST}   ${W}${step.correctedCommand}${RST}`);
       break;
 
     case 'invalid_response':
-      capture(`  ${D}├─ ${R}⚠ Model returned invalid response, retrying...${RST}`);
+      capture(`  ${D}├─ ${R}! Model returned invalid response, retrying...${RST}`);
       capture('');
       break;
 
@@ -497,7 +497,7 @@ function printAuditStep(step, isTUI, silent = false) {
       const score = step.conclusion.security_score || 'Unknown';
       const isGood = score.toLowerCase() === 'safe' || score.toLowerCase().includes('secure');
       const scoreColor = isGood ? G : R;
-      const scoreIcon = isGood ? '✓' : '⚠';
+      const scoreIcon = isGood ? '√' : '!';
 
       capture('');
       capture(`  ${D}╔════════════════════════════════════════════════════════╗${RST}`);
@@ -516,7 +516,7 @@ function printAuditStep(step, isTUI, silent = false) {
         findings.forEach((f, i) => {
           const isWarning = f.toLowerCase().includes('risk') || f.toLowerCase().includes('vulnerable') || f.toLowerCase().includes('disabled') || f.toLowerCase().includes('weak');
           const color = isWarning ? R : Y;
-          const icon = isWarning ? '⚠' : '•';
+          const icon = isWarning ? '!' : '•';
           const connector = i < findings.length - 1 ? '├' : '└';
           // Word-wrap long findings
           const lines = wordWrap(`${icon} ${f}`, 75);
@@ -562,7 +562,7 @@ function printAuditStep(step, isTUI, silent = false) {
         capture(`  ${D}├────┼${'─'.repeat(toolW + 1)}┼${'─'.repeat(cmdW + 1)}┼${'─'.repeat(statusW + 1)}┤${RST}`);
         step.history.forEach((h, i) => {
           const statusColor = h.success ? G : R;
-          const statusText = h.success ? '✓ OK' : '✗ FAIL';
+          const statusText = h.success ? '√ OK' : '[X] FAIL';
           const cmdShort = h.command.length > cmdW ? h.command.substring(0, cmdW - 2) + '..' : h.command;
           capture(`  ${D}│${RST} ${padStr(i + 1, 3)}${D}│${RST} ${C}${padStr(h.tool || 'direct', toolW)}${RST}${D}│${RST} ${padStr(cmdShort, cmdW)}${D}│${RST} ${statusColor}${padStr(statusText, statusW)}${RST}${D}│${RST}`);
           if (i < step.history.length - 1) {
@@ -577,7 +577,7 @@ function printAuditStep(step, isTUI, silent = false) {
     }
 
     case 'email_dispatch':
-      capture(`  ${D}├─${RST} 📧 ${Y}Sending audit report to ${C}${step.emailTo}${RST}${Y}...${RST}`);
+      capture(`  ${D}├─${RST} ✉ ${Y}Sending audit report to ${C}${step.emailTo}${RST}${Y}...${RST}`);
       break;
 
     case 'email_sent':

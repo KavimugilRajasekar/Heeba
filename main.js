@@ -201,7 +201,7 @@ async function runStateless(prompt, model) {
     );
     // Conclusion is already displayed by printAuditStep in the auditor
     if (!auditResult || !auditResult.conclusion) {
-      console.log(`\x1b[31m✗ Security audit did not reach a conclusion.\x1b[0m`);
+      console.log(`\x1b[31m[X] Security audit did not reach a conclusion.\x1b[0m`);
     }
 
     if (showMetrics) displayCLIMetrics();
@@ -220,7 +220,7 @@ async function runStateless(prompt, model) {
     );
     // Conclusion is already displayed by printAppAuditStep in the auditor
     if (!auditResult || !auditResult.conclusion) {
-      console.log(`\x1b[31m✗ App audit did not reach a conclusion.\x1b[0m`);
+      console.log(`\x1b[31m[X] App audit did not reach a conclusion.\x1b[0m`);
     }
 
     if (showMetrics) displayCLIMetrics();
@@ -249,9 +249,9 @@ async function runStateless(prompt, model) {
             process.stdout.write(`\n\x1b[32m◈ [Step ${step.iteration}] ${step.stepTitle} → Action: ${step.action}...\x1b[0m\n`);
           } else if (step.phase === 'result') {
             if (step.success) {
-               process.stdout.write(`\x1b[32m✓ ${step.result.split('\n')[0]}\x1b[0m\n`);
+               process.stdout.write(`\x1b[32m√ ${step.result.split('\n')[0]}\x1b[0m\n`);
             } else {
-               process.stdout.write(`\x1b[31m✗ Failed: ${step.result.split('\n')[0]}\x1b[0m\n`);
+               process.stdout.write(`\x1b[31m[X] Failed: ${step.result.split('\n')[0]}\x1b[0m\n`);
             }
           }
         }
@@ -446,7 +446,7 @@ if (isLaunchTele) {
           newPage.response += `\nAudit completed in ${auditResult.iterations} iterations.`;
         }
       } catch (err) {
-        const errorMsg = `\n\x1b[31m  ⚠ Audit Error: ${err.message}\x1b[0m`;
+        const errorMsg = `\n\x1b[31m  ! Audit Error: ${err.message}\x1b[0m`;
         blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: errorMsg });
         newPage.response += `\n\n[AUDIT FAILED]: ${err.message}`;
       } finally {
@@ -520,7 +520,7 @@ if (isLaunchTele) {
           newPage.response += `Summary: ${c.summary || 'Scan complete.'}`;
         }
       } catch (err) {
-        const errorMsg = `\n\x1b[31m  ⚠ App Audit Error: ${err.message}\x1b[0m`;
+        const errorMsg = `\n\x1b[31m  ! App Audit Error: ${err.message}\x1b[0m`;
         blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: errorMsg });
         newPage.response += `\n\n[APP AUDIT FAILED]: ${err.message}`;
       } finally {
@@ -594,7 +594,7 @@ if (isLaunchTele) {
               renderActivePage(UI, screen, state);
               if (!state.userScrolledUp) requestScroll();
             } else if (step.phase === 'result') {
-              const icon = step.success ? '✓' : '✗';
+              const icon = step.success ? '√' : '[X]';
               const sanitizedResult = ansiToBlessedTags(step.result.split('\n')[0]);
               newPage.response += `\n${icon} ${sanitizedResult}`;
               renderActivePage(UI, screen, state);

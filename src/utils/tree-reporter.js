@@ -39,7 +39,7 @@ class TreeReporter {
      * Add a concluding line
      */
     complete(msg) {
-        this.lines.push(`  ${D}└─${RST} ${G}✓ ${msg}${RST}`);
+        this.lines.push(`  ${D}└─${RST} ${G}√ ${msg}${RST}`);
         return this;
     }
 

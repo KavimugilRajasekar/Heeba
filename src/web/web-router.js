@@ -167,7 +167,7 @@ async function processPrompt(tabId, userInput, ws) {
       );
 
       newPage._streaming = false;
-      let summary = `\n\n---\n✔️ Security Audit Completed\n`;
+      let summary = `\n\n---\n√ Security Audit Completed\n`;
       if (auditResult.conclusion) {
         summary += `\nScore: **${auditResult.conclusion.security_score}**\n`;
         if (auditResult.conclusion.findings) {
@@ -213,7 +213,7 @@ async function processPrompt(tabId, userInput, ws) {
       );
 
       newPage._streaming = false;
-      let summary = `\n\n---\n✔️ App Audit Completed\n`;
+      let summary = `\n\n---\n√ App Audit Completed\n`;
       if (auditResult.conclusion) {
         summary += `\nPort: **${auditResult.conclusion.port}**\n`;
         if (auditResult.conclusion.detailed_table) {
@@ -272,7 +272,7 @@ async function processPrompt(tabId, userInput, ws) {
               data: { token: `\n◈ [Step ${step.iteration}] ${step.stepTitle} → action: ${step.action}...\n`, pageId: newPageId }
             }));
           } else if (step.phase === 'result') {
-            const icon = step.success ? '✓' : '✗';
+            const icon = step.success ? '√' : '[X]';
             ws.send(JSON.stringify({
               type: 'token',
               data: { token: `${icon} ${step.result.split('\n')[0]}\n`, pageId: newPageId }
