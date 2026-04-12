@@ -432,11 +432,10 @@ function printAppAuditStep(step, isTUI, silent = false) {
       out(`\n  ${C}◈ HEEBA APP AUDITOR${RST}`);
       out(`  ${D}└─ Starting recursive project analysis...${RST}`);
       out(`  ${D}   Target: ${W}${step.userInput?.substring(0, 80) || 'Project'}${RST}`);
-      out('');
       break;
 
     case 'executing': {
-      const icon = step.isTestAction ? '⌬' : '▤';
+      const icon = step.isTestAction ? '⌬' : '⧉';
       const actionLabel = step.isTestAction ? `${Y}Testing${RST}` : `${C}${step.action}${RST}`;
       const targetDisplay = step.target ? formatPath(step.target) : '';
       
@@ -456,17 +455,15 @@ function printAppAuditStep(step, isTUI, silent = false) {
       if (targetDisplay) {
         out(`  ${D}│  └─ ${targetDisplay}${RST}`);
       }
-      out('');
       break;
     }
 
     case 'insight': {
       const insightText = step.insight || 'Analysis complete.';
-      out(`  ${D}│  └─ ${G}» ${insightText}${RST}`);
+      out(`  ${D}│  └─ ${G}➤ ${insightText}${RST}`);
       if (step.discoveredEndpoints > 0) {
-        out(`  ${D}│     ${M}⎆ ${step.discoveredEndpoints} endpoint(s) discovered so far${RST}`);
+        out(`  ${D}│     ${M}◆ ${step.discoveredEndpoints} endpoint(s) discovered so far${RST}`);
       }
-      out('');
       break;
     }
 
@@ -491,15 +488,13 @@ function printAppAuditStep(step, isTUI, silent = false) {
       
       out(headerLine);
       out(`  ${D}├─────────────────────────────────────────────────────────────${RST}`);
-      out('');
       break;
     }
 
     case 'test_result': {
-      const statusIcon = step.success ? `${G}√${RST}` : `${R}[X]${RST}`;
+      const statusIcon = step.success ? `${G}✔${RST}` : `${R}✘${RST}`;
       const statusColor = step.status?.startsWith('2') ? G : (step.status === 'FAIL' || step.status === 'ERROR' ? R : Y);
       out(`  ${D}│  └─${RST} ${statusIcon} ${B}[${step.method}]${RST} ${step.path} → ${statusColor}${step.status}${RST} ${D}(${step.latency})${RST}`);
-      out('');
       break;
     }
 
@@ -508,13 +503,12 @@ function printAppAuditStep(step, isTUI, silent = false) {
 
     case 'invalid':
       out(`  ${D}├─ ${R}! Model returned invalid response, retrying...${RST}`);
-      out('');
       break;
 
     case 'conclusion': {
       out('');
       out(`  ${D}╔════════════════════════════════════════════════════════╗${RST}`);
-      out(`  ${D}║${RST}  ${G}${B}√ APP AUDIT COMPLETE${RST}                                ${D}║${RST}`);
+      out(`  ${D}║${RST}  ${G}${B}✔ APP AUDIT COMPLETE${RST}                                ${D}║${RST}`);
       out(`  ${D}╚════════════════════════════════════════════════════════╝${RST}`);
       out('');
       

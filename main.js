@@ -249,9 +249,9 @@ async function runStateless(prompt, model) {
             process.stdout.write(`\n\x1b[32m◈ [Step ${step.iteration}] ${step.stepTitle} → Action: ${step.action}...\x1b[0m\n`);
           } else if (step.phase === 'result') {
             if (step.success) {
-               process.stdout.write(`\x1b[32m√ ${step.result.split('\n')[0]}\x1b[0m\n`);
+               process.stdout.write(`\x1b[32m✔ ${step.result.split('\n')[0]}\x1b[0m\n`);
             } else {
-               process.stdout.write(`\x1b[31m[X] Failed: ${step.result.split('\n')[0]}\x1b[0m\n`);
+               process.stdout.write(`\x1b[31m✘ Failed: ${step.result.split('\n')[0]}\x1b[0m\n`);
             }
           }
         }
@@ -594,7 +594,7 @@ if (isLaunchTele) {
               renderActivePage(UI, screen, state);
               if (!state.userScrolledUp) requestScroll();
             } else if (step.phase === 'result') {
-              const icon = step.success ? '√' : '[X]';
+              const icon = step.success ? '✔' : '✘';
               const sanitizedResult = ansiToBlessedTags(step.result.split('\n')[0]);
               newPage.response += `\n${icon} ${sanitizedResult}`;
               renderActivePage(UI, screen, state);
@@ -614,7 +614,7 @@ if (isLaunchTele) {
       let fullPageResponse = '';
       agentResult.history.forEach(h => {
         fullPageResponse += `\n\n◈ Executing Action: ${h.action}...\n`;
-        fullPageResponse += `✓ ${h.result}\n`;
+        fullPageResponse += `✔ ${h.result}\n`;
       });
       fullPageResponse += `\n${agentResult.finalResponse}`;
       newPage.response = fullPageResponse.trim();

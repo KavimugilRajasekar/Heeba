@@ -272,7 +272,7 @@ async function processPrompt(tabId, userInput, ws) {
               data: { token: `\n◈ [Step ${step.iteration}] ${step.stepTitle} → action: ${step.action}...\n`, pageId: newPageId }
             }));
           } else if (step.phase === 'result') {
-            const icon = step.success ? '√' : '[X]';
+            const icon = step.success ? '✔' : '✘';
             ws.send(JSON.stringify({
               type: 'token',
               data: { token: `${icon} ${step.result.split('\n')[0]}\n`, pageId: newPageId }

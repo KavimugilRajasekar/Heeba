@@ -60,7 +60,7 @@ Format: { "plan": ["Step 1", "Step 2", ...] }`;
       currentPrompt = `USER REQUEST: ${userInput}\n\n`;
       currentPrompt += `STRATEGIC PLAN:\n`;
       plan.forEach((step, idx) => {
-        const marker = idx === currentStepIndex ? '➤ ' : (idx < currentStepIndex ? '✓ ' : '  ');
+        const marker = idx === currentStepIndex ? '➤ ' : (idx < currentStepIndex ? '✔ ' : '  ');
         currentPrompt += `${marker}Step ${idx + 1}: ${step}\n`;
       });
       currentPrompt += `\nCURRENT STEP: ${currentStepIndex + 1} of ${plan.length}\n\n`;

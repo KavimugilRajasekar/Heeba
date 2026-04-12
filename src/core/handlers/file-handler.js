@@ -110,7 +110,7 @@ const fileHandlers = {
           .complete('Moved Successfully');
       return { success: true, message: tree.toString() };
     } else {
-      return { success: false, message: `✗ Move failed: ${result.message}` };
+      return { success: false, message: `✘ Move failed: ${result.message}` };
     }
   },
 
@@ -145,7 +145,7 @@ const fileHandlers = {
           .complete('Copied Successfully');
       return { success: true, message: tree.toString() };
     } else {
-      return { success: false, message: `✗ Copy failed: ${result.message}` };
+      return { success: false, message: `✘ Copy failed: ${result.message}` };
     }
   },
 
@@ -170,7 +170,7 @@ const fileHandlers = {
     ];
     for (const danger of dangerousPaths) {
       if (danger && normalizedPath.startsWith(path.normalize(danger).toLowerCase())) {
-        return { success: false, message: `✗ Cannot delete system path: ${filePath}` };
+        return { success: false, message: `✘ Cannot delete system path: ${filePath}` };
       }
     }
 
@@ -193,7 +193,7 @@ const fileHandlers = {
           .complete('Deleted Successfully');
       return { success: true, message: tree.toString() };
     } else {
-      return { success: false, message: `✗ Delete failed: ${result.message}` };
+      return { success: false, message: `✘ Delete failed: ${result.message}` };
     }
   },
 
@@ -214,7 +214,7 @@ const fileHandlers = {
     const newPath = path.join(parentDir, newName);
 
     if (fs.existsSync(newPath)) {
-      return { success: false, message: `✗ A file already exists at destination: ${newPath}` };
+      return { success: false, message: `✘ A file already exists at destination: ${newPath}` };
     }
 
     let cmd;
@@ -229,10 +229,10 @@ const fileHandlers = {
     if (result.success) {
       return {
         success: true,
-        message: `✓ Renamed "${path.basename(filePath)}" → "${newName}"\n  New path: ${newPath}`
+        message: `✔ Renamed "${path.basename(filePath)}" → "${newName}"\n  New path: ${newPath}`
       };
     } else {
-      return { success: false, message: `✗ Rename failed: ${result.message}` };
+      return { success: false, message: `✘ Rename failed: ${result.message}` };
     }
   },
 

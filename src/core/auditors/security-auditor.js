@@ -401,7 +401,6 @@ function printAuditStep(step, isTUI, silent = false) {
       if (step.emailTo) {
         capture(`  ${D}   Report to: ${C}${step.emailTo}${RST}`);
       }
-      capture('');
       break;
 
     case 'loading_tools_index': {
@@ -414,21 +413,20 @@ function printAuditStep(step, isTUI, silent = false) {
         catCount = cats.length;
         cats.forEach(cat => { toolCount += (osTools[cat] || []).length; });
       }
-      capture(`  ${D}├─${RST} ⚒ ${C}Security toolkit loaded${RST}`);
+      capture(`  ${D}├─${RST} ⌬ ${C}Security toolkit loaded${RST}`);
       if (toolCount > 0) {
         capture(`  ${D}│  └─${RST} ${D}${toolCount} tool(s) across ${catCount} categor${catCount === 1 ? 'y' : 'ies'}${RST}`);
       }
-      capture('');
       break;
     }
 
     case 'category_selected':
-      capture(`  ${D}├─ [Step ${step.iteration}]${RST} ◎  ${Y}Scan Category:${RST} ${M}${B}${step.category}${RST}`);
+      capture(`  ${D}├─ [Step ${step.iteration}]${RST} ⬢  ${Y}Scan Category:${RST} ${M}${B}${step.category}${RST}`);
       break;
 
     case 'kb_loading': {
       const desc = step.kbDescription ? ` — ${step.kbDescription.substring(0, 60)}` : '';
-      capture(`  ${D}│  ├─ KB:${RST}   ${D}▤ Knowledge base loaded for ${C}${step.toolName}${RST}${D}${desc}${RST}`);
+      capture(`  ${D}│  ├─ KB:${RST}   ${D}⧉ Knowledge base loaded for ${C}${step.toolName}${RST}${D}${desc}${RST}`);
       break;
     }
 
@@ -444,18 +442,18 @@ function printAuditStep(step, isTUI, silent = false) {
       break;
 
     case 'executing':
-      capture(`  ${D}│  ├─ ⚙ Running...${RST}`);
+      capture(`  ${D}│  ├─ ⧗ Running...${RST}`);
       break;
 
     case 'command_done': {
-      const status = step.success ? `${G}✓ OK${RST}` : `${R}✗ FAIL${RST}`;
+      const status = step.success ? `${G}✔ OK${RST}` : `${R}✘ FAIL${RST}`;
       capture(`  ${D}│  ├─ Status:${RST} ${status}`);
       
       // Show the meaningful analysis insight
       const insight = step.analysis || 'Processed.';
       const insightParts = insight.split(' │ ');
       if (insightParts.length <= 2) {
-        capture(`  ${D}│  └─ ${G}» ${insight}${RST}`);
+        capture(`  ${D}│  └─ ${G}➤ ${insight}${RST}`);
       } else {
         capture(`  ${D}│  └─ ${G}▸ Findings:${RST}`);
         insightParts.forEach((part, i) => {
@@ -467,9 +465,8 @@ function printAuditStep(step, isTUI, silent = false) {
       }
 
       if (step.nextCategory) {
-        capture(`  ${D}│     ${M}↳ Next focus: ${step.nextCategory}${RST}`);
+        capture(`  ${D}│     ${M}⤷ Next focus: ${step.nextCategory}${RST}`);
       }
-      capture('');
       break;
     }
 
@@ -482,7 +479,6 @@ function printAuditStep(step, isTUI, silent = false) {
 
     case 'invalid_response':
       capture(`  ${D}├─ ${R}! Model returned invalid response, retrying...${RST}`);
-      capture('');
       break;
 
     case 'llm_reasoning':
@@ -562,7 +558,7 @@ function printAuditStep(step, isTUI, silent = false) {
         capture(`  ${D}├────┼${'─'.repeat(toolW + 1)}┼${'─'.repeat(cmdW + 1)}┼${'─'.repeat(statusW + 1)}┤${RST}`);
         step.history.forEach((h, i) => {
           const statusColor = h.success ? G : R;
-          const statusText = h.success ? '√ OK' : '[X] FAIL';
+          const statusText = h.success ? '✔ OK' : '✘ FAIL';
           const cmdShort = h.command.length > cmdW ? h.command.substring(0, cmdW - 2) + '..' : h.command;
           capture(`  ${D}│${RST} ${padStr(i + 1, 3)}${D}│${RST} ${C}${padStr(h.tool || 'direct', toolW)}${RST}${D}│${RST} ${padStr(cmdShort, cmdW)}${D}│${RST} ${statusColor}${padStr(statusText, statusW)}${RST}${D}│${RST}`);
           if (i < step.history.length - 1) {
@@ -581,13 +577,11 @@ function printAuditStep(step, isTUI, silent = false) {
       break;
 
     case 'email_sent':
-      capture(`  ${D}│  └─${RST} ${G}✓ Report emailed successfully to ${step.emailTo}${RST}`);
-      capture('');
+      capture(`  ${D}│  └─${RST} ${G}✔ Report emailed successfully to ${step.emailTo}${RST}`);
       break;
 
     case 'email_failed':
-      capture(`  ${D}│  └─${RST} ${R}✗ Failed to email report: ${step.error || 'Unknown error'}${RST}`);
-      capture('');
+      capture(`  ${D}│  └─${RST} ${R}✘ Failed to email report: ${step.error || 'Unknown error'}${RST}`);
       break;
   }
   return lines;

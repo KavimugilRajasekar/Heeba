@@ -290,7 +290,7 @@ async function processMessage(uid, text, configOverride = {}) {
         }
       );
 
-      let summary = `√ *Security Audit Completed*\n`;
+      let summary = `✔ *Security Audit Completed*\n`;
       if (auditResult.conclusion) {
         summary += `\nScore: *${auditResult.conclusion.security_score}*\n`;
         if (auditResult.conclusion.findings) {
@@ -337,7 +337,7 @@ async function processMessage(uid, text, configOverride = {}) {
         }
       );
 
-      let summary = `√ *App Audit Completed*\n`;
+      let summary = `✔ *App Audit Completed*\n`;
       if (auditResult.conclusion) {
         const c = auditResult.conclusion;
         summary += `\nPort: *${c.port}*\n`;
@@ -387,7 +387,7 @@ async function processMessage(uid, text, configOverride = {}) {
           } else if (step.phase === 'executing') {
             await onUpdate(`◈ [Step ${step.iteration}] ${step.stepTitle}\nAction: \`${step.action}\``);
           } else if (step.phase === 'result') {
-            const icon = step.success ? '√' : '[X]';
+            const icon = step.success ? '✔' : '✘';
             const cleanResult = formatForTelegram(step.result.split('\n')[0]);
             await onUpdate(`${icon} ${cleanResult}`);
           }
