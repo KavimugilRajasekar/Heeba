@@ -378,12 +378,11 @@ async function processMessage(uid, text, configOverride = {}) {
           if (step.phase === 'planning') {
             await onUpdate(`◈ Designing strategic plan...`);
           } else if (step.phase === 'plan_ready') {
-            let planMsg = `📋 *Strategic Roadmap*\n─────────────────────\n`;
-            step.plan.forEach((s, i) => {
-              planMsg += `*${i + 1}.* ${s}\n`;
-            });
-            planMsg += `─────────────────────`;
-            await onUpdate(planMsg);
+            const TreeReporter = require('../utils/tree-reporter');
+            const tree = new TreeReporter('Strategic Roadmap', 'Front-loaded approach');
+            step.plan.forEach((s, i) => tree.branch(`Step ${i + 1}`, s));
+            const treeStr = tree.toString().replace(/\x1b\[[0-9;]*m/g, ''); // strip ANSI for Telegram
+            await onUpdate(`\n\`\`\`text\n${treeStr}\n\`\`\`\n`);
           } else if (step.phase === 'executing') {
             await onUpdate(`◈ [Step ${step.iteration}] ${step.stepTitle}\nAction: \`${step.action}\``);
           } else if (step.phase === 'result') {

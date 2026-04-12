@@ -244,7 +244,10 @@ async function runStateless(prompt, model) {
             const TreeReporter = require('./src/utils/tree-reporter');
             const tree = new TreeReporter('Strategic Roadmap', 'Front-loaded approach');
             step.plan.forEach((s, i) => tree.branch(`Step ${i + 1}`, s));
-            process.stdout.write(`\n${tree.toString()}\n`);
+            
+            const renderedLines = renderMarkdown(tree.toString(), process.stdout.columns || 80);
+            process.stdout.write('\n');
+            renderedLines.forEach(line => process.stdout.write(line.content + '\n'));
           } else if (step.phase === 'executing') {
             process.stdout.write(`\n\x1b[32m◈ [Step ${step.iteration}] ${step.stepTitle} → Action: ${step.action}...\x1b[0m\n`);
           } else if (step.phase === 'result') {
@@ -581,12 +584,11 @@ if (isLaunchTele) {
               if (thinkingEl) thinkingEl.setContent(`  ${thinkingFrames[frame]} Designing strategic plan...`);
               requestRender();
             } else if (step.phase === 'plan_ready') {
-              let planMsg = `\n\x1b[33m◈ HEEBA'S ROADMAP:\x1b[0m\n`;
-              step.plan.forEach((s, i) => {
-                planMsg += `  ${i + 1}. ${s}\n`;
-              });
-              planMsg += `\x1b[90m${'─'.repeat(30)}\x1b[0m\n`;
-              newPage.response += planMsg;
+              const TreeReporter = require('./src/utils/tree-reporter');
+              const tree = new TreeReporter('Heeba\'s Roadmap', 'Scientific Plan');
+              step.plan.forEach((s, i) => tree.branch(`Step ${i + 1}`, s));
+              
+              newPage.response += `\n` + tree.toString() + `\n\n`;
               renderActivePage(UI, screen, state);
             } else if (step.phase === 'executing') {
               const msg = `\n◈ [Step ${step.iteration}] ${step.stepTitle} → action: ${step.action}...`;

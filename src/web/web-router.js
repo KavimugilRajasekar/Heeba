@@ -257,14 +257,12 @@ async function processPrompt(tabId, userInput, ws) {
               data: { token: `\n\n\x1b[90m◈ Designing strategic plan...\x1b[0m\n`, pageId: newPageId }
             }));
           } else if (step.phase === 'plan_ready') {
-            let planMsg = `\n\x1b[33m◈ HEEBA'S ROADMAP:\x1b[0m\n`;
-            step.plan.forEach((s, i) => {
-              planMsg += `  ${i + 1}. ${s}\n`;
-            });
-            planMsg += `\x1b[90m${'─'.repeat(30)}\x1b[0m\n`;
+            const TreeReporter = require('../utils/tree-reporter');
+            const tree = new TreeReporter('Heeba\'s Roadmap', 'Scientific Plan');
+            step.plan.forEach((s, i) => tree.branch(`Step ${i + 1}`, s));
             ws.send(JSON.stringify({
               type: 'token',
-              data: { token: planMsg, pageId: newPageId }
+              data: { token: `\n${tree.toString()}\n\n`, pageId: newPageId }
             }));
           } else if (step.phase === 'executing') {
             ws.send(JSON.stringify({

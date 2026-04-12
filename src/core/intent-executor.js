@@ -97,7 +97,7 @@ async function runAppAuditLoop(userInput, queryFn, maxIterations = 15, options =
   return await appAuditor.runAppAuditLoop(userInput, queryFn, commandHandlers, maxIterations, options);
 }
 
-async function runAgenticLoop(userInput, queryFn, maxIterations = 5, options = {}) {
+async function runAgenticLoop(userInput, queryFn, maxIterations = 15, options = {}) {
   return await agentExecutor.runAgenticLoop(userInput, queryFn, commandHandlers, { ...options, maxIterations });
 }
 

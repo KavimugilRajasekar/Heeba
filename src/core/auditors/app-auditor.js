@@ -441,10 +441,18 @@ function printAppAuditStep(step, isTUI, silent = false) {
       
       out(`  ${D}├─ [Step ${step.iteration}]${RST} ${icon} ${actionLabel}`);
       if (targetDisplay) {
-        out(`  ${D}│  ├─ Path:${RST} ${W}${targetDisplay}${RST}`);
+        const pathWrap = wordWrap(targetDisplay, 75, '');
+        pathWrap.forEach((l, i) => {
+          const prefix = i === 0 ? `  ${D}│  ├─ Path:${RST} ${W}` : `  ${D}│  │${RST}        ${W}`;
+          out(`${prefix}${l}${RST}`);
+        });
       }
       if (step.reason) {
-        out(`  ${D}│  ├─ Why:${RST}  ${D}${step.reason}${RST}`);
+        const reasonWrap = wordWrap(step.reason, 75, '');
+        reasonWrap.forEach((l, i) => {
+          const prefix = i === 0 ? `  ${D}│  ├─ Why:${RST}   ${D}` : `  ${D}│  │${RST}        ${D}`;
+          out(`${prefix}${l}${RST}`);
+        });
       }
       break;
     }
@@ -538,13 +546,43 @@ function printAppAuditStep(step, isTUI, silent = false) {
       if (step.conclusion.summary) {
         out('');
         out(`  ${Y}◈ Summary:${RST}`);
-        out(`  ${D}  ${step.conclusion.summary}${RST}`);
+        const sumWrap = wordWrap(step.conclusion.summary, 75, '');
+        sumWrap.forEach(l => {
+          out(`  ${D}  ${l}${RST}`);
+        });
       }
       out('');
       break;
     }
   }
   return lines;
+}
+
+/**
+ * Word-wrap text to a max width
+ * Supports continuationPrefix for hierarchical indentation
+ */
+function wordWrap(text, maxWidth, continuationPrefix = '') {
+  if (!text) return [''];
+  if (text.length <= maxWidth) return [text || ''];
+  const words = text.split(' ');
+  const lines = [];
+  let current = '';
+  for (const word of words) {
+    if (current.length === 0) {
+      current = word;
+    } else {
+      const lineLen = current.length + 1 + word.length;
+      if (lineLen <= maxWidth) {
+        current += ' ' + word;
+      } else {
+        lines.push(current);
+        current = continuationPrefix + word;
+      }
+    }
+  }
+  if (current) lines.push(current);
+  return lines.length > 0 ? lines : [text];
 }
 
 /**

@@ -425,21 +425,35 @@ function printAuditStep(step, isTUI, silent = false) {
       break;
 
     case 'kb_loading': {
-      const desc = step.kbDescription ? ` — ${step.kbDescription.substring(0, 60)}` : '';
-      capture(`  ${D}│  ├─ KB:${RST}   ${D}⧉ Knowledge base loaded for ${C}${step.toolName}${RST}${D}${desc}${RST}`);
+      const desc = step.kbDescription ? ` — ${step.kbDescription}` : '';
+      const fullText = `⧉ Knowledge base loaded for ${step.toolName}${desc}`;
+      const wrapLines = wordWrap(fullText, 75, '');
+      wrapLines.forEach((l, i) => {
+        const prefix = i === 0 ? `  ${D}│  ├─ KB:${RST}   ${D}` : `  ${D}│  │${RST}        ${D}`;
+        capture(`${prefix}${l}${RST}`);
+      });
       break;
     }
 
     case 'tool_selected':
       capture(`  ${D}│  ├─ Tool:${RST}  ${C}${step.toolName}${RST}`);
       if (step.reason) {
-        capture(`  ${D}│  ├─ Why:${RST}   ${D}${step.reason}${RST}`);
+        const wrapLines = wordWrap(step.reason, 75, '');
+        wrapLines.forEach((l, i) => {
+          const prefix = i === 0 ? `  ${D}│  ├─ Why:${RST}   ${D}` : `  ${D}│  │${RST}        ${D}`;
+          capture(`${prefix}${l}${RST}`);
+        });
       }
       break;
 
-    case 'command_planning':
-      capture(`  ${D}│  ├─ Cmd:${RST}   ${W}${step.command}${RST}`);
+    case 'command_planning': {
+      const wrapLines = wordWrap(step.command, 75, '');
+      wrapLines.forEach((l, i) => {
+        const prefix = i === 0 ? `  ${D}│  ├─ Cmd:${RST}   ${W}` : `  ${D}│  │${RST}        ${W}`;
+        capture(`${prefix}${l}${RST}`);
+      });
       break;
+    }
 
     case 'executing':
       capture(`  ${D}│  ├─ ⧗ Running...${RST}`);
@@ -472,9 +486,24 @@ function printAuditStep(step, isTUI, silent = false) {
 
     case 'kb_correction':
       capture(`  ${D}│  ├─${RST} ${Y}↻ KB Self-Correction${RST}`);
-      capture(`  ${D}│  │  ├─ Failure:${RST} ${R}${step.failureReason?.substring(0, 80) || 'Command failed'}${RST}`);
-      capture(`  ${D}│  │  ├─ Fix:${RST}     ${G}${step.suggestion}${RST}`);
-      capture(`  ${D}│  │  └─ Retry:${RST}   ${W}${step.correctedCommand}${RST}`);
+      
+      const failWrap = wordWrap(step.failureReason || 'Command failed', 75, '');
+      failWrap.forEach((l, i) => {
+        const prefix = i === 0 ? `  ${D}│  │  ├─ Failure:${RST} ${R}` : `  ${D}│  │  │${RST}           ${R}`;
+        capture(`${prefix}${l}${RST}`);
+      });
+
+      const fixWrap = wordWrap(step.suggestion || '', 75, '');
+      fixWrap.forEach((l, i) => {
+        const prefix = i === 0 ? `  ${D}│  │  ├─ Fix:${RST}     ${G}` : `  ${D}│  │  │${RST}           ${G}`;
+        capture(`${prefix}${l}${RST}`);
+      });
+
+      const retryWrap = wordWrap(step.correctedCommand || '', 75, '');
+      retryWrap.forEach((l, i) => {
+        const prefix = i === 0 ? `  ${D}│  │  └─ Retry:${RST}   ${W}` : `  ${D}│  │${RST}             ${W}`;
+        capture(`${prefix}${l}${RST}`);
+      });
       break;
 
     case 'invalid_response':
@@ -589,18 +618,25 @@ function printAuditStep(step, isTUI, silent = false) {
 
 /**
  * Word-wrap text to a max width
+ * Supports continuationPrefix for hierarchical indentation
  */
-function wordWrap(text, maxWidth) {
-  if (!text || text.length <= maxWidth) return [text || ''];
+function wordWrap(text, maxWidth, continuationPrefix = '') {
+  if (!text) return [''];
+  if (text.length <= maxWidth) return [text || ''];
   const words = text.split(' ');
   const lines = [];
   let current = '';
   for (const word of words) {
-    if (current.length + word.length + 1 > maxWidth && current.length > 0) {
-      lines.push(current);
+    if (current.length === 0) {
       current = word;
     } else {
-      current = current ? current + ' ' + word : word;
+      const lineLen = current.length + 1 + word.length;
+      if (lineLen <= maxWidth) {
+        current += ' ' + word;
+      } else {
+        lines.push(current);
+        current = continuationPrefix + word;
+      }
     }
   }
   if (current) lines.push(current);

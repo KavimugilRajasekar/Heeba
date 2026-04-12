@@ -12,7 +12,7 @@ const { parseCommandFromResponse } = require('../utils/json-parser');
  */
 async function runAgenticLoop(userInput, queryFn, commandHandlers, options = {}) {
   const { 
-    maxIterations = 5, 
+    maxIterations = 15, 
     onStep = null, 
     isTUI = false, 
     context = {} 
