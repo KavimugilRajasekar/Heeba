@@ -13,7 +13,7 @@ const { createOverlays, runBootSequence, startLoadingAnimation } = require('./sr
 const { requestRender, forceRender } = require('./src/ui/render-manager');
 const { requestScroll } = require('./src/ui/scroll-manager');
 const { queryLLM, cancelLLM, clearConversationHistory, stopServer, generateTurnTitle, getTotalTokensUsed } = require('./src/core/engine');
-const { parseCommandFromResponse, executeCommand, isSecurityIntentTriggered, runSecurityAuditLoop, extractEmailFromPrompt, isAppAuditIntentTriggered, runAppAuditLoop, printAppAuditStep } = require('./src/core/intent-executor');
+const { parseCommandFromResponse, executeCommand, isSecurityIntentTriggered, runSecurityAuditLoop, extractEmailFromPrompt, isAppAuditIntentTriggered, runAppAuditLoop, printAppAuditStep, runAgenticLoop } = require('./src/core/intent-executor');
 const { refreshStats } = require('./src/utils/stats-refresher');
 const {
   updateWelcomeCard, renderActivePage, showLoading, navigateToPage,
@@ -228,47 +228,37 @@ async function runStateless(prompt, model) {
     process.exit(0);
   }
 
-  let fullResponse = '';
   process.stdout.write(`\x1b[33m⁜ Heeba:\x1b[0m\n`);
-
+  
   try {
-    await queryLLM(prompt, MODES.auto, state.CONFIG, (token) => {
-      // Just collect tokens, don't print them to avoid raw JSON leaks in terminal
-      fullResponse += token;
-    });
-
-    // Check for command first
-    const command = parseCommandFromResponse(fullResponse);
-    let displayResponse = fullResponse;
-
-    // If it's a command, we might want to strip the JSON from the display if desired,
-    // but usually the LLM includes some text too.
-    if (command && command.action) {
-      // Clean up the response for display if it contains a JSON block
-      displayResponse = fullResponse.replace(/```json\s*[\s\S]*?```/g, '').trim();
-      if (displayResponse.includes('{') && displayResponse.includes('"action"')) {
-         displayResponse = displayResponse.replace(/\{[\s\S]*"action"[\s\S]*\}/g, '').trim();
+    const agentResult = await runAgenticLoop(
+      prompt,
+      (p, mode) => queryLLM(p, mode, state.CONFIG, null),
+      5,
+      {
+        context: { screen: null, UI: null, config: state.CONFIG },
+        onStep: (step) => {
+          if (step.phase === 'executing') {
+            process.stdout.write(`\n\x1b[32m◈ Executing Action: ${step.action}...\x1b[0m\n`);
+          } else if (step.phase === 'result') {
+            if (step.success) {
+               // Render the result nicely - maybe use TreeReporter if it's already used by handler
+               // But usually the handler returns its own formatted message.
+               process.stdout.write(`\x1b[32m✓ ${step.result.split('\n')[0]}\x1b[0m\n`);
+            } else {
+               process.stdout.write(`\x1b[31m✗ Failed: ${step.result.split('\n')[0]}\x1b[0m\n`);
+            }
+          }
+        }
       }
-    }
+    );
 
-    // Render markdown for the text part
-    const renderedLines = renderMarkdown(displayResponse, process.stdout.columns || 80);
+    // Render the final response (the last text block from the LLM)
+    const finalResponse = agentResult.finalResponse;
+    const renderedLines = renderMarkdown(finalResponse, process.stdout.columns || 80);
     renderedLines.forEach(line => {
-      let content = line.content;
-      // Convert some blessed-like tags or colors if needed, but renderMarkdown 
-      // mostly returns plain text with some ANSI-like prefixes now.
-      process.stdout.write(content + '\n');
+      process.stdout.write(line.content + '\n');
     });
-
-    if (command && command.action) {
-      process.stdout.write(`\n\x1b[32m◈ Executing Action: ${command.action}...\x1b[0m\n`);
-      const result = await executeCommand(command, { screen: null, UI: null, config: state.CONFIG });
-      if (result && result.success) {
-        process.stdout.write(`\x1b[32m✓ ${result.message}\x1b[0m\n`);
-      } else if (result) {
-        process.stdout.write(`\x1b[31m✗ Failed: ${result.message}\x1b[0m\n`);
-      }
-    }
 
     // Metrics
     if (showMetrics) displayCLIMetrics();
@@ -556,31 +546,62 @@ if (isLaunchTele) {
       if (thinkingEl) { thinkingEl.setContent(`  ${thinkingFrames[frame]} Thinking...`); requestRender(); }
     }, 150);
 
-    let liveTextEl = null; let fullResponse = ''; let thinkingDestroyed = false;
+    let thinkingDestroyed = false;
 
     try {
-      await queryLLM(input, state.currentMode, state.CONFIG, (token) => {
-        if (!thinkingDestroyed && thinkingEl) { clearInterval(thinkingInterval); thinkingEl.destroy(); thinkingEl = null; thinkingDestroyed = true; }
-        if (!liveTextEl) {
-          startLoadingAnimation(UI, overlays, screen, MODES.auto, true);
-          clearDynamicContent(UI, state); state.lineCount = 1;
-          blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: `  ※ You`, fg: C.purple, bold: true });
-          blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: `  ${'─'.repeat(Math.max(20, (screen.width || 80) - 6))}`, fg: C.border });
-          input.split('\n').forEach(pl => { blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: `  ${pl}`, fg: C.fg }); });
-          state.lineCount++;
-          blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: `  ⁜ Heeba`, fg: C.yellow, bold: true });
-          blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: `  ${'─'.repeat(Math.max(20, (screen.width || 80) - 6))}`, fg: C.border });
-          liveTextEl = blessed.text({ parent: UI.outputArea, top: state.lineCount++, left: 0, width: '100%', content: '  ', fg: C.fg });
+      const agentResult = await runAgenticLoop(
+        input,
+        (p, mode) => queryLLM(p, mode, state.CONFIG, null, llmHistory),
+        5,
+        {
+          context: {
+            screen, UI, config: state.CONFIG,
+            currentSession: (state.currentSessionIndex >= 0 && state.currentSessionIndex < state.sessions.length) ? state.sessions[state.currentSessionIndex] : null,
+            currentPage: newPage,
+            onSessionRenamed: (newName) => { if (state.currentSessionIndex === -1) UI.cardTitle.setContent(newName); renderIndexPage(UI, screen, state); requestRender(); },
+            onConversationRenamed: (newTitle) => { renderIndexPage(UI, screen, state); requestRender(); },
+            onSessionDeleted: () => { if (state.currentSessionIndex >= 0 && state.currentSessionIndex < state.sessions.length) state.sessions.splice(state.currentSessionIndex, 1); state.currentSessionIndex = -1; state.currentPageId = null; state.userScrolledUp = false; saveSessions(); renderActivePage(UI, screen, state); setTimeout(() => { UI.inputBox.focus(); }, 30); },
+            onPageDeleted: (newCurrentPageId) => { state.currentPageId = newCurrentPageId; state.userScrolledUp = false; saveSessions(); renderActivePage(UI, screen, state); setTimeout(() => { UI.inputBox.focus(); }, 30); }
+          },
+          onStep: (step) => {
+            if (!thinkingDestroyed && thinkingEl) { 
+              clearInterval(thinkingInterval); 
+              thinkingEl.destroy(); 
+              thinkingEl = null; 
+              thinkingDestroyed = true; 
+            }
+
+            if (step.phase === 'executing') {
+              const msg = `\n\n◈ Executing Action: ${step.action}...`;
+              newPage.response += msg;
+              renderActivePage(UI, screen, state);
+              if (!state.userScrolledUp) requestScroll();
+            } else if (step.phase === 'result') {
+              const icon = step.success ? '✓' : '✗';
+              const sanitizedResult = ansiToBlessedTags(step.result.split('\n')[0]);
+              newPage.response += `\n${icon} ${sanitizedResult}`;
+              renderActivePage(UI, screen, state);
+              if (!state.userScrolledUp) requestScroll();
+            }
+          }
         }
-        liveTextEl.setContent(liveTextEl.getContent() + token);
-        fullResponse += token;
-        if (!state.userScrolledUp) requestScroll();
-        requestRender();
-      }, llmHistory);
+      );
 
       showLoading(UI, overlays, screen, state, false);
       newPage._streaming = false;
-      newPage.response = fullResponse;
+      newPage.response = agentResult.finalResponse;
+      
+      // If the response contains actions that were executed, they were added to newPage.response in onStep.
+      // But agentResult.finalResponse is just the last text response.
+      // We might want to construct a full history for the page.
+      let fullPageResponse = '';
+      agentResult.history.forEach(h => {
+        fullPageResponse += `\n\n◈ Executing Action: ${h.action}...\n`;
+        fullPageResponse += `✓ ${h.result}\n`;
+      });
+      fullPageResponse += `\n${agentResult.finalResponse}`;
+      newPage.response = fullPageResponse.trim();
+
       newPage.tokens = estimateTokens(newPage.prompt + newPage.response);
 
       if (!newPage.title) {
@@ -591,30 +612,6 @@ if (isLaunchTele) {
 
       renderActivePage(UI, screen, state);
       setTimeout(() => { UI.inputBox.focus(); }, 30);
-
-      const command = parseCommandFromResponse(fullResponse);
-      if (command && command.action) {
-        const result = await executeCommand(command, {
-          screen, UI, config: state.CONFIG,
-          currentSession: (state.currentSessionIndex >= 0 && state.currentSessionIndex < state.sessions.length) ? state.sessions[state.currentSessionIndex] : null,
-          currentPage: newPage,
-          onSessionRenamed: (newName) => { if (state.currentSessionIndex === -1) UI.cardTitle.setContent(newName); renderIndexPage(UI, screen, state); requestRender(); },
-          onConversationRenamed: (newTitle) => { renderIndexPage(UI, screen, state); requestRender(); },
-          onSessionDeleted: () => { if (state.currentSessionIndex >= 0 && state.currentSessionIndex < state.sessions.length) state.sessions.splice(state.currentSessionIndex, 1); state.currentSessionIndex = -1; state.currentPageId = null; state.userScrolledUp = false; saveSessions(); renderActivePage(UI, screen, state); setTimeout(() => { UI.inputBox.focus(); }, 30); },
-          onPageDeleted: (newCurrentPageId) => { state.currentPageId = newCurrentPageId; state.userScrolledUp = false; saveSessions(); renderActivePage(UI, screen, state); setTimeout(() => { UI.inputBox.focus(); }, 30); }
-        });
-        if (result && result.success) {
-          if (command.action === 'update_user_profile') updateWelcomeCard(UI, screen, state);
-          const sanitizedMessage = ansiToBlessedTags(result.message);
-          newPage.response += `\n\n---\n\u2713 ${sanitizedMessage}`;
-          renderActivePage(UI, screen, state);
-        } else if (result) {
-          const sanitizedMessage = ansiToBlessedTags(result.message);
-          newPage.response += `\n\n---\n\u2717 Failed: ${sanitizedMessage}`;
-          renderActivePage(UI, screen, state);
-        }
-        setTimeout(() => { UI.inputBox.focus(); }, 30);
-      }
     } catch (err) {
       if (!thinkingDestroyed && thinkingEl) { clearInterval(thinkingInterval); thinkingEl.destroy(); }
       showLoading(UI, overlays, screen, state, false);

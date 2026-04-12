@@ -1,5 +1,6 @@
 const { loadToolsIndex, getToolsForOS } = require('../security-tools-index');
 const { loadKBWithContext, formatKBContext, getOS } = require('../kb-loader');
+const { parseCommandFromResponse: parseSecurityCommandFromResponse } = require('../../utils/json-parser');
 
 /**
  * Recursive security audit loop.
@@ -218,13 +219,7 @@ function buildToolsContextDetailed(toolsIndex, os) {
   return ctx;
 }
 
-function parseSecurityCommandFromResponse(response) {
-  try {
-    const match = response.match(/\{[\s\S]*"command"[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
-  } catch (e) {}
-  return null;
-}
+// Local parseSecurityCommandFromResponse removed
 
 function isSecurityConclusion(response) {
   return response.includes('"security_score"') && (response.includes('"findings"') || response.includes('"recommended_fixes"'));

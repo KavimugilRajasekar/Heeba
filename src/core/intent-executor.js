@@ -1,4 +1,5 @@
 // src/core/intent-executor.js
+const { parseCommandFromResponse } = require('../utils/json-parser');
 const emailHandlers = require('./handlers/email-handler');
 const systemHandlers = require('./handlers/system-handler');
 const sessionHandlers = require('./handlers/session-handler');
@@ -12,6 +13,7 @@ const { getOS } = require('./kb-loader');
 // Auditors (New Modular Structure)
 const securityAuditor = require('./auditors/security-auditor');
 const appAuditor = require('./auditors/app-auditor');
+const agentExecutor = require('./agent-executor');
 
 // Merge all handlers into a single command map
 const commandHandlers = {
@@ -24,24 +26,6 @@ const commandHandlers = {
   ...softwareHandlers,
   ...weatherHandlers
 };
-
-// Parse JSON from LLM response
-function parseCommandFromResponse(response) {
-  const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/) ||
-                    response.match(/\{[\s\S]*"action"[\s\S]*\}/);
-  if (jsonMatch) {
-    try {
-      const jsonStr = jsonMatch[1] || jsonMatch[0];
-      return JSON.parse(jsonStr);
-    } catch (e) {
-      const rawMatch = response.match(/\{[\s\S]*\}/);
-      if (rawMatch) {
-        try { return JSON.parse(rawMatch[0]); } catch (e2) { return null; }
-      }
-    }
-  }
-  return null;
-}
 
 // Execute a command
 async function executeCommand(command, context) {
@@ -113,6 +97,10 @@ async function runAppAuditLoop(userInput, queryFn, maxIterations = 15, options =
   return await appAuditor.runAppAuditLoop(userInput, queryFn, commandHandlers, maxIterations, options);
 }
 
+async function runAgenticLoop(userInput, queryFn, maxIterations = 5, options = {}) {
+  return await agentExecutor.runAgenticLoop(userInput, queryFn, commandHandlers, { ...options, maxIterations });
+}
+
 function printAuditStep(step, isTUI, silent = false) {
   return securityAuditor.printAuditStep(step, isTUI, silent);
 }
@@ -132,5 +120,6 @@ module.exports = {
   runAppAuditLoop,
   isAppAuditIntentTriggered,
   printAppAuditStep,
+  runAgenticLoop,
   extractEmailFromPrompt
 };

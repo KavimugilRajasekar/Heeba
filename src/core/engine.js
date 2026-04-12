@@ -141,6 +141,7 @@ async function queryLLM(userInput, mode, CONFIG, onToken, history = []) {
                         // Note: History is managed by caller now
                         resolve(finalContent);
                     } catch (e) {
+                        console.error('LLM Server raw response:', fullResponse);
                         reject(new Error('Invalid response from LLM server'));
                     }
                 });

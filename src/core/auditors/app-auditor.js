@@ -1,5 +1,6 @@
 const { getOS } = require('../kb-loader');
 const { formatGenericTable } = require('../../utils/table-gen');
+const { parseCommandFromResponse } = require('../../utils/json-parser');
 
 /**
  * Recursive app audit loop.
@@ -410,13 +411,7 @@ function buildAppAuditPrompt(userInput, os, history = [], discoveredEndpoints = 
   return prompt;
 }
 
-function parseCommandFromResponse(response) {
-  try {
-    const match = response.match(/\{[\s\S]*"action"[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
-  } catch (e) {}
-  return null;
-}
+// No local parseCommandFromResponse here anymore
 
 function printAppAuditStep(step, isTUI, silent = false) {
   const C = '\x1b[36m';   // Cyan

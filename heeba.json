@@ -1045,6 +1045,64 @@
           "newName": "{extracted_new_name}"
         }
       }
+    },
+    "list_dir": {
+      "patterns": [
+        "ls",
+        "list directory",
+        "show files",
+        "list contents",
+        "dir",
+        "tree",
+        "list folder"
+      ],
+      "action": "list_dir",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "list_dir",
+        "parameters": {
+          "path": "{extracted_path}"
+        }
+      }
+    },
+    "read_file": {
+      "patterns": [
+        "cat",
+        "read file",
+        "show content",
+        "type",
+        "view file content",
+        "open file"
+      ],
+      "action": "read_file",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "read_file",
+        "parameters": {
+          "path": "{extracted_path}"
+        }
+      }
+    },
+    "test_endpoint": {
+      "patterns": [
+        "curl",
+        "test endpoint",
+        "hit url",
+        "http request",
+        "test api",
+        "check url"
+      ],
+      "action": "test_endpoint",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "test_endpoint",
+        "parameters": {
+          "url": "{extracted_url}",
+          "method": "{GET|POST|PUT|DELETE}",
+          "body": "{json_string}",
+          "headers": "{json_object}"
+        }
+      }
     }
   },
   "system_rules": [
