@@ -1,0 +1,101 @@
+{
+  "os": "Windows",
+  "tool_name": "reg",
+  "category": "Registry Security",
+  "flags": [
+    {
+      "flag": "/v",
+      "example_command": "reg query HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v *",
+      "purpose": "Queries a specific registry value name under a key to retrieve exact configuration data.",
+      "security_use_case": "Inspect autorun entries in Run keys to detect malware persistence.",
+      "threat_detected": "Startup persistence via Run keys; unauthorized software launching at boot.",
+      "risk_if_misused": "None; read-only. Requires careful escaping of long paths in scripts.",
+      "safe_followup": "Back up key, then remove suspicious entries with reg delete after validation.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/s",
+      "example_command": "reg query HKLM /s /f \"C:\\\\Users\" | findstr /i \"REG_SZ\"",
+      "purpose": "Recursively searches all subkeys and values under a key for matching patterns.",
+      "security_use_case": "Hunt across registry hives for suspicious paths or persistence artifacts.",
+      "threat_detected": "Scattered registry-based persistence and configuration storage by malware.",
+      "risk_if_misused": "Time-consuming on large hives; produces large output requiring filtering.",
+      "safe_followup": "Export suspicious keys for analysis before any modification.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/f",
+      "example_command": "reg query HKCU /s /f \"powershell\" /d",
+      "purpose": "Searches registry value data for matching content instead of key names.",
+      "security_use_case": "Find encoded PowerShell commands or script paths stored in registry.",
+      "threat_detected": "Registry-stored PowerShell payloads for persistence or C2 configuration.",
+      "risk_if_misused": "May return many legitimate matches; requires analyst review.",
+      "safe_followup": "Decode suspicious base64 values; review execution policies.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/k",
+      "example_command": "reg query HKLM\\Software /k /f \"Microsoft\" /e",
+      "purpose": "Searches only key names for pattern matches, ignoring values and data.",
+      "security_use_case": "Locate software-related registry keys for audit or cleanup.",
+      "threat_detected": "Orphaned or suspicious keys from incomplete uninstallations.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Compare with installed programs; review orphaned entries.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/t",
+      "example_command": "reg query HKLM\\System\\CurrentControlSet\\Services\\Tcpip\\Parameters /t REG_DWORD",
+      "purpose": "Filters results by registry value type such as REG_SZ, REG_DWORD, REG_BINARY.",
+      "security_use_case": "Check numeric security-related configurations altered by malware.",
+      "threat_detected": "DWORD-based security settings modified to weaken protections.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Compare values with known-good baselines before correction.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/z",
+      "example_command": "reg query HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System /v EnableLUA /z",
+      "purpose": "Displays numeric type equivalents to aid programmatic comparison of values.",
+      "security_use_case": "Automated compliance checks of security registry configurations.",
+      "threat_detected": "Unexpected type/value changes in security configurations.",
+      "risk_if_misused": "None; read-only. Output parsing adjustments needed.",
+      "safe_followup": "Parse numeric output for automated validation scripts.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/reg:32",
+      "example_command": "reg query HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /reg:32",
+      "purpose": "Accesses the 32-bit registry view (WOW6432Node) on 64-bit systems.",
+      "security_use_case": "Detect 32-bit malware persistence paths on 64-bit Windows.",
+      "threat_detected": "Malware hiding in 32-bit registry redirection paths.",
+      "risk_if_misused": "None; read-only. Relevant only on 64-bit systems.",
+      "safe_followup": "Also query /reg:64 for full coverage.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "reg query \"HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" /s && reg query \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" /s && reg query \"HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\" /s",
+      "why_powerful": "Enumerates all primary Windows autorun locations used for persistence.",
+      "security_context": "Comprehensive startup persistence discovery before deeper forensics."
+    },
+    {
+      "command": "reg query \"HKLM\\System\\CurrentControlSet\\Services\" /s /f \"ImagePath\" /d | findstr /i \"temp userprofile downloads\"",
+      "why_powerful": "Finds services executing from suspicious directories like Temp or user folders.",
+      "security_context": "Detect malicious services planted outside standard system paths."
+    },
+    {
+      "command": "reg query HKLM\\Software\\Classes /s /f \"shell\\open\\command\" /d | findstr /i \"powershell cmd\"",
+      "why_powerful": "Identifies file association handlers that execute commands, often abused for code execution.",
+      "security_context": "Detect COM hijacking or file association abuse for privilege escalation."
+    }
+  ]
+}

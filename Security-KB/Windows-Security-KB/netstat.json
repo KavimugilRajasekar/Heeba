@@ -1,0 +1,123 @@
+{
+  "os": "Windows",
+  "tool_name": "netstat",
+  "category": "Network Inspection",
+  "flags": [
+    {
+      "flag": "-a",
+      "example_command": "netstat -an | findstr /i \"LISTENING ESTABLISHED\"",
+      "purpose": "Displays all active TCP connections and listening ports with protocol, local/foreign address, and state.",
+      "security_use_case": "Identify listening services and established connections during incident response.",
+      "threat_detected": "Unexpected listening ports, unauthorized external connections, potential backdoors.",
+      "risk_if_misused": "None; read-only. Process details may be limited without elevation.",
+      "safe_followup": "Use -b or -o to map connections to executables or PIDs; correlate with tasklist.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-b",
+      "example_command": "netstat -ab | findstr /i \"suspicious.exe\"",
+      "purpose": "Shows the executable responsible for each connection or listening port.",
+      "security_use_case": "Map network activity to actual binaries to detect malicious processes.",
+      "threat_detected": "Malware hosting services or making outbound C2 connections.",
+      "risk_if_misused": "Requires administrator privileges; slower on busy systems.",
+      "safe_followup": "Validate process with tasklist and file hash; inspect with Get-Process.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-o",
+      "example_command": "netstat -ano | findstr /i \"ESTABLISHED\"",
+      "purpose": "Displays owning Process ID (PID) for each connection.",
+      "security_use_case": "Correlate suspicious connections to specific processes.",
+      "threat_detected": "Unknown processes communicating over network.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Resolve PID using tasklist /FI \"PID eq <pid>\".",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-n",
+      "example_command": "netstat -ano -n | findstr \":80 :443 :4444\"",
+      "purpose": "Shows numerical IPs and ports without DNS/service name resolution for faster output.",
+      "security_use_case": "Quick port-focused investigation during live incidents.",
+      "threat_detected": "Connections on suspicious or uncommon ports used by malware.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Investigate ports with Test-NetConnection or threat intel lookup.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-p",
+      "example_command": "netstat -ano -p TCP | findstr /i \"LISTENING ESTABLISHED\"",
+      "purpose": "Filters output by protocol such as TCP or UDP.",
+      "security_use_case": "Focus on TCP connections typical of malware C2 traffic.",
+      "threat_detected": "Suspicious TCP sessions or excessive connection attempts.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Inspect TCP settings with netsh interface tcp show global.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-r",
+      "example_command": "netstat -r | findstr \"Gateway\"",
+      "purpose": "Displays routing table and default gateway configuration.",
+      "security_use_case": "Detect unexpected gateway or route manipulation.",
+      "threat_detected": "Unauthorized route entries redirecting traffic.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Compare with baseline using route print.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-s",
+      "example_command": "netstat -s -p TCP UDP",
+      "purpose": "Shows protocol statistics summarizing errors and connection issues.",
+      "security_use_case": "Detect SYN floods, resets, or abnormal network behavior.",
+      "threat_detected": "High failure rates indicating network attacks or malware saturation.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Correlate with firewall logs or packet capture.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-e",
+      "example_command": "netstat -e",
+      "purpose": "Displays Ethernet statistics like bytes sent/received and errors.",
+      "security_use_case": "Spot traffic spikes or abnormal broadcast traffic.",
+      "threat_detected": "Possible data exfiltration or ARP spoofing indicators.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Use Get-NetAdapterStatistics for deeper interface analysis.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-f",
+      "example_command": "netstat -af -n | findstr /i \"ESTABLISHED\"",
+      "purpose": "Resolves foreign IP addresses to fully qualified domain names.",
+      "security_use_case": "Identify suspicious domains for threat intelligence lookup.",
+      "threat_detected": "Connections to malicious or unknown domains.",
+      "risk_if_misused": "DNS lookup latency; may leak DNS queries.",
+      "safe_followup": "Verify domains with nslookup or reputation services.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "netstat -ano -p TCP | findstr /i \"ESTABLISHED\"",
+      "why_powerful": "Lists all active TCP connections with PIDs for quick process correlation.",
+      "security_context": "Identify external communications potentially linked to malware."
+    },
+    {
+      "command": "netstat -abno | findstr /i \"LISTENING\"",
+      "why_powerful": "Maps listening ports directly to executables for rogue service detection.",
+      "security_context": "Detect unauthorized services like rogue RDP/HTTP/SMB servers."
+    },
+    {
+      "command": "netstat -ano 5 | findstr /i \"TIME_WAIT CLOSE_WAIT\"",
+      "why_powerful": "Monitors problematic connection states over time indicating exhaustion or DoS.",
+      "security_context": "Spot connection flooding or rapid outbound attempts by malware."
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "os": "Windows",
+  "tool_name": "sfc",
+  "category": "System Integrity",
+  "mitre_attack": {
+    "tactic": ["Defense Evasion", "Persistence"],
+    "technique_id": "T1036",
+    "technique_name": "Masquerading (System File Tampering)"
+  },
+  "detection_focus": [
+    "Trojanized or replaced Windows system binaries",
+    "Rootkit-style replacement of protected DLLs and EXEs",
+    "Integrity violations in Windows Resource Protection files",
+    "Corruption of component store affecting file restoration",
+    "Unexpected changes to critical system executables (cmd.exe, svchost.exe, services.exe)"
+  ],
+  "forensic_artifacts": [
+    "C:\\Windows\\Logs\\CBS\\CBS.log",
+    "C:\\Windows\\WinSxS\\",
+    "C:\\Windows\\System32\\dllcache\\",
+    "Event Log: System File Protection events",
+    "Hashes of protected system files compared to known-good baseline"
+  ],
+  "flags": [
+    {
+      "flag": "/scannow",
+      "example_command": "sfc /scannow",
+      "purpose": "Scans integrity of all protected Windows system files and repairs them using cached copies.",
+      "security_use_case": "Restore integrity of system files potentially modified by malware or attackers.",
+      "threat_detected": "Modified system files indicating trojanized binaries, rootkits, or unauthorized changes.",
+      "risk_if_misused": "May overwrite legitimate customizations; may fail if component store is corrupted.",
+      "safe_followup": "Review CBS.log; run DISM /RestoreHealth if repairs fail; verify with /verifyonly.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/verifyonly",
+      "example_command": "sfc /verifyonly",
+      "purpose": "Scans and reports damaged system files without performing repairs.",
+      "security_use_case": "Assess integrity violations safely during investigation without altering evidence.",
+      "threat_detected": "Integrity violations indicating unauthorized modification.",
+      "risk_if_misused": "None; read-only assessment.",
+      "safe_followup": "Document findings; proceed with /scannow after evidence capture.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/scanfile",
+      "example_command": "sfc /scanfile=\"C:\\Windows\\System32\\cmd.exe\"",
+      "purpose": "Scans and repairs a specific protected system file.",
+      "security_use_case": "Targeted repair of suspicious critical executable identified during analysis.",
+      "threat_detected": "Tampering of specific critical file.",
+      "risk_if_misused": "File path must be exact and protected; may not repair if source cache corrupted.",
+      "safe_followup": "Compare file hash; use DISM if repair fails; restore from installation media if required.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/verifyfiles",
+      "example_command": "sfc /verifyfiles=\"C:\\Windows\\System32\\*.dll\"",
+      "purpose": "Verifies integrity of specified files without repair.",
+      "security_use_case": "Check integrity of specific DLLs suspected to be compromised.",
+      "threat_detected": "Modified or corrupted DLLs used for persistence or code injection.",
+      "risk_if_misused": "Wildcard verification may be time-consuming; does not repair.",
+      "safe_followup": "Use /scannow for repair; review CBS.log for details.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "detection_queries": [
+    {
+      "command": "sfc /verifyonly 2>&1 | Findstr /i /V \"Windows Resource Protection did not find any integrity violations\"",
+      "why_powerful": "Displays only integrity violations for rapid assessment.",
+      "security_context": "Quick identification of compromised system files during incident response."
+    },
+    {
+      "command": "type C:\\Windows\\Logs\\CBS\\CBS.log | Findstr /i \"cannot repair\"",
+      "why_powerful": "Surfaces files that SFC could not repair indicating deeper compromise or image corruption.",
+      "security_context": "Pinpointing files requiring DISM or manual restoration."
+    },
+    {
+      "command": "DISM /Online /Cleanup-Image /ScanHealth && DISM /Online /Cleanup-Image /RestoreHealth && sfc /scannow",
+      "why_powerful": "Repairs component store before restoring system files for full integrity recovery.",
+      "security_context": "Complete recovery chain after malware damage or failed SFC repairs."
+    }
+  ],
+  "tool_relationship": {
+    "paired_with": "DISM, sigcheck, certutil -hashfile",
+    "attacker_usage": "Attackers replace or patch system binaries to hide malware or maintain persistence.",
+    "defender_usage": "Verify and restore integrity of Windows protected files after compromise."
+  }
+}

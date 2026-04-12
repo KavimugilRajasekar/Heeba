@@ -1,0 +1,52 @@
+{
+  "os": "Linux",
+  "tool_name": "sha256sum",
+  "category": "System Integrity",
+  "flags": [
+    {
+      "flag": "-c",
+      "example_command": "sha256sum -c checksums.txt",
+      "purpose": "Verify checksums from file.",
+      "security_use_case": "Verify integrity against baseline.",
+      "threat_detected": "Modified files.",
+      "risk_if_misused": "Checksum file could be modified.",
+      "safe_followup": "Review FAILED entries.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-b",
+      "example_command": "sha256sum -b *.bin",
+      "purpose": "Binary mode.",
+      "security_use_case": "Hash binary files.",
+      "threat_detected": "Same detection.",
+      "risk_if_misused": "None.",
+      "safe_followup": "sha256sum -b <file>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-z",
+      "example_command": "sha256sum -z -- *",
+      "purpose": "NUL terminator for safe parsing.",
+      "security_use_case": "Safe for xargs -0.",
+      "threat_detected": "Safe processing.",
+      "risk_if_misused": "None.",
+      "safe_followup": "sha256sum -z | xargs -0 verify.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "find /bin /sbin /usr/bin /usr/sbin -type f -exec sha256sum {} \\; > /root/baseline-hashes-$(date +%Y%m%d).txt",
+      "why_powerful": "Generate integrity baseline.",
+      "security_context": "System integrity baseline."
+    },
+    {
+      "command": "sha256sum -c /root/baseline-hashes.txt 2>&1 | grep -v ': OK$'",
+      "why_powerful": "Verify and show failures only.",
+      "security_context": "Detecting modified system files."
+    }
+  ]
+}

@@ -10,7 +10,8 @@ const { queryOllama } = require('../ollama-adapter');
 const { getEmailAccount } = require('../email-accounts');
 const { CACHE_DIR, EXPORT_DIR, CREDENTIALS_PATH, DOWNLOADS_DIR, AUTOMATION_DIR } = require('../../utils/paths');
 
-let lastMailList = []; // Array of UIDs from last fetch_emails
+// Store lastMailList per account to avoid cross-account confusion
+const lastMailListByAccount = new Map();
 
 // Ensure directories exist
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
@@ -73,10 +74,28 @@ for (const mod of automationModules) {
 }
 
 const emailHandlers = {
-  // Existing handlers
+  // Helper to get account-scoped lastMailList
+  _getLastMailList: (accountId) => {
+    const key = accountId || 'default';
+    if (!lastMailListByAccount.has(key)) {
+      lastMailListByAccount.set(key, []);
+    }
+    return lastMailListByAccount.get(key);
+  },
+
+  // Helper to update lastMailList for an account
+  _updateLastMailList: (accountId, uids) => {
+    const key = accountId || 'default';
+    lastMailListByAccount.set(key, uids);
+  },
+
   fetch_emails: async (params, context) => {
     const account = getEmailAccount(params.account_id);
     if (!account) return { success: false, message: 'Email credentials not configured.' };
+
+    const accountKey = params.account_id || 'default';
+    const lastMailList = emailHandlers._getLastMailList(accountKey);
+    lastMailList.length = 0; // Clear existing
 
     const days = params.days || 3;
     const sinceDate = new Date();
@@ -96,7 +115,6 @@ const emailHandlers = {
       try {
         const messages = await client.fetch({ since: sinceDate }, { envelope: true });
         const emails = [];
-        lastMailList = []; 
 
         for await (let msg of messages) {
           emails.push({
@@ -119,12 +137,16 @@ const emailHandlers = {
     const account = getEmailAccount(params.account_id);
     if (!account) return { success: false, message: 'Email credentials not configured.' };
 
+    const accountKey = params.account_id || 'default';
+    const lastMailList = emailHandlers._getLastMailList(accountKey);
+    lastMailList.length = 0;
+
     const { from, to } = params;
     const dateStr = from ? from.split('T')[0] : new Date().toISOString().split('T')[0];
-    
+
     const cached = getFromCache(dateStr);
     if (cached && !params.refresh) {
-      lastMailList = cached.map(m => m.uid);
+      lastMailList.push(...cached.map(m => m.uid));
       return { success: true, message: emailToTable(cached, `Emails on ${dateStr} (Cached)`, context) };
     }
 
@@ -143,7 +165,6 @@ const emailHandlers = {
       try {
         const messages = await client.fetch(searchCriteria, { envelope: true });
         const emails = [];
-        lastMailList = [];
         for await (let msg of messages) {
           emails.push({ uid: msg.uid, date: msg.envelope.date, from: (msg.envelope.from[0].name || msg.envelope.from[0].address), subject: (msg.envelope.subject || '(No Subject)') });
           lastMailList.push(msg.uid);
@@ -158,6 +179,10 @@ const emailHandlers = {
   fetch_unread_by_date: async (params, context) => {
     const account = getEmailAccount(params.account_id);
     if (!account) return { success: false, message: 'Email credentials not configured.' };
+
+    const accountKey = params.account_id || 'default';
+    const lastMailList = emailHandlers._getLastMailList(accountKey);
+    lastMailList.length = 0;
 
     const dateStr = params.date || new Date().toISOString().split('T')[0];
     const since = new Date(dateStr);
@@ -175,7 +200,6 @@ const emailHandlers = {
       try {
         const messages = await client.fetch({ since, before, unseen: true }, { envelope: true });
         const emails = [];
-        lastMailList = [];
         for await (let msg of messages) {
           emails.push({ uid: msg.uid, date: msg.envelope.date, from: (msg.envelope.from[0].name || msg.envelope.from[0].address), subject: (msg.envelope.subject || '(No Subject)') });
           lastMailList.push(msg.uid);
@@ -190,6 +214,10 @@ const emailHandlers = {
   filter_by_time: async (params, context) => {
     const account = getEmailAccount(params.account_id);
     if (!account) return { success: false, message: 'Email credentials not configured.' };
+
+    const accountKey = params.account_id || 'default';
+    const lastMailList = emailHandlers._getLastMailList(accountKey);
+    lastMailList.length = 0;
 
     const { date, time_range } = params;
     const dateStr = date || new Date().toISOString().split('T')[0];
@@ -214,7 +242,7 @@ const emailHandlers = {
       let lock = await client.getMailboxLock('INBOX');
       try {
         const messages = await client.fetch({ since, before }, { envelope: true });
-        const emails = []; lastMailList = [];
+        const emails = [];
         for await (let msg of messages) {
           emails.push({ uid: msg.uid, date: msg.envelope.date, from: (msg.envelope.from[0].name || msg.envelope.from[0].address), subject: (msg.envelope.subject || '(No Subject)') });
           lastMailList.push(msg.uid);
@@ -229,6 +257,10 @@ const emailHandlers = {
   fetch_emails_by_filter: async (params, context) => {
     const account = getEmailAccount(params.account_id);
     if (!account) return { success: false, message: 'Email credentials not configured.' };
+
+    const accountKey = params.account_id || 'default';
+    const lastMailList = emailHandlers._getLastMailList(accountKey);
+    lastMailList.length = 0;
 
     const { date, from_contains, subject_contains } = params;
     const searchCriteria = {};
@@ -250,7 +282,7 @@ const emailHandlers = {
       let lock = await client.getMailboxLock('INBOX');
       try {
         const messages = await client.fetch(searchCriteria, { envelope: true });
-        const emails = []; lastMailList = [];
+        const emails = [];
         for await (let msg of messages) {
           emails.push({ uid: msg.uid, date: msg.envelope.date, from: (msg.envelope.from[0].name || msg.envelope.from[0].address), subject: (msg.envelope.subject || '(No Subject)') });
           lastMailList.push(msg.uid);
@@ -265,6 +297,10 @@ const emailHandlers = {
   fetch_threads_by_sender: async (params, context) => {
     const account = getEmailAccount(params.account_id);
     if (!account) return { success: false, message: 'Email credentials not configured.' };
+
+    const accountKey = params.account_id || 'default';
+    const lastMailList = emailHandlers._getLastMailList(accountKey);
+    lastMailList.length = 0;
 
     const { sender, date } = params;
     const searchCriteria = { from: sender };
@@ -284,7 +320,7 @@ const emailHandlers = {
       let lock = await client.getMailboxLock('INBOX');
       try {
         const messages = await client.fetch(searchCriteria, { envelope: true, headers: ['Message-ID', 'In-Reply-To', 'References'] });
-        const emails = []; lastMailList = [];
+        const emails = [];
         for await (let msg of messages) {
           emails.push({
             uid: msg.uid,
@@ -399,6 +435,9 @@ const emailHandlers = {
     const account = getEmailAccount(params.account_id);
     if (!account) return { success: false, message: 'Email credentials not configured.' };
 
+    const accountKey = params.account_id || 'default';
+    const lastMailList = emailHandlers._getLastMailList(accountKey);
+
     let uid = params.uid;
     const index = parseInt(params.index);
     if (!uid && !isNaN(index) && index > 0 && index <= lastMailList.length) {
@@ -461,12 +500,18 @@ const emailHandlers = {
 
   send_email: async (params) => {
     const { getEmailAccount } = require('../email-accounts');
+    const TreeReporter = require('../../utils/tree-reporter');
     const account = getEmailAccount(params.account_id);
     if (!account) return { success: false, message: 'Email credentials not configured.' };
 
     let { to, subject, body, attachments } = params;
     if (!to || !subject) return { success: false, message: 'Missing recipient (to) or subject.' };
     body = body || '';
+
+    const tree = new TreeReporter('Email Automation', 'Preparing communication');
+    tree.branch('Action', 'Send Email');
+    tree.leaf('To', to);
+    tree.leaf('Subject', subject);
 
     const { getHeebaConfig } = require('../config-loader');
     const config = getHeebaConfig();
@@ -490,46 +535,44 @@ const emailHandlers = {
       text: body
     };
 
-    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+    if (attachments && (Array.isArray(attachments) || typeof attachments === 'string')) {
+      const attArray = Array.isArray(attachments) ? attachments : [attachments];
+      tree.branch('Attachments', `${attArray.length} file(s) scanning`);
+      
       const path = require('path');
       const fsLocal = require('fs');
-      mailOptions.attachments = attachments.map(filePath => {
+      mailOptions.attachments = attArray.map(filePath => {
         const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath);
         if (fsLocal.existsSync(absolutePath)) {
+          tree.leaf('Attaching', path.basename(absolutePath));
           return { filename: path.basename(absolutePath), path: absolutePath };
         } else {
           throw new Error(`Attachment file not found: ${filePath}`);
         }
       });
-    } else if (attachments && typeof attachments === 'string') {
-        const path = require('path');
-        const fsLocal = require('fs');
-        const absolutePath = path.isAbsolute(attachments) ? attachments : path.join(process.cwd(), attachments);
-        if (fsLocal.existsSync(absolutePath)) {
-          mailOptions.attachments = [{ filename: path.basename(absolutePath), path: absolutePath }];
-        } else {
-          throw new Error(`Attachment file not found: ${attachments}`);
-        }
     }
 
     try {
       const info = await transporter.sendMail(mailOptions);
-      let msg = `Email sent successfully to ${to}! (ID: ${info.messageId})`;
-      if (mailOptions.attachments && mailOptions.attachments.length > 0) msg += ` with ${mailOptions.attachments.length} attachment(s).`;
-      return { success: true, message: msg };
-    } catch (err) { return { success: false, message: `SMTP Error: ${err.message}` }; }
+      tree.complete(`Sent Successfully (ID: ${info.messageId.substring(0, 15)}...)`);
+      return { success: true, message: tree.toString() };
+    } catch (err) { 
+        return { success: false, message: `SMTP Error: ${err.message}` }; 
+    }
   }
 };
 // Export merged handlers - wrap automation modules to provide lastMailList
 const finalHandlers = { ...emailHandlers };
 for (const [name, handler] of Object.entries(allAutomationHandlers)) {
   finalHandlers[name] = async (params, context) => {
+    // Use default account's lastMailList for automation modules
+    const lastMailList = emailHandlers._getLastMailList('default');
     return await handler(params, { ...context, lastMailList });
   };
 }
 
-// Also export lastMailList for use by automation modules
-finalHandlers._lastMailList = lastMailList;
+// Also export lastMailList map for use by automation modules (read-only reference)
+finalHandlers._lastMailListByAccount = lastMailListByAccount;
 
 module.exports = finalHandlers;
 module.exports.emailHandlers = finalHandlers;

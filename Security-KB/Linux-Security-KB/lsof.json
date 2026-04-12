@@ -1,0 +1,222 @@
+{
+  "os": "Linux",
+  "tool_name": "lsof",
+  "category": "Process Inspection",
+  "flags": [
+    {
+      "flag": "-i",
+      "example_command": "lsof -i :22",
+      "purpose": "List network connections, optionally filtered by port.",
+      "security_use_case": "Identify unexpected network listeners.",
+      "threat_detected": "Reverse shell, bind shell, malware C2.",
+      "risk_if_misused": "None.",
+      "safe_followup": "kill -9 <PID>; ss -tulpn.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-p",
+      "example_command": "lsof -p 1234",
+      "purpose": "List all files open by specified process.",
+      "security_use_case": "Investigate suspicious process.",
+      "threat_detected": "Malware opening configs or sockets.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ps -p <PID>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-u",
+      "example_command": "lsof -u ubuntu",
+      "purpose": "List files opened by processes owned by user.",
+      "security_use_case": "Audit user activity.",
+      "threat_detected": "Compromised account activity.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ps -u <user>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-c",
+      "example_command": "lsof -c ssh",
+      "purpose": "List files by process command name.",
+      "security_use_case": "Track specific daemon activity.",
+      "threat_detected": "Unauthorized file access by daemons.",
+      "risk_if_misused": "None.",
+      "safe_followup": "lsof -c ssh -i.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-a",
+      "example_command": "lsof -i :22 -a -u root",
+      "purpose": "AND combine selection criteria.",
+      "security_use_case": "Narrow results: root user on port 22.",
+      "threat_detected": "Root-level processes on privileged ports.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Investigate each result.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-P",
+      "example_command": "lsof -i -P",
+      "purpose": "Inhibit port number conversion to service names.",
+      "security_use_case": "Get exact port numbers.",
+      "threat_detected": "Service name masking.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Combine with -n.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-n",
+      "example_command": "lsof -i -n",
+      "purpose": "Do not convert host addresses to hostnames.",
+      "security_use_case": "Avoid DNS lookup delays.",
+      "threat_detected": "DNS-based evasion.",
+      "risk_if_misused": "None.",
+      "safe_followup": "lsof -i -P -n.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-b",
+      "example_command": "lsof -b",
+      "purpose": "Avoid blocking kernel functions.",
+      "security_use_case": "Run safely on unresponsive filesystems.",
+      "threat_detected": "Blocking on corrupted filesystems.",
+      "risk_if_misused": "May produce incomplete results.",
+      "safe_followup": "Check for UNKN entries.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "+D",
+      "example_command": "lsof +D /var/log",
+      "purpose": "Recursively search directory tree.",
+      "security_use_case": "Find all processes accessing a directory.",
+      "threat_detected": "Malware accessing logs to tamper.",
+      "risk_if_misused": "Can be slow on large directories.",
+      "safe_followup": "Kill process after investigation.",
+      "automation_safe": false,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "+d",
+      "example_command": "lsof +d /etc/",
+      "purpose": "Search directory top-level only.",
+      "security_use_case": "Quick non-recursive directory check.",
+      "threat_detected": "Processes accessing /etc directly.",
+      "risk_if_misused": "None.",
+      "safe_followup": "auditd -w /etc.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-t",
+      "example_command": "lsof -t -i :8080",
+      "purpose": "Display only process IDs (terse mode).",
+      "security_use_case": "Get PID for automated scripts.",
+      "threat_detected": "Quick PID extraction.",
+      "risk_if_misused": "None.",
+      "safe_followup": "kill -9 $(lsof -t -i :<port>).",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-r",
+      "example_command": "lsof -r 5",
+      "purpose": "Repeat mode with specified delay.",
+      "security_use_case": "Continuous monitoring during incident response.",
+      "threat_detected": "Brief connections from malware.",
+      "risk_if_misused": "Can generate large output.",
+      "safe_followup": "Ctrl+C to stop.",
+      "automation_safe": false,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "+L",
+      "example_command": "lsof +L1",
+      "purpose": "Show deleted files still open.",
+      "security_use_case": "Find log tampering malware.",
+      "threat_detected": "Malware deleting files while keeping them open.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Check /proc/<PID>/fd.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-U",
+      "example_command": "lsof -U",
+      "purpose": "List UNIX domain sockets.",
+      "security_use_case": "Detect local IPC sockets.",
+      "threat_detected": "UNIX socket backdoors, privilege escalation.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ss -x.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-N",
+      "example_command": "lsof -N",
+      "purpose": "List NFS files.",
+      "security_use_case": "Monitor network-mounted filesystems.",
+      "threat_detected": "Unauthorized NFS access.",
+      "risk_if_misused": "None.",
+      "safe_followup": "showmount -e.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-g",
+      "example_command": "lsof -g 1000",
+      "purpose": "List files for processes with specific PGID.",
+      "security_use_case": "Audit process group activity.",
+      "threat_detected": "Multi-process malware.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ps -g <PGID>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-F",
+      "example_command": "lsof -F pcfn",
+      "purpose": "Machine-parseable field output.",
+      "security_use_case": "SIEM integration and automated monitoring.",
+      "threat_detected": "Automated anomaly detection.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Parse with awk/perl/python.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-z",
+      "example_command": "lsof -z z",
+      "purpose": "List files with SELinux security contexts.",
+      "security_use_case": "Audit SELinux context violations.",
+      "threat_detected": "Wrong SELinux context processes.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch for AVC denials.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "lsof -i -P -n | grep -v LISTEN",
+      "why_powerful": "Shows non-listening connections without resolution.",
+      "security_context": "Detecting reverse shells."
+    },
+    {
+      "command": "lsof +L1",
+      "why_powerful": "Reveals deleted files still held open.",
+      "security_context": "Finding log tampering malware."
+    },
+    {
+      "command": "lsof -p $(lsof -t -i :<port>)",
+      "why_powerful": "Two-stage: get PID then dump all its files.",
+      "security_context": "Full profile of suspicious process."
+    }
+  ]
+}

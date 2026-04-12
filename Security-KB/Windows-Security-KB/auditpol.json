@@ -1,0 +1,126 @@
+{
+  "os": "Windows",
+  "tool_name": "auditpol",
+  "entity": "AuditPol",
+  "category": "Event Logs",
+  "description": "Command-line tool to view and configure Windows Advanced Audit Policy for security event logging.",
+  "prerequisites": [
+    "Administrator privileges for /set, /restore, /clear",
+    "Windows Vista or later for Advanced Audit Policy",
+    "PowerShell recommended for CSV parsing and automation"
+  ],
+  "log_sources": [
+    "Security Event Log",
+    "Advanced Audit Policy Subcategories"
+  ],
+  "flags": [
+    {
+      "flag": "/get /category:*",
+      "example_command": "auditpol /get /category:*",
+      "purpose": "Displays current audit policy for all top-level categories.",
+      "outputs": "Readable table of audit success/failure settings per category.",
+      "security_use_case": "Baseline audit coverage review for compliance and SOC visibility.",
+      "threat_detected": "Missing audit categories allowing attacker activity without logs.",
+      "detection_mapping": ["Log tampering visibility gaps", "Audit coverage validation"],
+      "risk_if_misused": "None (read-only). Does not show granular subcategory detail.",
+      "safe_followup": "Run /get /subcategory:* for detailed coverage.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/get /subcategory:*",
+      "example_command": "auditpol /get /subcategory:\"Sensitive Privilege Use\"",
+      "purpose": "Retrieves audit policy for granular subcategories.",
+      "outputs": "Success/Failure audit state for specific sensitive operations.",
+      "security_use_case": "Verify auditing for privilege use, process creation, registry, and credential validation.",
+      "threat_detected": "Privilege abuse or credential attacks occurring without logs.",
+      "detection_mapping": ["Privilege escalation", "Credential abuse", "Process abuse"],
+      "risk_if_misused": "None (read-only). Requires exact subcategory names.",
+      "safe_followup": "Enable success and failure auditing using /set.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/set",
+      "example_command": "auditpol /set /subcategory:\"Account Lockout\" /failure:enable",
+      "purpose": "Enables or disables auditing for categories/subcategories.",
+      "outputs": "Modified audit configuration reflected in Security Event Log behavior.",
+      "security_use_case": "Enable failure auditing to detect brute-force and abuse attempts.",
+      "threat_detected": "Attack activity not logged due to disabled audit policies.",
+      "detection_mapping": ["Brute force", "Account abuse", "Unauthorized access attempts"],
+      "risk_if_misused": "May generate excessive logs; requires admin rights; potential performance/log overflow.",
+      "safe_followup": "Configure log retention, forwarding to SIEM, and monitor event volume.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/backup",
+      "example_command": "auditpol /backup /file:C:\\Audit\\audit_policy_backup.csv",
+      "purpose": "Backs up current audit policy to CSV.",
+      "outputs": "CSV file containing full audit configuration.",
+      "security_use_case": "Create baseline before changes and for compliance documentation.",
+      "threat_detected": "N/A (documentation operation).",
+      "detection_mapping": ["Baseline integrity", "Configuration documentation"],
+      "risk_if_misused": "Backup file must be protected from tampering.",
+      "safe_followup": "Store backup securely; compare with /get outputs regularly.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/restore",
+      "example_command": "auditpol /restore /file:C:\\Audit\\audit_policy_backup.csv",
+      "purpose": "Restores audit policy from backup.",
+      "outputs": "Audit configuration reverted to backup state.",
+      "security_use_case": "Recover from misconfiguration or post-incident recovery.",
+      "threat_detected": "Restoring maliciously modified backup or wrong host policy.",
+      "detection_mapping": ["Configuration rollback validation"],
+      "risk_if_misused": "Must verify backup integrity and host relevance.",
+      "safe_followup": "Validate with /get after restore; test in non-production.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/list /subcategory",
+      "example_command": "auditpol /list /subcategory",
+      "purpose": "Lists all configurable audit subcategories.",
+      "outputs": "Full list of advanced audit subcategories.",
+      "security_use_case": "Plan comprehensive audit strategy.",
+      "threat_detected": "N/A (discovery operation).",
+      "detection_mapping": ["Audit planning"],
+      "risk_if_misused": "None (read-only).",
+      "safe_followup": "Review each for security relevance.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/clear",
+      "example_command": "auditpol /clear",
+      "purpose": "Resets audit policy to system defaults.",
+      "outputs": "All custom audit settings removed.",
+      "security_use_case": "Only when baseline is unknown and full reset is required.",
+      "threat_detected": "Destroys forensic audit trail if used during investigation.",
+      "detection_mapping": ["Audit trail destruction risk"],
+      "risk_if_misused": "Highly dangerous; removes all custom auditing.",
+      "safe_followup": "Always perform /backup before; avoid in live environments.",
+      "automation_safe": false,
+      "risk_level": "dangerous_never_auto"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "auditpol /get /category:* /r | ConvertFrom-Csv",
+      "why_powerful": "Converts audit category output into structured CSV for automation and reporting.",
+      "security_context": "SOC baseline audit review and compliance reporting."
+    },
+    {
+      "command": "auditpol /get /subcategory:\"Credential Validation\",\"User Account Management\",\"Security Group Management\",\"Audit Policy Change\" /r",
+      "why_powerful": "Focuses on the most attack-relevant subcategories for account compromise detection.",
+      "security_context": "Detect credential theft, group privilege abuse, and audit tampering."
+    },
+    {
+      "command": "auditpol /backup /file:\"$env:COMPUTERNAME-audit-$(Get-Date -Format yyyyMMdd).csv\"; auditpol /get /category:* /r | ConvertFrom-Csv | Export-Csv all_audit_policies.csv -NoTypeInformation",
+      "why_powerful": "Creates timestamped backup and full export for forensic readiness.",
+      "security_context": "Disaster recovery, compliance evidence, and incident preparation."
+    }
+  ]
+}

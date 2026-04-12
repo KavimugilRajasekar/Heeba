@@ -1,0 +1,90 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-NetFirewallRule",
+  "category": "Firewall",
+  "description": "PowerShell cmdlet to retrieve firewall rules from Windows Defender Firewall with Advanced Security.",
+  "prerequisites": [
+    "PowerShell 3.0+",
+    "Administrative privileges for remote queries or full rule visibility",
+    "NetSecurity module loaded"
+  ],
+  "log_sources": [
+    "Windows Defender Firewall operational logs",
+    "Group Policy stored rules",
+    "Registry policy stores"
+  ],
+  "flags": [
+    {
+      "flag": "-DisplayName",
+      "example_command": "Get-NetFirewallRule -DisplayName '*Remote Desktop*' | Select-Object DisplayName,Enabled,Direction,Action",
+      "purpose": "Retrieves firewall rules by their display name using wildcard matching.",
+      "security_use_case": "Find rules allowing RDP, SMB, or other sensitive services that attackers may enable for lateral movement.",
+      "threat_detected": "Unauthorized enabling of Remote Desktop or file sharing ports by malware or attackers.",
+      "risk_if_misused": "None; read-only. Wildcards may return many rules.",
+      "safe_followup": "Use Set-NetFirewallRule to disable suspicious rules after verification.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Enabled",
+      "example_command": "Get-NetFirewallRule -Enabled True | Select-Object DisplayName,Direction,Action",
+      "purpose": "Filters firewall rules based on whether they are enabled or disabled.",
+      "security_use_case": "Audit all currently active firewall rules that impact live traffic flow.",
+      "threat_detected": "Malicious rules enabled to allow backdoor communication or data exfiltration.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Compare with baseline firewall policy for deviations.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Direction",
+      "example_command": "Get-NetFirewallRule -Direction Inbound | Select-Object DisplayName,Action,Profile",
+      "purpose": "Filters rules based on traffic direction (Inbound or Outbound).",
+      "security_use_case": "Review inbound rules that allow unsolicited connections into the system.",
+      "threat_detected": "Backdoor ports opened to accept incoming attacker connections.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Review associated ports using Get-NetFirewallPortFilter.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Action",
+      "example_command": "Get-NetFirewallRule -Action Allow | Select-Object DisplayName,Direction",
+      "purpose": "Filters rules that explicitly allow traffic through the firewall.",
+      "security_use_case": "Identify all allow rules which could permit risky or unauthorized communication.",
+      "threat_detected": "Firewall rules allowing command-and-control or exfiltration channels.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Validate necessity of each allow rule against policy.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Profile",
+      "example_command": "Get-NetFirewallRule -Profile Domain,Private | Select-Object DisplayName,Enabled",
+      "purpose": "Filters rules applied to specific network profiles (Domain, Private, Public).",
+      "security_use_case": "Detect rules active on Public profile which may expose the system on untrusted networks.",
+      "threat_detected": "Rules mistakenly enabled on Public networks increasing attack surface.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Restrict risky rules to Domain profile only if appropriate.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "Get-NetFirewallRule -Enabled True -Direction Inbound -Action Allow | Get-NetFirewallPortFilter | Select-Object Name,Protocol,LocalPort",
+      "why_powerful": "Shows exactly which inbound ports are currently open and allowed through the firewall.",
+      "security_context": "Detecting unauthorized open ports used by malware, backdoors, or lateral movement tools."
+    },
+    {
+      "command": "Get-NetFirewallRule | Where-Object {$_.DisplayName -match 'RDP|SMB|FTP|SSH'} | Select DisplayName,Enabled,Direction,Action",
+      "why_powerful": "Quickly finds rules related to high-risk remote access and file transfer services.",
+      "security_context": "Identifying services attackers typically enable for persistence or data exfiltration."
+    },
+    {
+      "command": "Get-NetFirewallRule -PolicyStore ActiveStore | Select DisplayName,PolicyStoreSource",
+      "why_powerful": "Reveals whether rules were created locally or pushed via Group Policy.",
+      "security_context": "Detecting locally added firewall rules that bypass organizational security policy."
+    }
+  ]
+}

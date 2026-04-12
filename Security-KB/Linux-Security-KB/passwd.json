@@ -1,0 +1,58 @@
+{
+  "os": "Linux",
+  "tool_name": "passwd",
+  "category": "User Audit",
+  "flags": [
+    {
+      "flag": "-l",
+      "example_command": "passwd -l username",
+      "purpose": "Lock account.",
+      "security_use_case": "Emergency lockout of compromised account.",
+      "threat_detected": "Compromised account.",
+      "risk_if_misused": "May lock out legitimate user.",
+      "safe_followup": "passwd -u to unlock.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-u",
+      "example_command": "passwd -u username",
+      "purpose": "Unlock account.",
+      "security_use_case": "Restore after resolution.",
+      "threat_detected": "Post-incident recovery.",
+      "risk_if_misused": "Ensure compromise resolved first.",
+      "safe_followup": "Verify password changed.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-d",
+      "example_command": "passwd -d username",
+      "purpose": "Delete password.",
+      "security_use_case": "Emergency passwordless access.",
+      "threat_detected": "Attacker creating backdoor.",
+      "risk_if_misused": "Extremely dangerous.",
+      "safe_followup": "Set new password immediately.",
+      "automation_safe": false,
+      "risk_level": "dangerous_never_auto"
+    },
+    {
+      "flag": "-e",
+      "example_command": "passwd -e username",
+      "purpose": "Expire password.",
+      "security_use_case": "Force password change.",
+      "threat_detected": "Post-breach forced reset.",
+      "risk_if_misused": "Immediate login disruption.",
+      "safe_followup": "Inform user.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "passwd -l <compromised_user> && last | grep <user>",
+      "why_powerful": "Lock and investigate.",
+      "security_context": "Emergency account response."
+    }
+  ]
+}

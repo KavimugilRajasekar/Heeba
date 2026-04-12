@@ -1,0 +1,25 @@
+{
+  "os": "Linux",
+  "tool_name": "md5sum",
+  "category": "System Integrity",
+  "flags": [
+    {
+      "flag": "-c",
+      "example_command": "md5sum -c checksums.md5",
+      "purpose": "Verify checksums.",
+      "security_use_case": "Verify integrity.",
+      "threat_detected": "Modified files.",
+      "risk_if_misused": "MD5 is cryptographically weak.",
+      "safe_followup": "Use sha256sum instead.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "find /etc -type f -exec md5sum {} \\; > /tmp/etc_hashes.md5",
+      "why_powerful": "Baseline /etc directory.",
+      "security_context": "Configuration integrity."
+    }
+  ]
+}

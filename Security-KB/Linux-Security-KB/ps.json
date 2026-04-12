@@ -1,0 +1,205 @@
+{
+  "os": "Linux",
+  "tool_name": "ps",
+  "category": "Process Inspection",
+  "flags": [
+    {
+      "flag": "-e",
+      "example_command": "ps -e",
+      "purpose": "Select all processes.",
+      "security_use_case": "Complete process inventory.",
+      "threat_detected": "Unauthorized processes, hidden malware.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ps -eLf for threads.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-f",
+      "example_command": "ps -ef",
+      "purpose": "Full-format listing with PPID.",
+      "security_use_case": "View parent-child relationships.",
+      "threat_detected": "Suspicious process spawning.",
+      "risk_if_misused": "None.",
+      "safe_followup": "pstree for visual tree.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-F",
+      "example_command": "ps -eF",
+      "purpose": "Extra full format with memory info.",
+      "security_use_case": "Detect memory anomalies.",
+      "threat_detected": "Cryptomining, memory exhaustion.",
+      "risk_if_misused": "None.",
+      "safe_followup": "top for live view.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-L",
+      "example_command": "ps -eLF",
+      "purpose": "Display process threads.",
+      "security_use_case": "Detect multi-threaded malware.",
+      "threat_detected": "Thread injection.",
+      "risk_if_misused": "None.",
+      "safe_followup": "top -H.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-p",
+      "example_command": "ps -p 1234",
+      "purpose": "Select by process ID.",
+      "security_use_case": "Examine specific process.",
+      "threat_detected": "Suspicious process.",
+      "risk_if_misused": "None.",
+      "safe_followup": "lsof -p <PID>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-C",
+      "example_command": "ps -C sshd",
+      "purpose": "Select by command name.",
+      "security_use_case": "Find all instances of executable.",
+      "threat_detected": "Multiple rogue instances.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ps -C <name> -o pid,user.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-U",
+      "example_command": "ps -U root",
+      "purpose": "Select by real user ID.",
+      "security_use_case": "View root processes.",
+      "threat_detected": "Privilege escalation.",
+      "risk_if_misused": "None.",
+      "safe_followup": "auditd rules.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-u",
+      "example_command": "ps -u www-data",
+      "purpose": "Select by effective user ID.",
+      "security_use_case": "View user processes.",
+      "threat_detected": "Unauthorized actions.",
+      "risk_if_misused": "None.",
+      "safe_followup": "strace -p <PID>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-o",
+      "example_command": "ps -e -o pid,user,comm,%cpu,%mem,etime,args",
+      "purpose": "User-defined format.",
+      "security_use_case": "Custom output for dashboards.",
+      "threat_detected": "High CPU/memory anomalies.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Sort with --sort.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "--sort",
+      "example_command": "ps -e -o pid,comm,%cpu,%mem --sort=-%cpu",
+      "purpose": "Sort by column.",
+      "security_use_case": "Find top resource consumers.",
+      "threat_detected": "Cryptomining, DoS.",
+      "risk_if_misused": "None.",
+      "safe_followup": "head for top N.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "ax",
+      "example_command": "ps ax",
+      "purpose": "BSD style: all processes including those without tty.",
+      "security_use_case": "Complete process list.",
+      "threat_detected": "Daemon processes, background malware.",
+      "risk_if_misused": "None.",
+      "safe_followup": "grep for patterns.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "aux",
+      "example_command": "ps aux",
+      "purpose": "All processes with user (industry standard).",
+      "security_use_case": "Complete process list with resource usage.",
+      "threat_detected": "Resource anomalies, unknown processes.",
+      "risk_if_misused": "None.",
+      "safe_followup": "awk '$3 > 80'.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-ejH",
+      "example_command": "ps -ejH",
+      "purpose": "BSD style process tree.",
+      "security_use_case": "Visual parent-child relationships.",
+      "threat_detected": "Unusual parent processes.",
+      "risk_if_misused": "None.",
+      "safe_followup": "pstree.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "axjf",
+      "example_command": "ps axjf",
+      "purpose": "ASCII forest process tree.",
+      "security_use_case": "Tree view of process hierarchy.",
+      "threat_detected": "Multi-process malware.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Look for orphaned processes.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "axZ",
+      "example_command": "ps axZ",
+      "purpose": "All processes with SELinux context.",
+      "security_use_case": "View SELinux contexts.",
+      "threat_detected": "Wrong SELinux context.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "--ppid",
+      "example_command": "ps --ppid 1234",
+      "purpose": "Select by parent process ID.",
+      "security_use_case": "View children of specific process.",
+      "threat_detected": "Suspicious parent spawning.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Kill entire tree.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "ps aux | grep -v grep | awk '$3 > 80 {print}'",
+      "why_powerful": "Find processes over 80% CPU.",
+      "security_context": "Detecting cryptomining and DoS malware."
+    },
+    {
+      "command": "ps -eLf | awk '{print $2}' | sort | uniq -c | sort -rn | head",
+      "why_powerful": "Count threads per PID.",
+      "security_context": "Detecting thread injection."
+    },
+    {
+      "command": "ps -U root -u root u",
+      "why_powerful": "All root processes in user format.",
+      "security_context": "Auditing root-level activity."
+    },
+    {
+      "command": "ps -ejH | grep -v grep",
+      "why_powerful": "Process tree for detecting unusual spawning.",
+      "security_context": "Finding suspicious process hierarchies."
+    }
+  ]
+}

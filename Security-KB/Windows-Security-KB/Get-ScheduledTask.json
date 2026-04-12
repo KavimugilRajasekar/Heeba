@@ -1,0 +1,46 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-ScheduledTask",
+  "category": "Scheduled Tasks",
+  "flags": [
+    {
+      "flag": "-TaskName",
+      "example_command": "Get-ScheduledTask -TaskName 'PowerShell*' | Select-Object TaskName,State,Description",
+      "purpose": "Retrieves scheduled tasks by name (supports wildcards) to locate tasks related to specific apps or scripts.",
+      "security_use_case": "Find PowerShell-related tasks often abused for persistence or lateral movement.",
+      "threat_detected": "Malicious scripts set to run at logon or intervals for persistence or C2.",
+      "risk_if_misused": "None; read-only. Wildcards may return many results.",
+      "safe_followup": "Use Get-ScheduledTaskInfo for timing; inspect actions with Get-ScheduledTask | Get-ScheduledTaskAction; remove with Unregister-ScheduledTask if confirmed malicious.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-TaskPath",
+      "example_command": "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\' | Where-Object {$_.State -ne 'Disabled'}",
+      "purpose": "Retrieves tasks from a specific folder path in the scheduler namespace (must start with backslash).",
+      "security_use_case": "Audit Microsoft namespace for masqueraded or unauthorized tasks.",
+      "threat_detected": "Malware placing tasks under Microsoft paths to appear legitimate.",
+      "risk_if_misused": "None; read-only. Correct path format required.",
+      "safe_followup": "Review triggers with Get-ScheduledTaskTrigger; export with Export-ScheduledTask before changes.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "Get-ScheduledTask | Where-Object {$_.State -ne 'Disabled'} | ForEach-Object { Get-ScheduledTaskInfo -TaskName $_.TaskName -TaskPath $_.TaskPath } | Select-Object TaskName,LastRunTime,NextRunTime,LastTaskResult",
+      "why_powerful": "Shows history and next run time for enabled tasks to spot suspicious timing or failures.",
+      "security_context": "Detect unusual execution patterns indicating compromise."
+    },
+    {
+      "command": "Get-ScheduledTask | ForEach-Object { $_ | Get-ScheduledTaskAction | Where-Object {$_.Execute -match 'powershell\\.exe' -or $_.Arguments -match '-enc|-encodedcommand'} | Select-Object @{N='TaskName';E={$_.PSParentPath.Split('\\')[-1]}},Execute,Arguments }",
+      "why_powerful": "Finds tasks executing PowerShell with encoded arguments commonly used in fileless attacks.",
+      "security_context": "Detect obfuscated PowerShell persistence via scheduled tasks."
+    },
+    {
+      "command": "Get-ScheduledTask | Where-Object {$_.TaskPath -notmatch '\\\\Microsoft\\\\'} | Select-Object TaskName,TaskPath,State,Description | Format-Table -AutoSize",
+      "why_powerful": "Highlights non-Microsoft tasks more likely to be third-party or malicious.",
+      "security_context": "Identify suspicious scheduled tasks created by software or attackers."
+    }
+  ]
+}

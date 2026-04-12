@@ -51,15 +51,45 @@ function queryOllama(userInput, mode, CONFIG, onToken, history = []) {
             fullPrompt = `${systemPrompt}\n\nUSER: ${userInput}\nASST:`;
         }
 
-        const postData = JSON.stringify({
-            model: modelName,
-            prompt: fullPrompt,
-            stream: false,
-            options: {
-                temperature: 0.7,
-                top_p: 0.9
-            }
-        });
+        let postDataObj = {};
+        const isChatApi = modelConfig.type === 'openrouter' || modelConfig.type === 'openai';
+
+        if (isChatApi) {
+            // Chat Completions format
+            const messages = [];
+            if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+            
+            // Add history if available
+            effectiveHistory.forEach(h => {
+                messages.push({ role: 'user', content: h.user || h.prompt });
+                messages.push({ role: 'assistant', content: h.assistant || h.response });
+            });
+            
+            messages.push({ role: 'user', content: userInput });
+
+            postDataObj = {
+                model: modelName,
+                messages: messages,
+                stream: false,
+                max_tokens: CONFIG.num_predict || 2048,
+                temperature: CONFIG.temperature || 0.7,
+                top_p: CONFIG.top_p || 0.9
+            };
+        } else {
+            // Ollama / Completion format
+            postDataObj = {
+                model: modelName,
+                prompt: fullPrompt,
+                stream: false,
+                options: {
+                    temperature: CONFIG.temperature || 0.7,
+                    top_p: CONFIG.top_p || 0.9,
+                    num_predict: CONFIG.num_predict || 2048
+                }
+            };
+        }
+
+        const postData = JSON.stringify(postDataObj);
 
         let url;
         try {
@@ -82,6 +112,7 @@ function queryOllama(userInput, mode, CONFIG, onToken, history = []) {
             }
         };
 
+
         const agent = url.protocol === 'https:' ? require('https') : require('http');
         const req = agent.request(options, (res) => {
             let fullResponse = '';
@@ -94,21 +125,49 @@ function queryOllama(userInput, mode, CONFIG, onToken, history = []) {
                 isLLMRunning = false;
                 try {
                     const json = JSON.parse(fullResponse);
-                    if (json.response) {
+                    let responseText = null;
+
+                    // Handle API Errors (OpenRouter/OpenAI format)
+                    if (json.error) {
+                        const errorMsg = json.error.message || json.error.code || 'Unknown API Error';
+                        reject(new Error(`API Error: ${errorMsg}`));
+                        return;
+                    }
+
+                    // Ollama format: json.response
+                    if (json.response !== undefined && json.response !== null) {
+                        responseText = json.response;
+                    }
+                    // OpenRouter text format: choices[0].text
+                    else if (json.choices && json.choices[0] && json.choices[0].text !== undefined) {
+                        responseText = json.choices[0].text;
+                    }
+                    // OpenAI/standard format: choices[0].message.content
+                    else if (json.choices && json.choices[0] && json.choices[0].message) {
+                        responseText = json.choices[0].message.content;
+                    }
+                    // Generic fallback
+                    else if (typeof json === 'string') {
+                        responseText = json;
+                    }
+
+                    if (responseText !== null) {
                         if (mode === 'auto') {
-                            conversationHistory.push({ user: userInput, assistant: json.response });
+                            conversationHistory.push({ user: userInput, assistant: responseText });
                             if (conversationHistory.length > 10) conversationHistory.shift();
                         }
-                        totalTokensUsed += json.eval_count || 0;
+                        totalTokensUsed += json.eval_count || json.usage?.total_tokens || 0;
                         if (onToken) {
-                            onToken(json.response);
+                            onToken(responseText);
                         }
-                        resolve(json.response);
+                        resolve(responseText);
                     } else {
-                        reject(new Error('Invalid response from Ollama API'));
+                        // Log full response for debugging if format is unknown
+                        console.error('Unknown API Response Format:', JSON.stringify(json, null, 2));
+                        reject(new Error('Invalid response format from API. Please check console for details.'));
                     }
                 } catch (e) {
-                    reject(new Error('Failed to parse Ollama response: ' + e.message));
+                    reject(new Error('Failed to parse API response: ' + e.message + '\nRaw: ' + fullResponse.substring(0, 500)));
                 }
             });
         });

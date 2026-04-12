@@ -1,0 +1,128 @@
+{
+  "os": "Windows",
+  "tool_name": "wevtutil",
+  "category": "Event Logs",
+  "flags": [
+    {
+      "flag": "el",
+      "example_command": "wevtutil el | findstr /i \"security system application\"",
+      "purpose": "List all event logs including custom and hidden logs.",
+      "security_use_case": "Discover attacker-created or uncommon logs.",
+      "threat_detected": "Custom logs used for staging data or tracking activity.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Query logs with qe; inspect config with gl.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "qe",
+      "example_command": "wevtutil qe Security /q:\"*[System[(EventID=4624)]]\" /c:100 /rd:true /f:text",
+      "purpose": "Query events using XPath filters.",
+      "security_use_case": "Investigate logons, process creation, privilege use.",
+      "threat_detected": "Credential compromise, lateral movement.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Export results; widen query time range if needed.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "gli",
+      "example_command": "wevtutil gli Security",
+      "purpose": "Get detailed log information including record count and last write time.",
+      "security_use_case": "Check whether logs were recently cleared or tampered.",
+      "threat_detected": "Sudden drop in record count indicating log clearing.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Correlate with Event ID 1102 (log cleared).",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "gl",
+      "example_command": "wevtutil gl Security | findstr /i \"enabled logpath maxsize\"",
+      "purpose": "View log configuration such as size, path, retention.",
+      "security_use_case": "Ensure proper forensic retention settings.",
+      "threat_detected": "Small log size causing overwrite of evidence.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Increase size using sl if required.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "epl",
+      "example_command": "wevtutil epl Security C:\\Forensics\\Security.evtx",
+      "purpose": "Export logs for preservation and analysis.",
+      "security_use_case": "Preserve evidence before log rotation or tampering.",
+      "threat_detected": "N/A – preservation step.",
+      "risk_if_misused": "Sensitive data exposure if stored insecurely.",
+      "safe_followup": "Analyze with SIEM or offline tools.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "cl",
+      "example_command": "wevtutil cl Security",
+      "purpose": "Clear all events from a log.",
+      "security_use_case": "Rare maintenance action only after backup.",
+      "threat_detected": "Attackers clearing logs to hide traces (Event ID 1102).",
+      "risk_if_misused": "Permanent loss of forensic evidence.",
+      "safe_followup": "Always export with epl before clearing.",
+      "automation_safe": false,
+      "risk_level": "dangerous_never_auto"
+    },
+    {
+      "flag": "sl",
+      "example_command": "wevtutil sl Security /ms:209715200",
+      "purpose": "Set log size and retention behavior.",
+      "security_use_case": "Increase retention window for investigations.",
+      "threat_detected": "Reduced size causing evidence overwrite.",
+      "risk_if_misused": "May disable logging if misconfigured.",
+      "safe_followup": "Verify with gl after change.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/f",
+      "example_command": "wevtutil qe Security /f:xml /c:50",
+      "purpose": "Choose output format (text, xml, rendered).",
+      "security_use_case": "XML format for automated parsing.",
+      "threat_detected": "N/A – formatting.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Use XML for tooling and scripts.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/c",
+      "example_command": "wevtutil qe System /c:200 /rd:true",
+      "purpose": "Limit number of returned events.",
+      "security_use_case": "Quick recent activity review.",
+      "threat_detected": "May miss older relevant events.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Increase count or filter by time.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "wevtutil qe Security /q:\"*[System[(EventID=4624 or EventID=4625 or EventID=4672 or EventID=4688)]]\" /c:500 /rd:true /f:text",
+      "why_powerful": "Shows logons, failures, privilege use, and process creation together.",
+      "security_context": "Rapid detection of compromise and privilege escalation."
+    },
+    {
+      "command": "wevtutil qe Security /q:\"*[System[(EventID=1102)]]\" /f:text",
+      "why_powerful": "Detects when Security log was cleared.",
+      "security_context": "Strong indicator of attacker anti-forensics activity."
+    },
+    {
+      "command": "for /f %i in ('wevtutil el') do @wevtutil gl %i | findstr /i \"enabled maxsize logpath\" & echo ===",
+      "why_powerful": "Inventory of all log configurations on the system.",
+      "security_context": "Find weak log retention settings across logs."
+    },
+    {
+      "command": "wevtutil epl Security C:\\Forensics\\Security.evtx && wevtutil epl System C:\\Forensics\\System.evtx && wevtutil epl Application C:\\Forensics\\Application.evtx",
+      "why_powerful": "Preserves core forensic evidence quickly.",
+      "security_context": "First response step during incident handling."
+    }
+  ]
+}

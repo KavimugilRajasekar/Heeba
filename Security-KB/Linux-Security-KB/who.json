@@ -1,0 +1,58 @@
+{
+  "os": "Linux",
+  "tool_name": "who",
+  "category": "User Audit",
+  "flags": [
+    {
+      "flag": "-a",
+      "example_command": "who -a",
+      "purpose": "Show all information.",
+      "security_use_case": "Complete user information.",
+      "threat_detected": "Current users, system state.",
+      "risk_if_misused": "None.",
+      "safe_followup": "who -a > audit.txt.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-b",
+      "example_command": "who -b",
+      "purpose": "Show last boot time.",
+      "security_use_case": "Check last reboot.",
+      "threat_detected": "Unexpected reboot.",
+      "risk_if_misused": "None.",
+      "safe_followup": "last reboot.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-H",
+      "example_command": "who -H",
+      "purpose": "Print column headers.",
+      "security_use_case": "Readable output with headers.",
+      "threat_detected": "Headers for reports.",
+      "risk_if_misused": "None.",
+      "safe_followup": "who -H.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-r",
+      "example_command": "who -r",
+      "purpose": "Show current run level.",
+      "security_use_case": "Check system run level.",
+      "threat_detected": "Unexpected run level.",
+      "risk_if_misused": "None.",
+      "safe_followup": "who -r.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "who -a | grep -v runlevel",
+      "why_powerful": "Current user audit.",
+      "security_context": "Active session monitoring."
+    }
+  ]
+}

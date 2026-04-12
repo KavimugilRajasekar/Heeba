@@ -1,0 +1,80 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-NetRoute",
+  "category": "Network Inspection",
+  "flags": [
+    {
+      "flag": "-DestinationPrefix",
+      "example_command": "Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object NextHop,InterfaceAlias,RouteMetric",
+      "purpose": "Filter routes by destination prefix to identify specific routes including the default gateway.",
+      "security_use_case": "Identify the default gateway and primary egress path used for outbound traffic.",
+      "threat_detected": "Unexpected default gateway indicating route hijacking, VPN redirection, or rogue DHCP influence.",
+      "detection_pattern": "DestinationPrefix = 0.0.0.0/0 AND NextHop not in baseline list.",
+      "forensic_value": "Shows which gateway the system used during incident timeframe for internet-bound traffic.",
+      "baseline_value": "Default gateway and interface should match known network design.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Validate gateway MAC with Get-NetNeighbor; compare against baseline.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-InterfaceAlias",
+      "example_command": "Get-NetRoute -InterfaceAlias 'Ethernet*' | Select-Object DestinationPrefix,NextHop,RouteMetric,InterfaceMetric",
+      "purpose": "Filter routes bound to a specific network interface.",
+      "security_use_case": "Audit routing table for multi-homed hosts and detect unexpected routing via secondary adapters.",
+      "threat_detected": "Routes present on unexpected adapters (e.g., Wi-Fi, VPN, virtual NIC).",
+      "detection_pattern": "InterfaceAlias not in approved adapters list.",
+      "forensic_value": "Indicates which adapter carried suspicious traffic.",
+      "baseline_value": "Critical routes should exist only on approved primary adapters.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Validate adapters with Get-NetAdapter; review VPN/virtual NIC software.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Protocol",
+      "example_command": "Get-NetRoute -Protocol DHCP | Select-Object InterfaceAlias,DestinationPrefix,NextHop,RouteMetric",
+      "purpose": "Filter routes by the protocol that installed them (Local, NetMgmt, DHCP, RIP, OSPF, BGP, etc.).",
+      "security_use_case": "Detect routes injected by DHCP or dynamic routing protocols.",
+      "threat_detected": "Routes added by rogue DHCP or unauthorized routing daemons.",
+      "detection_pattern": "Protocol = DHCP AND NextHop not trusted.",
+      "forensic_value": "Attribution of how malicious route entered the routing table.",
+      "baseline_value": "Most endpoints should only have Local/NetMgmt routes unless routing is intentional.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Inspect DHCP server; check for rogue network devices.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-AddressFamily",
+      "example_command": "Get-NetRoute -AddressFamily IPv6 | Where-Object {$_.DestinationPrefix -notmatch '^ff|^fe80|^fc|^fd'}",
+      "purpose": "View routing table for IPv4 or IPv6 specifically.",
+      "security_use_case": "Audit IPv6 routes which may bypass IPv4-focused monitoring controls.",
+      "threat_detected": "Unexpected IPv6 routes enabling covert communication or lateral movement.",
+      "detection_pattern": "AddressFamily = IPv6 AND DestinationPrefix not link-local/ULA/multicast.",
+      "forensic_value": "Reveals hidden IPv6 communication paths used during compromise.",
+      "baseline_value": "IPv6 routes should be documented or IPv6 disabled if unused.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Review IPv6 firewall coverage; disable IPv6 if unnecessary.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "Get-NetRoute -DestinationPrefix '0.0.0.0/0' | ForEach-Object { $_ | Select-Object NextHop,InterfaceAlias,@{N='GatewayMAC';E={(Get-NetNeighbor -IPAddress $_.NextHop).LinkLayerAddress}} }",
+      "why_powerful": "Correlates default gateway IP with ARP/MAC to detect ARP spoofing or man-in-the-middle.",
+      "security_context": "Validate gateway identity during suspected network interception."
+    },
+    {
+      "command": "Get-NetRoute | Where-Object {$_.State -eq 'Alive'} | Select-Object DestinationPrefix,NextHop,InterfaceAlias,RouteMetric",
+      "why_powerful": "Shows all active routes currently used for traffic forwarding.",
+      "security_context": "Identify live routing paths during incident response."
+    },
+    {
+      "command": "Get-NetRoute -Protocol DHCP | Where-Object {$_.DestinationPrefix -eq '0.0.0.0/0'} | Select-Object InterfaceAlias,NextHop",
+      "why_powerful": "Finds default routes installed via DHCP which may indicate rogue DHCP attack.",
+      "security_context": "Detect attacker-controlled DHCP altering victim routing behavior."
+    }
+  ]
+}

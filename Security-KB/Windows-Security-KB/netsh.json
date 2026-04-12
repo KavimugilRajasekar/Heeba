@@ -1,0 +1,112 @@
+{
+  "os": "Windows",
+  "tool_name": "netsh",
+  "category": "Firewall",
+  "flags": [
+    {
+      "flag": "advfirewall dump",
+      "example_command": "netsh advfirewall dump > firewall_config_backup.txt",
+      "purpose": "Dumps the complete Windows Firewall with Advanced Security configuration into a script file for backup and documentation.",
+      "security_use_case": "Backup firewall configuration before changes and preserve evidence during incident response.",
+      "threat_detected": "N/A - backup operation.",
+      "risk_if_misused": "Backup file contains detailed security policy; must be stored securely.",
+      "safe_followup": "Use 'netsh advfirewall restore' to restore; archive backup securely.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "advfirewall show allprofiles",
+      "example_command": "netsh advfirewall show allprofiles | findstr /i \"State\"",
+      "purpose": "Displays firewall state (ON/OFF) for Domain, Private, and Public profiles.",
+      "security_use_case": "Quick verification that firewall protection is enabled across all network profiles.",
+      "threat_detected": "Firewall disabled on any profile increasing attack surface.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Enable firewall if any profile is OFF.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "advfirewall set allprofiles state on",
+      "example_command": "netsh advfirewall set allprofiles state on",
+      "purpose": "Enables Windows Firewall on all profiles to block unsolicited inbound connections.",
+      "security_use_case": "Immediate defensive action if firewall was disabled by attacker or misconfiguration.",
+      "threat_detected": "N/A - defensive action.",
+      "risk_if_misused": "May disrupt applications that depend on open ports; requires rule tuning.",
+      "safe_followup": "Create necessary allow rules for legitimate apps; monitor connectivity.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "advfirewall add rule",
+      "example_command": "netsh advfirewall firewall add rule name=\"BlockInbound445\" dir=in action=block protocol=TCP localport=445",
+      "purpose": "Creates a new firewall rule to allow or block specific traffic patterns.",
+      "security_use_case": "Block sensitive ports (e.g., SMB 445) to prevent lateral movement and exploits.",
+      "threat_detected": "Unauthorized inbound access to sensitive services.",
+      "risk_if_misused": "Incorrect rule may block critical services or business apps.",
+      "safe_followup": "Document rule; test impact; delete if misconfigured.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "advfirewall delete rule",
+      "example_command": "netsh advfirewall firewall delete rule name=\"OldBlockRule\"",
+      "purpose": "Deletes a firewall rule by name to remove obsolete or incorrect entries.",
+      "security_use_case": "Clean up unnecessary rules or fix misconfigurations causing issues.",
+      "threat_detected": "N/A - rule removal.",
+      "risk_if_misused": "May remove legitimate security control if not reviewed.",
+      "safe_followup": "Backup rules before deletion; re-audit firewall after change.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "advfirewall export",
+      "example_command": "netsh advfirewall export \"C:\\FirewallPolicies\\enterprise_fw.wfw\"",
+      "purpose": "Exports current firewall policy into a .wfw file for reuse or deployment.",
+      "security_use_case": "Distribute hardened firewall configuration across systems.",
+      "threat_detected": "N/A - export operation.",
+      "risk_if_misused": "Sensitive policy file; must be handled securely.",
+      "safe_followup": "Validate compatibility before importing elsewhere.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "advfirewall import",
+      "example_command": "netsh advfirewall import \"C:\\FirewallPolicies\\standard_fw.wfw\"",
+      "purpose": "Imports firewall policy from a .wfw file, replacing current configuration.",
+      "security_use_case": "Apply standardized hardened firewall configuration.",
+      "threat_detected": "N/A - policy import.",
+      "risk_if_misused": "Overwrites existing rules; may break connectivity.",
+      "safe_followup": "Backup current config before import; test on non-production system.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "advfirewall show rule name=all dir=in",
+      "example_command": "netsh advfirewall firewall show rule name=all dir=in",
+      "purpose": "Lists all inbound firewall rules with their state and action.",
+      "security_use_case": "Audit inbound allow rules that may expose services to attackers.",
+      "threat_detected": "Overly permissive inbound rules on Public profile.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Disable or tighten unnecessary rules.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "netsh advfirewall show allprofiles & netsh advfirewall show global",
+      "why_powerful": "Displays firewall state and global logging settings for a complete posture overview.",
+      "security_context": "Initial audit during incident response to verify defenses and logging."
+    },
+    {
+      "command": "netsh advfirewall firewall show rule name=all dir=in | findstr /i \"Enable Yes\"",
+      "why_powerful": "Quickly lists all enabled inbound rules that allow traffic into the system.",
+      "security_context": "Finding unintended exposed services or ports."
+    },
+    {
+      "command": "netsh advfirewall firewall show rule name=all dir=out",
+      "why_powerful": "Shows outbound rules to understand egress filtering configuration.",
+      "security_context": "Determining if malware command-and-control traffic could exit the network."
+    }
+  ]
+}

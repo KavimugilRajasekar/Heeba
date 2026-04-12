@@ -1,0 +1,92 @@
+{
+  "os": "Windows",
+  "tool_name": "taskkill",
+  "category": "Process Inspection",
+  "mitre_attack": {
+    "tactic": ["Execution", "Defense Evasion"],
+    "technique_id": "T1057",
+    "technique_name": "Process Discovery"
+  },
+  "detection_focus": [
+    "Malicious or rogue processes running in memory",
+    "Processes spawning suspicious child processes",
+    "Hidden background processes without user interface",
+    "Processes maintaining active C2 network connections",
+    "Resource-abusing malware (crypto-miners, ransomware)"
+  ],
+  "forensic_artifacts": [
+    "tasklist output before termination",
+    "Process memory dump (procdump) before kill",
+    "Event Logs: Security, System, Application",
+    "Prefetch entries for executed binaries",
+    "Parent-child process tree from Sysmon or Event ID 4688"
+  ],
+  "flags": [
+    {
+      "flag": "/PID",
+      "example_command": "taskkill /PID 1234 /F",
+      "purpose": "Terminates process by specified PID.",
+      "security_use_case": "Stop a confirmed malicious process identified during investigation.",
+      "threat_detected": "N/A – defensive containment action.",
+      "risk_if_misused": "Killing critical system PID may crash system; verify identity first.",
+      "safe_followup": "Capture memory dump; document process path and hash; check persistence.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/IM",
+      "example_command": "taskkill /IM malware.exe /F",
+      "purpose": "Terminates all processes matching an image name.",
+      "security_use_case": "Kill multiple instances of known malicious executable.",
+      "threat_detected": "N/A – defensive containment action.",
+      "risk_if_misused": "Legitimate apps with same name may be terminated.",
+      "safe_followup": "Verify executable path with tasklist /v; remove persistence entries.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/T",
+      "example_command": "taskkill /PID 5678 /T /F",
+      "purpose": "Terminates process and all child processes.",
+      "security_use_case": "Ensure malware process tree is completely stopped.",
+      "threat_detected": "N/A – defensive containment action.",
+      "risk_if_misused": "May terminate legitimate child processes; analyze tree first.",
+      "safe_followup": "Review parent process origin; inspect scheduled tasks and services.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "/F",
+      "example_command": "taskkill /PID 9999 /F",
+      "purpose": "Forces termination of unresponsive process.",
+      "security_use_case": "Kill malware that resists graceful shutdown.",
+      "threat_detected": "N/A – defensive containment action.",
+      "risk_if_misused": "Data loss or system instability if critical process is killed.",
+      "safe_followup": "Reboot system if instability occurs; verify no restart via persistence.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    }
+  ],
+  "detection_queries": [
+    {
+      "command": "tasklist /v | findstr /i \"unknown suspicious\"",
+      "why_powerful": "Quickly surfaces unusual or unknown running processes.",
+      "security_context": "Initial triage to identify suspicious executables before termination."
+    },
+    {
+      "command": "wmic process get ProcessId,ParentProcessId,ExecutablePath,CommandLine",
+      "why_powerful": "Shows full process tree and command lines for accurate identification.",
+      "security_context": "Understanding parent-child relationship before killing processes."
+    },
+    {
+      "command": "netstat -ano | findstr ESTABLISHED",
+      "why_powerful": "Links active network connections to process IDs for targeted kill.",
+      "security_context": "Stopping active C2 communications by terminating owning process."
+    }
+  ],
+  "tool_relationship": {
+    "paired_with": "tasklist, netstat, procdump, schtasks, reg query",
+    "attacker_usage": "Attackers may kill security tools or AV processes to evade detection.",
+    "defender_usage": "Terminate malicious processes as part of incident containment."
+  }
+}

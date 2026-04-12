@@ -1,0 +1,123 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-NetFirewallRule",
+  "category": "Firewall & Network Exposure Inspection",
+  "description": "PowerShell cmdlet to audit Windows Defender Firewall rules for network exposure and security posture.",
+  "prerequisites": [
+    "PowerShell 3.0+",
+    "NetSecurity module",
+    "Admin privileges for full rule visibility"
+  ],
+  "flags": [
+    {
+      "flag": "-Enabled",
+      "example_command": "Get-NetFirewallRule -Enabled True",
+      "purpose": "Lists only active firewall rules currently enforced by Windows Defender Firewall.",
+      "security_use_case": "Quickly audit which firewall rules are actively allowing or blocking traffic.",
+      "threat_detected": "Malicious rules added by malware to allow backdoor communication or disable protection.",
+      "risk_if_misused": "None; read-only. Large output in environments with many rules.",
+      "safe_followup": "Review suspicious rules with Get-NetFirewallPortFilter and Get-NetFirewallAddressFilter.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Direction",
+      "example_command": "Get-NetFirewallRule -Direction Inbound -Enabled True",
+      "purpose": "Filters firewall rules by traffic direction (Inbound or Outbound).",
+      "security_use_case": "Identify inbound rules that expose services to the network or internet.",
+      "threat_detected": "Unauthorized inbound access rules created by attackers for persistence.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Cross-check listening ports using Get-NetTCPConnection -State Listen.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Action",
+      "example_command": "Get-NetFirewallRule -Action Allow -Enabled True",
+      "purpose": "Shows rules explicitly allowing traffic through the firewall.",
+      "security_use_case": "Audit allowed traffic paths that could be abused by malware.",
+      "threat_detected": "Rules allowing suspicious ports, applications, or remote addresses.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Inspect rule details using Get-NetFirewallApplicationFilter and PortFilter.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-DisplayName",
+      "example_command": "Get-NetFirewallRule -DisplayName '*Remote*'",
+      "purpose": "Search firewall rules by human-readable name patterns.",
+      "security_use_case": "Find rules related to RDP, WinRM, SMB, or other remote access services.",
+      "threat_detected": "Rogue rules masquerading as legitimate system rules.",
+      "risk_if_misused": "None; read-only. Naming can be misleading.",
+      "safe_followup": "Verify rule origin and associated service or application.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Profile",
+      "example_command": "Get-NetFirewallRule -Profile Public -Enabled True",
+      "purpose": "Filters rules applied to Domain, Private, or Public network profiles.",
+      "security_use_case": "Detect sensitive services accidentally exposed on Public networks.",
+      "threat_detected": "RDP/SMB/WinRM exposed to untrusted networks.",
+      "risk_if_misused": "None; read-only. Profile detection depends on network configuration.",
+      "safe_followup": "Restrict rules to Domain/Private using Set-NetFirewallRule if misconfigured.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-Program",
+      "example_command": "Get-NetFirewallRule | Get-NetFirewallApplicationFilter | Where-Object {$_.Program -ne $null}",
+      "purpose": "Maps firewall rules to specific executable programs.",
+      "security_use_case": "Identify which applications are allowed through the firewall.",
+      "threat_detected": "Malware executable granted firewall access for C2 communication.",
+      "risk_if_misused": "None; read-only. Requires correlation with application legitimacy.",
+      "safe_followup": "Check file hash with Get-FileHash and process details with Get-Process.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-LocalPort",
+      "example_command": "Get-NetFirewallRule | Get-NetFirewallPortFilter | Where-Object {$_.LocalPort -in 3389,445,5985}",
+      "purpose": "Filters rules affecting specific local ports.",
+      "security_use_case": "Audit exposure of RDP (3389), SMB (445), WinRM (5985).",
+      "threat_detected": "Unauthorized exposure of administrative services.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Verify necessity of open administrative ports.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-RemoteAddress",
+      "example_command": "Get-NetFirewallRule | Get-NetFirewallAddressFilter | Where-Object {$_.RemoteAddress -notlike 'LocalSubnet'}",
+      "purpose": "Shows rules allowing traffic from external IP ranges.",
+      "security_use_case": "Detect rules permitting access from any external IP.",
+      "threat_detected": "Firewall exceptions allowing attacker infrastructure communication.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Restrict rules to specific trusted IP ranges.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "Get-NetFirewallRule -Enabled True -Direction Inbound -Action Allow | Get-NetFirewallPortFilter | Select-Object Name,LocalPort,Protocol",
+      "why_powerful": "Lists all allowed inbound ports through the firewall for quick exposure assessment.",
+      "security_context": "Rapid discovery of services exposed to the network that attackers may target."
+    },
+    {
+      "command": "Get-NetFirewallRule -Enabled True | Get-NetFirewallApplicationFilter | Select-Object Name,Program",
+      "why_powerful": "Shows all applications explicitly allowed through the firewall.",
+      "security_context": "Detecting malware or unknown binaries granted firewall permissions."
+    },
+    {
+      "command": "Get-NetFirewallRule -Profile Public -Action Allow | Get-NetFirewallPortFilter",
+      "why_powerful": "Identifies services exposed when connected to public networks like WiFi hotspots.",
+      "security_context": "Preventing accidental exposure of sensitive services outside trusted environments."
+    },
+    {
+      "command": "Get-NetFirewallRule | Get-NetFirewallAddressFilter | Where-Object {$_.RemoteAddress -eq 'Any'}",
+      "why_powerful": "Finds rules that allow traffic from any remote address.",
+      "security_context": "Detecting overly permissive firewall configurations that attackers exploit."
+    }
+  ]
+}

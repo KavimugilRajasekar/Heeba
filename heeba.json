@@ -16,7 +16,8 @@
   "user_profile": {
     "name": "kavi",
     "how_to_address": "kavi",
-    "communication_style": "friendly, concise, and helpful"
+    "communication_style": "friendly",
+    "reception_email": "kavimugil69@gmail.com"
   },
   "assistant_behavior": {
     "tone": "friendly",
@@ -38,7 +39,6 @@
       "access_sensitive_information"
     ]
   },
-  "online_models": [],
   "email_accounts": [],
   "default_email_account": null,
   "intent_routing_rules": {
@@ -86,6 +86,28 @@
       "backend_command": {
         "action": "get_system_info",
         "parameters": {}
+      }
+    },
+    "weather_info": {
+      "patterns": [
+        "weather",
+        "forecast",
+        "how is the weather",
+        "what's the weather",
+        "temperature in",
+        "is it raining",
+        "will it rain",
+        "weather update",
+        "weather in my location"
+      ],
+      "action": "get_weather",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "get_weather",
+        "parameters": {
+          "location": "{extracted_location_or_my_location}",
+          "units": "metric"
+        }
       }
     },
     "explanation": {
@@ -846,6 +868,241 @@
           "days": "{number}"
         }
       }
+    },
+    "system_security_testing": {
+      "patterns": [
+        "system security testing",
+        "check my system security",
+        "is my system safe",
+        "run security audit",
+        "security analysis",
+        "audit my system",
+        "check for vulnerabilities",
+        "scan for threats",
+        "penetration test my system",
+        "check firewall",
+        "check open ports",
+        "check running processes",
+        "check for malware",
+        "deep security audit",
+        "command-and-control",
+        "c2 connection",
+        "backdoor",
+        "firewall rule",
+        "firewall rules",
+        "locally added",
+        "find any firewall",
+        "detect possible",
+        "mail me the",
+        "email me the",
+        "send me the",
+        "suspicious remote",
+        "active tcp",
+        "open ports",
+        "network connections",
+        "run a security audit",
+        "run the security audit",
+        "perform security audit",
+        "perform a security audit",
+        "system security audit",
+        "complete security testing"
+      ],
+      "action": "run_security_audit",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "run_security_audit",
+        "parameters": {}
+      },
+      "llm_master_prompt": "You are Heeba, acting as an autonomous security auditor. When this intent triggers, follow a recursive agent loop: (1) Read tools_index.json and identify tools for the OS. (2) Choose the most relevant security category. (3) Load that tool's KB JSON file. (4) Learn its flags, use cases, and automation_safe rules. (5) Generate a SAFE read-only system command in JSON: {tool, command, reason}. (6) Wait for system output. (7) Analyze output like a security analyst. (8) Decide the next best tool. (9) Repeat until enough evidence. (10) Return final JSON: {security_score, findings, evidence, recommended_fixes}. Never stop after one command. Think like a human security auditor."
+    },
+    "list_software": {
+      "patterns": [
+        "list installed software",
+        "show installed apps",
+        "what software do i have",
+        "installed programs",
+        "list software",
+        "show apps",
+        "installed applications",
+        "all apps",
+        "all programs"
+      ],
+      "action": "list_software",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "list_software",
+        "parameters": {}
+      }
+    },
+    "open_software": {
+      "patterns": [
+        "open app",
+        "open software",
+        "launch app",
+        "start app",
+        "run app",
+        "open number",
+        "open this app"
+      ],
+      "action": "open_software",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "open_software",
+        "parameters": {
+          "index": "{extracted_index}"
+        }
+      }
+    },
+    "uninstall_software": {
+      "patterns": [
+        "uninstall software",
+        "uninstall app",
+        "remove software",
+        "remove app",
+        "delete software",
+        "delete app",
+        "uninstall number"
+      ],
+      "action": "uninstall_software",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "uninstall_software",
+        "parameters": {
+          "index": "{extracted_index}"
+        }
+      }
+    },
+    "move_file": {
+      "patterns": [
+        "move file",
+        "move this file",
+        "move to",
+        "relocate file",
+        "move folder"
+      ],
+      "action": "move_file",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "move_file",
+        "parameters": {
+          "source": "{extracted_source_path}",
+          "destination": "{extracted_destination_path}"
+        }
+      }
+    },
+    "copy_file": {
+      "patterns": [
+        "copy file",
+        "copy this file",
+        "duplicate file",
+        "backup file",
+        "copy folder",
+        "backup this"
+      ],
+      "action": "copy_file",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "copy_file",
+        "parameters": {
+          "source": "{extracted_source_path}",
+          "destination": "{extracted_destination_path}"
+        }
+      }
+    },
+    "delete_file": {
+      "patterns": [
+        "delete file",
+        "delete this file",
+        "remove file",
+        "remove this file",
+        "delete folder",
+        "remove folder"
+      ],
+      "action": "delete_file",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "delete_file",
+        "parameters": {
+          "path": "{extracted_path}",
+          "recursive": "{extracted_recursive_flag}"
+        }
+      }
+    },
+    "rename_file": {
+      "patterns": [
+        "rename file",
+        "rename this file",
+        "rename folder",
+        "rename to",
+        "change file name"
+      ],
+      "action": "rename_file",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "rename_file",
+        "parameters": {
+          "path": "{extracted_path}",
+          "newName": "{extracted_new_name}"
+        }
+      }
+    },
+    "list_dir": {
+      "patterns": [
+        "ls",
+        "list directory",
+        "show files",
+        "list contents",
+        "dir",
+        "tree",
+        "list folder"
+      ],
+      "action": "list_dir",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "list_dir",
+        "parameters": {
+          "path": "{extracted_path}"
+        }
+      }
+    },
+    "read_file": {
+      "patterns": [
+        "cat",
+        "read file",
+        "show content",
+        "type",
+        "view file content",
+        "open file"
+      ],
+      "action": "read_file",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "read_file",
+        "parameters": {
+          "path": "{extracted_path}"
+        }
+      }
+    },
+    "test_endpoint": {
+      "patterns": [
+        "curl",
+        "test endpoint",
+        "hit url",
+        "http request",
+        "test api",
+        "check url"
+      ],
+      "action": "test_endpoint",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "test_endpoint",
+        "parameters": {
+          "url": "{extracted_url}",
+          "method": "{GET|POST|PUT|DELETE}",
+          "body": "{json_string}",
+          "headers": "{json_object}"
+        }
+      }
     }
   },
   "system_rules": [
@@ -876,8 +1133,12 @@
     "When user wants to add an email account, output a JSON command with action add_email_account and parameters: id, email, app_password (not regular password), imap_host, smtp_host",
     "When user asks to delete the current page or branch (e.g. 'delete this page' or 'delete branch'), output a JSON command with action delete_page and scope set to 'current' or 'branch'",
     "INTENT FILTERING: For advanced email fetching, provide ISO dates and specific filters: morning (05:00-12:00), afternoon (12:00-17:00), evening (17:00-21:00), night (21:00-05:00). If the user asks 'What did I miss yesterday?', use fetch_unread_by_date with yesterday's ISO date. If the user asks to 'summarize' or 'export', use the corresponding action with the target date.",
-    "HEEBA CORE RULE: Never hardcode models. All models (local GGUF and online) must be discovered dynamically at runtime via getAvailableModels(). Local models are scanned from engine/models/, online models come from heeba.json online_models array.",
-    "USER ADVICE: If a user wants to register or use an online model but you lack the credentials, ADVISE the user to provide the exact 'BaseUrl', 'API Key', 'Model ID', and 'Type' (e.g. OpenRouter, Ollama) so you can add them to heeba.json or credentials.json automatically."
+    "HEEBA CORE RULE: Never hardcode models. All models (local GGUF and online) must be discovered dynamically at runtime via getAvailableModels(). Local models are scanned from engine/models/, online models come from credentials.json online_models array.",
+    "USER ADVICE: If a user wants to register or use an online model but you lack the credentials, ADVISE the user to provide the exact 'BaseUrl', 'API Key', 'Model ID', and 'Type' (e.g. OpenRouter, Ollama) so I can add them to credentials.json automatically.",
+    "When user asks to list, show, or get installed software (e.g. 'list installed software'), output a JSON structured command with action list_software and empty parameters. The user will see a numbered table of installed software.",
+    "When user asks to open a software app by its number (e.g. 'open #3'), output a JSON structured command with action open_software and parameter index set to the number the user specified.",
+    "When user asks to uninstall a software app by its number (e.g. 'uninstall #5'), output a JSON structured command with action uninstall_software and parameter index set to the number the user specified.",
+    "When user asks to move, copy, delete, or rename a file or folder, output a JSON structured command with the appropriate action (move_file, copy_file, delete_file, rename_file) and parameters extracted from the user's request. For move/copy, include both source and destination paths. For delete, include path. For rename, include path and newName. The user MUST provide full paths."
   ],
   "output_format": {
     "conversational": {

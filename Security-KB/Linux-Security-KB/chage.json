@@ -1,0 +1,47 @@
+{
+  "os": "Linux",
+  "tool_name": "chage",
+  "category": "User Audit",
+  "flags": [
+    {
+      "flag": "-l",
+      "example_command": "chage -l username",
+      "purpose": "List account aging info.",
+      "security_use_case": "Audit password policy.",
+      "threat_detected": "No expiration, infinite validity.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Review output.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-E",
+      "example_command": "chage -E 2024-12-31 username",
+      "purpose": "Set account expiration.",
+      "security_use_case": "Expire temporary accounts.",
+      "threat_detected": "Attacker accounts with no expiry.",
+      "risk_if_misused": "Past date locks account.",
+      "safe_followup": "Verify with -l.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-M",
+      "example_command": "chage -M 90 username",
+      "purpose": "Set max password days.",
+      "security_use_case": "Enforce expiration policy.",
+      "threat_detected": "Long expiration allows persistence.",
+      "risk_if_misused": "Too short frustrates users.",
+      "safe_followup": "Check with -l.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "for user in $(cut -d: -f1 /etc/passwd); do chage -l $user 2>/dev/null | grep -E 'Password expires|No password'; done",
+      "why_powerful": "Audit all user aging policies.",
+      "security_context": "Password policy compliance."
+    }
+  ]
+}

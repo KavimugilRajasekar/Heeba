@@ -1,0 +1,118 @@
+{
+  "os": "Linux",
+  "tool_name": "ufw",
+  "category": "Firewall",
+  "flags": [
+    {
+      "flag": "status",
+      "example_command": "ufw status verbose",
+      "purpose": "Show firewall status and rules.",
+      "security_use_case": "Check firewall state.",
+      "threat_detected": "Disabled firewall.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ufw status numbered.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "enable",
+      "example_command": "ufw enable",
+      "purpose": "Enable firewall.",
+      "security_use_case": "Activate firewall.",
+      "threat_detected": "Firewall was disabled.",
+      "risk_if_misused": "May block legitimate traffic.",
+      "safe_followup": "Set rules first.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "disable",
+      "example_command": "ufw disable",
+      "purpose": "Disable firewall.",
+      "security_use_case": "Emergency disable.",
+      "threat_detected": "System exposed.",
+      "risk_if_misused": "Disables protection.",
+      "safe_followup": "ufw enable.",
+      "automation_safe": false,
+      "risk_level": "dangerous_never_auto"
+    },
+    {
+      "flag": "allow",
+      "example_command": "ufw allow 22/tcp",
+      "purpose": "Allow traffic.",
+      "security_use_case": "Open ports for services.",
+      "threat_detected": "Opening ports.",
+      "risk_if_misused": "Weakening posture.",
+      "safe_followup": "ufw status numbered.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "deny",
+      "example_command": "ufw deny from 192.168.1.100",
+      "purpose": "Deny traffic.",
+      "security_use_case": "Block malicious IPs.",
+      "threat_detected": "Block attacker.",
+      "risk_if_misused": "May block legitimate.",
+      "safe_followup": "ufw status.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "delete",
+      "example_command": "ufw delete deny from 192.168.1.100",
+      "purpose": "Delete rule.",
+      "security_use_case": "Remove rules.",
+      "threat_detected": "Remove attacker rules.",
+      "risk_if_misused": "May remove legitimate.",
+      "safe_followup": "ufw status numbered.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "reset",
+      "example_command": "ufw reset",
+      "purpose": "Reset to defaults.",
+      "security_use_case": "Start fresh.",
+      "threat_detected": "Attacker extensively modified.",
+      "risk_if_misused": "Removes all rules.",
+      "safe_followup": "ufw default deny incoming.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "default",
+      "example_command": "ufw default deny incoming",
+      "purpose": "Set default policy.",
+      "security_use_case": "Default-deny posture.",
+      "threat_detected": "Default-allow.",
+      "risk_if_misused": "May block legitimate.",
+      "safe_followup": "ufw enable.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "--dry-run",
+      "example_command": "ufw --dry-run delete 5",
+      "purpose": "Preview without changes.",
+      "security_use_case": "Test rule changes.",
+      "threat_detected": "Preview.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Remove --dry-run.",
+      "automation_safe": true,
+      "risk_level": "safe_to_auto_run"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "ufw default deny incoming && ufw default allow outgoing",
+      "why_powerful": "Secure default posture.",
+      "security_context": "Establishing firewall baseline."
+    },
+    {
+      "command": "ufw allow ssh && ufw allow 80/tcp && ufw allow 443/tcp && ufw enable",
+      "why_powerful": "Common secure setup.",
+      "security_context": "Hardening web server."
+    }
+  ]
+}

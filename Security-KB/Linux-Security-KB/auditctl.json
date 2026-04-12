@@ -1,0 +1,145 @@
+{
+  "os": "Linux",
+  "tool_name": "auditctl",
+  "category": "Intrusion Detection",
+  "flags": [
+    {
+      "flag": "-s",
+      "example_command": "auditctl -s",
+      "purpose": "Report kernel audit subsystem status.",
+      "security_use_case": "Verify audit is operational.",
+      "threat_detected": "Audit disabled, backlog overflow.",
+      "risk_if_misused": "None.",
+      "safe_followup": "auditctl -e 1 to enable.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-l",
+      "example_command": "auditctl -l",
+      "purpose": "List all loaded audit rules.",
+      "security_use_case": "Review active monitoring rules.",
+      "threat_detected": "Missing rules, attacker evasion.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Backup with -l > file.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-e",
+      "example_command": "auditctl -e 1",
+      "purpose": "Set enabled flag (0=disabled, 1=enabled, 2=locked).",
+      "security_use_case": "Enable or lock audit configuration.",
+      "threat_detected": "Attacker disabling audit.",
+      "risk_if_misused": "-e 2 is irreversible.",
+      "safe_followup": "auditctl -s.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-f",
+      "example_command": "auditctl -f 2",
+      "purpose": "Set failure mode (0=silent, 1=printk, 2=panic).",
+      "security_use_case": "Set panic mode in high-security.",
+      "threat_detected": "Audit failure from attack.",
+      "risk_if_misused": "Panic mode can crash system.",
+      "safe_followup": "Start with 1.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-b",
+      "example_command": "auditctl -b 8192",
+      "purpose": "Set backlog limit.",
+      "security_use_case": "Increase for high-volume monitoring.",
+      "threat_detected": "Backlog exceeded indicates attack.",
+      "risk_if_misused": "High values consume memory.",
+      "safe_followup": "ausearch --lost.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-a",
+      "example_command": "auditctl -a always,exit -F arch=b64 -S execve",
+      "purpose": "Append rule to syscall list.",
+      "security_use_case": "Monitor syscall activity.",
+      "threat_detected": "execve catches shell spawns.",
+      "risk_if_misused": "Rule explosion can degrade perf.",
+      "safe_followup": "ausearch -sc execve.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-w",
+      "example_command": "auditctl -w /etc/shadow -p wa",
+      "purpose": "Insert watch rule for file.",
+      "security_use_case": "Monitor critical files.",
+      "threat_detected": "Shadow file access, passwd changes.",
+      "risk_if_misused": "Active files may impact perf.",
+      "safe_followup": "ausearch -f /etc/shadow.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-D",
+      "example_command": "auditctl -D",
+      "purpose": "Delete all rules and watches.",
+      "security_use_case": "Emergency reset of all rules.",
+      "threat_detected": "Attacker added evasion rules.",
+      "risk_if_misused": "Removes ALL monitoring.",
+      "safe_followup": "Save rules first.",
+      "automation_safe": false,
+      "risk_level": "dangerous_never_auto"
+    },
+    {
+      "flag": "-R",
+      "example_command": "auditctl -R /etc/audit/audit.rules",
+      "purpose": "Load rules from file.",
+      "security_use_case": "Load baseline rule set.",
+      "threat_detected": "Load attacker-modified rules.",
+      "risk_if_misused": "Verify file first.",
+      "safe_followup": "auditctl -l.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-F",
+      "example_command": "auditctl -a always,exit -F arch=b64 -F uid=0 -S execve",
+      "purpose": "Build rule with field filters.",
+      "security_use_case": "Targeted monitoring.",
+      "threat_detected": "Root privilege execve.",
+      "risk_if_misused": "Wrong values cause no match.",
+      "safe_followup": "ausearch -sv yes.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-i",
+      "example_command": "auditctl -s -i",
+      "purpose": "Interpret status output.",
+      "security_use_case": "Human-readable status.",
+      "threat_detected": "Readable status.",
+      "risk_if_misused": "None.",
+      "safe_followup": "auditctl -s -i > file.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "auditctl -l > /root/audit-rules-backup-$(date +%Y%m%d) && auditctl -s",
+      "why_powerful": "Backup rules then check status.",
+      "security_context": "Pre-change verification."
+    },
+    {
+      "command": "auditctl -w /etc/passwd -p wa -k passwd_changes && auditctl -w /etc/shadow -p wa -k shadow_changes",
+      "why_powerful": "Watch critical files with keys.",
+      "security_context": "User account monitoring."
+    },
+    {
+      "command": "auditctl -a always,exit -F arch=b64 -S execve -F auid!=0 -k privilege_escalation",
+      "why_powerful": "Monitor non-root execve calls.",
+      "security_context": "Detecting privilege escalation."
+    }
+  ]
+}

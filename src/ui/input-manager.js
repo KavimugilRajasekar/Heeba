@@ -22,6 +22,7 @@ function setupInputHandlers(UI, screen, state, overlays, actions) {
 
   UI.inputBox.key('enter', async (ch, key) => {
     if (key.shift) return;
+    if (state.isProcessingCommand) return; // Guard against race conditions
     const command = UI.inputBox.getValue().trim();
     if (!command) {
       if (state.currentSessionIndex === -1 && state.sessions.length > 0) {
@@ -37,35 +38,44 @@ function setupInputHandlers(UI, screen, state, overlays, actions) {
     requestRender(); UI.inputBox.focus();
   });
 
-  UI.inputBox.on('keypress', () => resizeInput(UI, screen, state));
+  UI.inputBox.on('keypress', (ch, key) => {
+    if (key && (key.name === 'left' || key.name === 'right' || key.name === 'up' || key.name === 'down')) return;
+    resizeInput(UI, screen, state);
+  });
 
-  UI.inputBox.key('up', () => {
+  UI.inputBox.key('up', (ch, key) => {
+    // Session navigation if empty
     if (state.currentSessionIndex === -1 && UI.inputBox.getValue().trim() === '' && state.sessions.length > 0) {
       if (state.selectedSessionIndex > 0) { state.selectedSessionIndex--; renderActivePage(); }
       return;
     }
-    if (UI.inputBox.getLines().length > 1 && UI.inputBox.getValue().trim() !== '') return;
-    if (state.historyIndex > 0) {
-      state.historyIndex--;
-      UI.inputBox.setValue(state.commandHistory[state.historyIndex]);
-      setImmediate(() => { resizeInput(UI, screen, state); requestRender(); });
+    // History navigation ONLY if single line or empty
+    const lines = UI.inputBox.getValue().split('\n');
+    if (lines.length === 1 || (lines.length > 1 && UI.inputBox.getValue().trim() === '')) {
+      if (state.historyIndex > 0) {
+        state.historyIndex--;
+        UI.inputBox.setValue(state.commandHistory[state.historyIndex]);
+        setImmediate(() => { resizeInput(UI, screen, state); requestRender(); });
+      }
     }
   });
 
-  UI.inputBox.key('down', () => {
+  UI.inputBox.key('down', (ch, key) => {
     if (state.currentSessionIndex === -1 && UI.inputBox.getValue().trim() === '' && state.sessions.length > 0) {
       if (state.selectedSessionIndex < state.sessions.length - 1) { state.selectedSessionIndex++; renderActivePage(); }
       return;
     }
-    if (UI.inputBox.getLines().length > 1 && UI.inputBox.getValue().trim() !== '') return;
-    if (state.historyIndex < state.commandHistory.length - 1) {
-      state.historyIndex++;
-      UI.inputBox.setValue(state.commandHistory[state.historyIndex]);
-    } else {
-      state.historyIndex = state.commandHistory.length;
-      UI.inputBox.clearValue();
+    const lines = UI.inputBox.getValue().split('\n');
+    if (lines.length === 1 || (lines.length > 1 && UI.inputBox.getValue().trim() === '')) {
+      if (state.historyIndex < state.commandHistory.length - 1) {
+        state.historyIndex++;
+        UI.inputBox.setValue(state.commandHistory[state.historyIndex]);
+      } else {
+        state.historyIndex = state.commandHistory.length;
+        UI.inputBox.clearValue();
+      }
+      setImmediate(() => { resizeInput(UI, screen, state); requestRender(); });
     }
-    setImmediate(() => { resizeInput(UI, screen, state); requestRender(); });
   });
 
   // Navigation and other global-ish keys that are often focused on input
@@ -77,8 +87,21 @@ function setupInputHandlers(UI, screen, state, overlays, actions) {
   UI.inputBox.key('S-left', () => actions.switchBranch(-1));
   UI.inputBox.key('S-right', () => actions.switchBranch(1));
 
-  UI.inputBox.key('left', () => { if (UI.inputBox._clines) { screen.focusOffset(-1); requestRender(); } });
-  UI.inputBox.key('right', () => { if (UI.inputBox._clines) { screen.focusOffset(1); requestRender(); } });
+  UI.inputBox.key('left', function() {
+    if (this._cursorLeft > 0) {
+      this._cursorLeft--;
+      if (this._updateCursor) this._updateCursor();
+      screen.render();
+    }
+  });
+
+  UI.inputBox.key('right', function() {
+    if (this._cursorLeft < this.value.length) {
+      this._cursorLeft++;
+      if (this._updateCursor) this._updateCursor();
+      screen.render();
+    }
+  });
 
   UI.modelList.key(['up', 'k', 'down', 'j', 'escape'], (ch, key) => {
      if (key.name === 'escape') closeModelSelection();

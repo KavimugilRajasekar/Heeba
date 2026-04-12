@@ -1,0 +1,211 @@
+{
+  "os": "Linux",
+  "tool_name": "iptables",
+  "category": "Firewall",
+  "flags": [
+    {
+      "flag": "-L",
+      "example_command": "iptables -L",
+      "purpose": "List all rules in selected chain.",
+      "security_use_case": "Review current firewall rules.",
+      "threat_detected": "Unauthorized rules, permissive rules.",
+      "risk_if_misused": "None.",
+      "safe_followup": "iptables -L -n -v.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-t nat",
+      "example_command": "iptables -t nat -L -n -v",
+      "purpose": "Operate on NAT table.",
+      "security_use_case": "Audit NAT rules for unauthorized port forwarding.",
+      "threat_detected": "Rogue DNAT rules.",
+      "risk_if_misused": "None.",
+      "safe_followup": "iptables -t nat -L -n -v.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-n",
+      "example_command": "iptables -L -n",
+      "purpose": "Numeric output without DNS resolution.",
+      "security_use_case": "Speed up rule review.",
+      "threat_detected": "DNS-based evasion.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Use consistently.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-v",
+      "example_command": "iptables -L -n -v",
+      "purpose": "Verbose output with packet/byte counters.",
+      "security_use_case": "Identify which rules are matching traffic.",
+      "threat_detected": "Rules with zero counts may be bypassed.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Review counters.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "--line-numbers",
+      "example_command": "iptables -L -n --line-numbers",
+      "purpose": "Add rule numbers.",
+      "security_use_case": "Reference rules for deletion.",
+      "threat_detected": "Identify exact rule position.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Use with -D.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-S",
+      "example_command": "iptables -S",
+      "purpose": "Print rules in save format.",
+      "security_use_case": "Backup firewall configuration.",
+      "threat_detected": "Save state before changes.",
+      "risk_if_misused": "None.",
+      "safe_followup": "iptables-save > backup.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-F",
+      "example_command": "iptables -F",
+      "purpose": "Flush rules in chain.",
+      "security_use_case": "Emergency removal of all rules.",
+      "threat_detected": "Attacker added malicious rules.",
+      "risk_if_misused": "DANGEROUS: removes all rules.",
+      "safe_followup": "Restore from backup.",
+      "automation_safe": false,
+      "risk_level": "dangerous_never_auto"
+    },
+    {
+      "flag": "-A",
+      "example_command": "iptables -A INPUT -s 192.168.1.100 -j DROP",
+      "purpose": "Append rule to chain.",
+      "security_use_case": "Add emergency blocks.",
+      "threat_detected": "Block attacker IPs.",
+      "risk_if_misused": "May block legitimate traffic.",
+      "safe_followup": "iptables -L -n.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-I",
+      "example_command": "iptables -I INPUT 1 -s 10.0.0.0/8 -j DROP",
+      "purpose": "Insert rule at position.",
+      "security_use_case": "Insert blocks at top for precedence.",
+      "threat_detected": "Block before existing rules.",
+      "risk_if_misused": "Wrong position.",
+      "safe_followup": "iptables -L -n.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-D",
+      "example_command": "iptables -D INPUT -s 192.168.1.100 -j DROP",
+      "purpose": "Delete rule matching specification.",
+      "security_use_case": "Remove malicious rules.",
+      "threat_detected": "Remove attacker rules.",
+      "risk_if_misused": "May remove legitimate rules.",
+      "safe_followup": "iptables -L -n.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-P",
+      "example_command": "iptables -P INPUT DROP",
+      "purpose": "Set default chain policy.",
+      "security_use_case": "Default-deny enforcement.",
+      "threat_detected": "Default policy too permissive.",
+      "risk_if_misused": "DROP while via SSH locks out.",
+      "safe_followup": "Have console access.",
+      "automation_safe": false,
+      "risk_level": "dangerous_never_auto"
+    },
+    {
+      "flag": "-p",
+      "example_command": "iptables -A INPUT -p tcp --dport 22 -j ACCEPT",
+      "purpose": "Match protocol.",
+      "security_use_case": "Protocol-specific rules.",
+      "threat_detected": "Block/allow specific protocols.",
+      "risk_if_misused": "Overly broad rules.",
+      "safe_followup": "Combine with --dport.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-s",
+      "example_command": "iptables -A INPUT -s 10.0.0.0/8 -j DROP",
+      "purpose": "Match source address.",
+      "security_use_case": "Block traffic from malicious networks.",
+      "threat_detected": "Block malicious IP ranges.",
+      "risk_if_misused": "May block legitimate users.",
+      "safe_followup": "ipset for large lists.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-d",
+      "example_command": "iptables -A OUTPUT -d 192.168.1.50 -j DROP",
+      "purpose": "Match destination address.",
+      "security_use_case": "Block outbound to malicious servers.",
+      "threat_detected": "Block C2, data exfiltration.",
+      "risk_if_misused": "May block legitimate services.",
+      "safe_followup": "tcpdump to confirm first.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "--dport",
+      "example_command": "iptables -A INPUT -p tcp --dport 443 -j ACCEPT",
+      "purpose": "Match destination port.",
+      "security_use_case": "Allow/block specific services.",
+      "threat_detected": "Block high ports used by malware.",
+      "risk_if_misused": "Allowing broad ranges.",
+      "safe_followup": "Use with -p and -s.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-m state",
+      "example_command": "iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT",
+      "purpose": "Match connection state.",
+      "security_use_case": "Stateful firewall rule.",
+      "threat_detected": "Block NEW connections from untrusted sources.",
+      "risk_if_misused": "INVALID state may indicate attacks.",
+      "safe_followup": "Combine with NEW state rules.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-C",
+      "example_command": "iptables -C INPUT -s 192.168.1.0/24 -j ACCEPT",
+      "purpose": "Check if rule exists.",
+      "security_use_case": "Verify rule exists in scripts.",
+      "threat_detected": "Check for malicious rules.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Exit code 0=exists.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "iptables -L -n -v --line-numbers",
+      "why_powerful": "Complete firewall audit with counters and rule numbers.",
+      "security_context": "Full firewall rule audit."
+    },
+    {
+      "command": "iptables -A INPUT -s <malicious_IP> -j DROP && iptables -L INPUT -n -v | grep <IP>",
+      "why_powerful": "Emergency block then immediate verification.",
+      "security_context": "Blocking attacker during incident response."
+    },
+    {
+      "command": "iptables -S > /root/iptables-backup-$(date +%Y%m%d)",
+      "why_powerful": "Backup current rules before changes.",
+      "security_context": "Pre-change baseline."
+    }
+  ]
+}

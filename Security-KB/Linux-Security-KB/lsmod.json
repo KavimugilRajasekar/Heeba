@@ -1,0 +1,30 @@
+{
+  "os": "Linux",
+  "tool_name": "lsmod",
+  "category": "Kernel Security",
+  "flags": [
+    {
+      "flag": "(none)",
+      "example_command": "lsmod",
+      "purpose": "Display all loaded kernel modules.",
+      "security_use_case": "List modules to detect unauthorized kernel extensions.",
+      "threat_detected": "Rootkits, keyloggers, hidden drivers.",
+      "risk_if_misused": "None.",
+      "safe_followup": "modinfo <module>; diff baseline.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "lsmod | awk '{print $1}' | xargs -I {} modinfo {} 2>/dev/null | grep -E 'name|description|license'",
+      "why_powerful": "List all modules with metadata.",
+      "security_context": "Detecting malicious modules."
+    },
+    {
+      "command": "diff <(lsmod) <(cat /root/known-good-modules.txt 2>/dev/null)",
+      "why_powerful": "Compare against baseline.",
+      "security_context": "Finding new/removed modules."
+    }
+  ]
+}

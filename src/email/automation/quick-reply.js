@@ -5,7 +5,9 @@ const nodemailer = require('nodemailer');
 const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
 
-const templatesPath = path.join(__dirname, 'templates.json');
+// pkg-compatible path for read-only bundled template
+const AUTOMATION_BASE = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..', '..', '..');
+const templatesPath = path.join(AUTOMATION_BASE, 'src', 'email', 'automation', 'templates.json');
 
 const loadTemplates = () => {
     if (fs.existsSync(templatesPath)) {
@@ -15,7 +17,7 @@ const loadTemplates = () => {
 };
 
 module.exports = {
-    quick_reply: async (params, context) => {
+    quick_reply: async (params, context = {}) => {
         const account = getEmailAccount(params.account_id);
         if (!account) return { success: false, message: 'Email credentials not configured.' };
 
@@ -23,7 +25,7 @@ module.exports = {
         
         // Resolve by index if provided
         if (!to || !subject) {
-            const lastMailList = context.lastMailList || [];
+            const lastMailList = (context && context.lastMailList) ? context.lastMailList : [];
             let uid = params.uid;
             const idx = parseInt(index);
             if (!uid && !isNaN(idx) && idx > 0 && idx <= lastMailList.length) {

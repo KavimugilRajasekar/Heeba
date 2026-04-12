@@ -23,7 +23,7 @@ function createUI(screen) {
   initRenderManager(screen);
   initScrollManager(() => {
     outputArea.setScroll(999999);
-    try { screen.render(); } catch (e) {}
+    try { screen.render(); } catch (e) { }
   });
 
   const container = blessed.box({
@@ -324,23 +324,47 @@ function createUI(screen) {
     width: '100%-2',
     height: 3,
     hidden: true,
-    bg: C.bg,
-    border: { type: 'line', fg: C.border }
+    bg: C.bg
   });
+
+  // --- MANUAL PILLAR BORDERS FOR INPUT ---
+  const inputTopBorder = blessed.box({
+    parent: inputContainer,
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: 1,
+    content: '◉' + '─'.repeat(250),
+    fg: C.border,
+    wrap: false
+  });
+  blessed.text({ parent: inputTopBorder, top: 0, right: 0, content: '◉', fg: C.border });
+
+  const inputBottomBorder = blessed.box({
+    parent: inputContainer,
+    bottom: 0,
+    left: 0,
+    width: '100%',
+    height: 1,
+    content: '◉' + '─'.repeat(250),
+    fg: C.border,
+    wrap: false
+  });
+  blessed.text({ parent: inputBottomBorder, top: 0, right: 0, content: '◉', fg: C.border });
 
   const promptText = blessed.text({
     parent: inputContainer,
-    top: 0,
+    top: 1, // Row 1 (between borders)
     left: 1,
     width: 2,
-    content: '>',
-    fg: C.green,
+    content: '⟫',
+    fg: '#ffffff',
     bold: true
   });
 
   blessed.text({
     parent: inputContainer,
-    top: 0,
+    top: 1,
     left: 3,
     content: ' ',
     fg: C.dim
@@ -348,17 +372,25 @@ function createUI(screen) {
 
   const inputBox = blessed.textarea({
     parent: inputContainer,
-    top: 0,
+    top: 1, // Row 1
     left: 4,
     width: '100%-5',
     height: 1,
     style: { bg: C.bg, fg: C.fg },
+    cursor: { shape: 'line', blink: true },
     inputOnFocus: true,
     focusable: true,
     keys: true,
     mouse: true,
     wrap: true,
     scrollbar: true
+  });
+
+  inputBox.on('focus', () => {
+    if (screen.program) {
+      screen.program.showCursor();
+      screen.program.cursorShape('line', true);
+    }
   });
 
   // =============================================

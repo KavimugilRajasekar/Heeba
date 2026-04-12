@@ -1,0 +1,115 @@
+{
+  "os": "Windows",
+  "tool_name": "tasklist",
+  "category": "Process Inspection",
+  "mitre_attack": {
+    "tactic": ["Discovery"],
+    "technique_id": "T1057",
+    "technique_name": "Process Discovery"
+  },
+  "detection_focus": [
+    "Unusual or unknown running processes",
+    "High memory or CPU usage indicating crypto-mining or abuse",
+    "Processes running under suspicious user contexts",
+    "Services hosted in unexpected processes",
+    "DLL/module injection indicators",
+    "Store apps with unexpected activity"
+  ],
+  "forensic_artifacts": [
+    "tasklist CSV or LIST output for evidence",
+    "Process username and window title context",
+    "Loaded module (DLL) listings",
+    "Service-to-process mapping",
+    "PID correlation with netstat and event logs"
+  ],
+  "flags": [
+    {
+      "flag": "/FI",
+      "example_command": "tasklist /FI \"STATUS eq RUNNING\" /FO CSV",
+      "purpose": "Filters processes based on criteria like status, imagename, PID, username, services, windowtitle.",
+      "security_use_case": "Identify suspicious processes using targeted filters such as memory, name, or user.",
+      "threat_detected": "Suspicious names, high memory usage, unexpected user contexts.",
+      "risk_if_misused": "None; read-only. Requires correct filter syntax.",
+      "safe_followup": "Correlate PID with netstat; capture memory dump before termination.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/M",
+      "example_command": "tasklist /M /FI \"IMAGENAME eq powershell.exe\"",
+      "purpose": "Lists DLL modules loaded into processes to detect injection or unusual libraries.",
+      "security_use_case": "Detect suspicious DLLs injected into legitimate processes.",
+      "threat_detected": "DLL injection, trojanized binaries, abnormal module loads.",
+      "risk_if_misused": "None; read-only. Large output if module not specified.",
+      "safe_followup": "Investigate suspicious DLL paths; verify file signatures.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/SVC",
+      "example_command": "tasklist /SVC /FO LIST",
+      "purpose": "Maps Windows services to their hosting processes.",
+      "security_use_case": "Understand what services svchost.exe or other processes are running.",
+      "threat_detected": "Malware masquerading as a service or hiding within service hosts.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Check service config with sc.exe query; review service paths.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/V",
+      "example_command": "tasklist /V /FO CSV",
+      "purpose": "Shows verbose process details including username and window title.",
+      "security_use_case": "Identify processes running under abnormal user privileges.",
+      "threat_detected": "Privilege escalation, hidden background malware processes.",
+      "risk_if_misused": "None; read-only. Output is verbose.",
+      "safe_followup": "Cross-check username against expected sessions; inspect process path.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/FO",
+      "example_command": "tasklist /FO CSV /NH",
+      "purpose": "Formats output for automation or PowerShell parsing.",
+      "security_use_case": "Export process list to SIEM or automated scripts for analysis.",
+      "threat_detected": "Enables pattern detection across process data.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Parse CSV with PowerShell; correlate with other logs.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "/APPS",
+      "example_command": "tasklist /APPS /FI \"STATUS eq Running\"",
+      "purpose": "Displays Windows Store apps and their processes.",
+      "security_use_case": "Monitor AppContainer processes for abnormal behavior.",
+      "threat_detected": "Compromised Store apps or misuse of sandboxed permissions.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Review app permissions and network activity.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "detection_queries": [
+    {
+      "command": "tasklist /V /FO CSV",
+      "why_powerful": "Provides full context including username and window title for triage.",
+      "security_context": "Baseline process inventory for incident response."
+    },
+    {
+      "command": "tasklist /M",
+      "why_powerful": "Shows DLL injection and module loading patterns.",
+      "security_context": "Detect code injection or suspicious libraries."
+    },
+    {
+      "command": "tasklist /SVC",
+      "why_powerful": "Maps services to processes for service abuse detection.",
+      "security_context": "Identify malware hiding as Windows service."
+    }
+  ],
+  "tool_relationship": {
+    "paired_with": "taskkill, netstat, procdump, schtasks, reg query",
+    "attacker_usage": "Attackers enumerate processes to identify security tools to kill.",
+    "defender_usage": "Enumerate, analyze, and triage processes before containment."
+  }
+}

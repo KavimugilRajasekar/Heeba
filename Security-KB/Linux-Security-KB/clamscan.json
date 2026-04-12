@@ -1,0 +1,118 @@
+{
+  "os": "Linux",
+  "tool_name": "clamscan",
+  "category": "Malware Scan",
+  "flags": [
+    {
+      "flag": "-r",
+      "example_command": "clamscan -r /home",
+      "purpose": "Recursively scan directories.",
+      "security_use_case": "Full recursive malware scan.",
+      "threat_detected": "Malware files.",
+      "risk_if_misused": "None.",
+      "safe_followup": "--move=/quarantine.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-i",
+      "example_command": "clamscan -i /home",
+      "purpose": "Only print infected files.",
+      "security_use_case": "Clean output showing malware only.",
+      "threat_detected": "Malware found.",
+      "risk_if_misused": "None.",
+      "safe_followup": "--move=/quarantine.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-l",
+      "example_command": "clamscan -l /var/log/clamscan.log /home",
+      "purpose": "Save scan report to file.",
+      "security_use_case": "Document scan results.",
+      "threat_detected": "Same detection.",
+      "risk_if_misused": "None.",
+      "safe_followup": "tail -f log.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "--remove",
+      "example_command": "clamscan -i --remove /tmp",
+      "purpose": "Remove infected files.",
+      "security_use_case": "Emergency malware removal.",
+      "threat_detected": "Delete malware.",
+      "risk_if_misused": "False positives lose data.",
+      "safe_followup": "Use --move instead.",
+      "automation_safe": false,
+      "risk_level": "dangerous_never_auto"
+    },
+    {
+      "flag": "--move",
+      "example_command": "clamscan -i --move=/quarantine /tmp",
+      "purpose": "Move infected to directory.",
+      "security_use_case": "Quarantine with evidence.",
+      "threat_detected": "Isolate malware.",
+      "risk_if_misused": "Need writable directory.",
+      "safe_followup": "Analyze quarantined files.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-d",
+      "example_command": "clamscan -d /var/lib/clamav/custom.hdb /home",
+      "purpose": "Load custom database.",
+      "security_use_case": "Custom threat signatures.",
+      "threat_detected": "Targeted malware.",
+      "risk_if_misused": "May cause false positives.",
+      "safe_followup": "freshclam for updates.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "--detect-pua",
+      "example_command": "clamscan --detect-pua /home",
+      "purpose": "Detect PUAs.",
+      "security_use_case": "Detect unwanted apps.",
+      "threat_detected": "PUAs.",
+      "risk_if_misused": "May be legitimate.",
+      "safe_followup": "Review detections.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "--exclude",
+      "example_command": "clamscan -r / --exclude='/proc'",
+      "purpose": "Skip matching files.",
+      "security_use_case": "Exclude virtual filesystems.",
+      "threat_detected": "Same detection.",
+      "risk_if_misused": "May skip malware.",
+      "safe_followup": "--exclude-dir.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-f",
+      "example_command": "clamscan -f /root/scanlist.txt",
+      "purpose": "Scan files from list.",
+      "security_use_case": "Targeted scan.",
+      "threat_detected": "Focused investigation.",
+      "risk_if_misused": "None.",
+      "safe_followup": "clamscan -i -f list.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "freshclam && clamscan -i -r /home /var/www /tmp -l /var/log/clamscan.log --move=/quarantine",
+      "why_powerful": "Update then full scan with quarantine.",
+      "security_context": "Complete malware sweep."
+    },
+    {
+      "command": "clamscan -i -r / --exclude-dir=/proc --exclude-dir=/sys -l /var/log/clamscan.log",
+      "why_powerful": "Full system scan excluding virtual filesystems.",
+      "security_context": "System-wide malware detection."
+    }
+  ]
+}

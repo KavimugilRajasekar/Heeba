@@ -1,0 +1,108 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-NetTCPConnection",
+  "category": "Network Inspection",
+  "flags": [
+    {
+      "flag": "-State",
+      "example_command": "Get-NetTCPConnection -State Established | Where-Object {$_.RemoteAddress -notmatch '^(127\\.|10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.)'}",
+      "purpose": "Filter TCP connections by state (Listen, Established, TimeWait, CloseWait, SynSent, etc.) to focus on meaningful sessions.",
+      "security_use_case": "Identify active outbound sessions to public IPs that may indicate C2 or reverse shells.",
+      "threat_detected": "Live command-and-control channels, data exfiltration streams, reverse callbacks.",
+      "detection_pattern": "State = Established AND RemoteAddress not in private ranges.",
+      "forensic_value": "Shows real-time external communication paths during incident response.",
+      "baseline_value": "Most established connections should be to trusted corporate or known internet services.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Use Get-Process -Id $_.OwningProcess to identify process; capture trace if suspicious.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-LocalPort",
+      "example_command": "Get-NetTCPConnection -LocalPort 80,443,8080 -State Listen",
+      "purpose": "Identify services listening on commonly abused web ports.",
+      "security_use_case": "Detect rogue web servers, web shells, or port-forwarding tools.",
+      "threat_detected": "Backdoor listeners on HTTP/HTTPS ports.",
+      "detection_pattern": "State = Listen AND LocalPort in (80,443,8080) AND OwningProcess not expected.",
+      "forensic_value": "Maps listening ports to owning process for rapid triage.",
+      "baseline_value": "Only approved web services should listen on these ports.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Map PID with Get-Process; review firewall exposure.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-RemoteAddress",
+      "example_command": "Get-NetTCPConnection -RemoteAddress 185.234.0.10 -State Established",
+      "purpose": "Filter connections by a specific remote IP (from threat intel).",
+      "security_use_case": "Find all processes communicating with known malicious infrastructure.",
+      "threat_detected": "Ongoing C2 communication and malware persistence.",
+      "detection_pattern": "RemoteAddress equals known IOC.",
+      "forensic_value": "Shows process-to-IOC linkage.",
+      "baseline_value": "No legitimate process should connect to malicious IOCs.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Block IP via firewall; terminate owning process after validation.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-LocalAddress",
+      "example_command": "Get-NetTCPConnection -LocalAddress 192.168.1.100 -State Listen",
+      "purpose": "Check which services bind to specific interfaces on multi-homed systems.",
+      "security_use_case": "Ensure sensitive services are not exposed on external adapters.",
+      "threat_detected": "Service unintentionally exposed to untrusted network.",
+      "detection_pattern": "LocalAddress bound to external adapter AND State = Listen.",
+      "forensic_value": "Reveals interface binding mistakes used by attackers.",
+      "baseline_value": "Critical services bound only to internal/private adapters.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Adjust service binding or firewall rules.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-OwningProcess",
+      "example_command": "Get-NetTCPConnection -OwningProcess (Get-Process -Name chrome).Id",
+      "purpose": "Show all TCP connections opened by a specific process ID.",
+      "security_use_case": "Investigate suspicious processes for abnormal network activity.",
+      "threat_detected": "Compromised applications making C2 connections.",
+      "detection_pattern": "OwningProcess = suspicious PID.",
+      "forensic_value": "Ties network behavior to executable on disk.",
+      "baseline_value": "Applications should connect only to expected domains/IPs.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Hash executable; inspect modules and command line.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-AppliedSetting",
+      "example_command": "Get-NetTCPConnection -AppliedSetting Internet -State Listen",
+      "purpose": "Filter by network category profile (Internet, Datacenter, Compat).",
+      "security_use_case": "Detect services exposed under Internet profile unintentionally.",
+      "threat_detected": "Sensitive services listening on untrusted network category.",
+      "detection_pattern": "AppliedSetting = Internet AND State = Listen.",
+      "forensic_value": "Shows exposure due to incorrect network profile.",
+      "baseline_value": "Sensitive services should not bind under Internet profile.",
+      "risk_if_misused": "None; read-only.",
+      "safe_followup": "Correct network profile and binding configuration.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "Get-NetTCPConnection -State Listen | Where-Object {$_.LocalPort -notin 80,443,3389,22} | Select-Object LocalAddress,LocalPort,OwningProcess",
+      "why_powerful": "Finds non-standard listening ports often used by malware.",
+      "security_context": "Detect rogue listeners and backdoors."
+    },
+    {
+      "command": "Get-NetTCPConnection -State Established | Where-Object {$_.RemoteAddress -notmatch '^(127\\.|10\\.|192\\.168\\.|172\\.)'} | Select-Object OwningProcess,RemoteAddress,RemotePort",
+      "why_powerful": "Highlights all external active connections.",
+      "security_context": "Detect C2 and exfiltration channels."
+    },
+    {
+      "command": "Get-NetTCPConnection -RemotePort 443,4443,8443 -State Established | ForEach-Object { Get-Process -Id $_.OwningProcess | Select-Object Name,Path,Company }",
+      "why_powerful": "Maps encrypted traffic ports to actual processes for legitimacy checks.",
+      "security_context": "Differentiate normal HTTPS from malware TLS tunnels."
+    }
+  ]
+}

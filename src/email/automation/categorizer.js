@@ -52,13 +52,16 @@ module.exports = {
             else categories.other.push(email);
         });
 
-        let summary = `[Email Categorization Summary]\n\n`;
+        const TreeReporter = require('../../utils/tree-reporter');
+        const tree = new TreeReporter('Email Categorizer', `Analyzed ${emails.length} emails`);
+        
         Object.entries(categories).forEach(([name, list]) => {
             if (list.length > 0) {
-                summary += ` ◈ ${name.toUpperCase()}: ${list.length} emails\n`;
+                tree.branch(name.toUpperCase(), `${list.length} email(s)`);
             }
         });
         
-        return { success: true, message: summary, categories };
+        tree.complete('Categorization Complete');
+        return { success: true, message: tree.toString(), categories };
     }
 };

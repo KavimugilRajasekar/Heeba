@@ -1,0 +1,60 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-MpThreat",
+  "entity": "Get-MpThreat",
+  "category": "Antivirus",
+  "description": "PowerShell cmdlet to retrieve Microsoft Defender Antivirus detected threat history and remediation status.",
+  "prerequisites": [
+    "PowerShell with Defender module",
+    "Administrative privileges recommended",
+    "Microsoft Defender Antivirus enabled"
+  ],
+  "log_sources": [
+    "Microsoft Defender threat history",
+    "Security Event Log (for timeline correlation)",
+    "Defender quarantine store"
+  ],
+  "key_fields": [
+    "ThreatID",
+    "ThreatName",
+    "CategoryID",
+    "SeverityID",
+    "Action",
+    "InitialDetectionTime",
+    "Resources"
+  ],
+  "flags": [
+    {
+      "flag": "-ThreatID",
+      "example_command": "Get-MpThreat -ThreatID 1234",
+      "purpose": "Retrieve detailed information for a specific detected threat.",
+      "outputs": "Threat metadata including name, severity, action taken, and detection time.",
+      "security_use_case": "Investigate what was detected and how Defender responded.",
+      "threat_detected": "Malware, PUA, scripts, suspicious behavior historically detected.",
+      "detection_mapping": ["Malware detection history", "Remediation validation"],
+      "risk_if_misused": "None (read-only). Older ThreatIDs may no longer exist if cleared.",
+      "safe_followup": "Review related detections, confirm remediation, rescan if needed.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "remediation_workflow": [
+    "Identify threats not fully remediated",
+    "Correlate InitialDetectionTime with Security Event Log",
+    "Verify quarantine status and affected resources",
+    "Update signatures and rescan system",
+    "Perform deeper forensic analysis if repeat detections occur"
+  ],
+  "powerful_combinations": [
+    {
+      "command": "Get-MpThreat | Select-Object ThreatID,ThreatName,Action,InitialDetectionTime,CategoryID | Sort-Object InitialDetectionTime -Descending",
+      "why_powerful": "Creates a chronological view of all Defender detections for timeline analysis.",
+      "security_context": "Incident investigation and scope assessment."
+    },
+    {
+      "command": "Get-MpThreat | Where-Object {$_.Action -notin 'Quarantined','Removed'} | Select-Object ThreatID,ThreatName,Action,CategoryID",
+      "why_powerful": "Identifies threats that were detected but not successfully remediated.",
+      "security_context": "Finding active or partially remediated infections."
+    }
+  ]
+}

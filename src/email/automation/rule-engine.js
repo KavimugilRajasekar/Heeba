@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const rulesPath = path.join(__dirname, 'rules.json');
+// pkg-compatible path for read-only bundled rules
+const AUTOMATION_BASE = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..', '..', '..');
+const rulesPath = path.join(AUTOMATION_BASE, 'src', 'email', 'automation', 'rules.json');
 
 const loadRules = () => {
     if (fs.existsSync(rulesPath)) {

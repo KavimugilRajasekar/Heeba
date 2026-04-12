@@ -1,0 +1,216 @@
+{
+  "os": "Linux",
+  "tool_name": "find",
+  "category": "Filesystem Audit",
+  "flags": [
+    {
+      "flag": "-mtime",
+      "example_command": "find / -mtime -1",
+      "purpose": "Find files modified within N days.",
+      "security_use_case": "Detect recently modified files.",
+      "threat_detected": "Malware, modified configs, backdoors.",
+      "risk_if_misused": "None.",
+      "safe_followup": "stat <file>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-ctime",
+      "example_command": "find / -ctime -1",
+      "purpose": "Find files whose status changed within N days.",
+      "security_use_case": "Detect permission/ownership changes.",
+      "threat_detected": "chmod, chown, setuid changes.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ls -la.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-atime",
+      "example_command": "find / -atime -1",
+      "purpose": "Find files accessed within N days.",
+      "security_use_case": "Identify accessed sensitive files.",
+      "threat_detected": "Unauthorized file reads.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-perm",
+      "example_command": "find / -perm -4000",
+      "purpose": "Find files with setuid bit.",
+      "security_use_case": "Audit setuid binaries.",
+      "threat_detected": "Unauthorized setuid binaries.",
+      "risk_if_misused": "None.",
+      "safe_followup": "sha256sum.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-perm -6000",
+      "example_command": "find / -perm -6000",
+      "purpose": "Find files with both setuid and setgid.",
+      "security_use_case": "Detect dual setuid/setgid binaries.",
+      "threat_detected": "Sophisticated privilege escalation.",
+      "risk_if_misused": "None.",
+      "safe_followup": "diff against baseline.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-type f",
+      "example_command": "find / -type f -mtime -1",
+      "purpose": "Find only regular files.",
+      "security_use_case": "Focus on actual files.",
+      "threat_detected": "Malware binaries.",
+      "risk_if_misused": "None.",
+      "safe_followup": "file <file>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-type d",
+      "example_command": "find / -type d -perm -2000",
+      "purpose": "Find directories with setgid bit.",
+      "security_use_case": "Detect setgid directories.",
+      "threat_detected": "Group privilege escalation.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ls -la.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-name",
+      "example_command": "find / -name '*.sh' -mtime -1",
+      "purpose": "Match filename pattern.",
+      "security_use_case": "Find recently modified scripts.",
+      "threat_detected": "Malicious scripts.",
+      "risk_if_misused": "None.",
+      "safe_followup": "cat <script>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-user",
+      "example_command": "find / -user www-data -mtime -1",
+      "purpose": "Find files owned by user.",
+      "security_use_case": "Audit files from compromised user.",
+      "threat_detected": "Compromised web server creating files.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ls -la.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-nouser",
+      "example_command": "find / -nouser",
+      "purpose": "Find files not owned by valid user.",
+      "security_use_case": "Critical post-intrusion scan.",
+      "threat_detected": "Orphaned files from deleted attacker accounts.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ls -la.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-nogroup",
+      "example_command": "find / -nogroup",
+      "purpose": "Find files not belonging to valid group.",
+      "security_use_case": "Detect orphaned files.",
+      "threat_detected": "Group privilege artifacts.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ls -la.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-size",
+      "example_command": "find / -size +10M -type f",
+      "purpose": "Find files larger than size.",
+      "security_use_case": "Find large malware or data dumps.",
+      "threat_detected": "Large malware, data archives.",
+      "risk_if_misused": "None.",
+      "safe_followup": "file <file>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-exec",
+      "example_command": "find / -name '*.sh' -mtime -1 -exec sha256sum {} \\;",
+      "purpose": "Execute command on found files.",
+      "security_use_case": "Hash recently modified scripts.",
+      "threat_detected": "Generate integrity baseline.",
+      "risk_if_misused": "Can be slow.",
+      "safe_followup": "Compare with baseline.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-delete",
+      "example_command": "find / -name 'malware.bin' -delete",
+      "purpose": "Delete matching files.",
+      "security_use_case": "Remove identified malware.",
+      "threat_detected": "Confirmed malware removal.",
+      "risk_if_misused": "Cannot recover.",
+      "safe_followup": "Backup first.",
+      "automation_safe": false,
+      "risk_level": "dangerous_never_auto"
+    },
+    {
+      "flag": "-prune",
+      "example_command": "find / -path /proc -prune -o -name '*.conf' -print",
+      "purpose": "Exclude directory from search.",
+      "security_use_case": "Exclude virtual filesystems.",
+      "threat_detected": "Focus on real filesystem.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Combine with other criteria.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-uid",
+      "example_command": "find / -uid 0 -perm -4000",
+      "purpose": "Find files by UID.",
+      "security_use_case": "Find root setuid binaries.",
+      "threat_detected": "Unauthorized root-owned setuid.",
+      "risk_if_misused": "None.",
+      "safe_followup": "sha256sum.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-empty",
+      "example_command": "find / -empty -type f",
+      "purpose": "Find empty files.",
+      "security_use_case": "Detect placeholder files.",
+      "threat_detected": "Empty files from log wiping.",
+      "risk_if_misused": "None.",
+      "safe_followup": "stat.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "find / -perm -4000 -type f 2>/dev/null",
+      "why_powerful": "Locate every setuid binary.",
+      "security_context": "Rootkit hunting."
+    },
+    {
+      "command": "find / -nouser -o -nogroup 2>/dev/null",
+      "why_powerful": "Find orphaned files.",
+      "security_context": "Post-breach investigation."
+    },
+    {
+      "command": "find / -mtime -1 -type f 2>/dev/null | grep -v '/proc' | grep -v '/sys'",
+      "why_powerful": "All files modified in 24 hours.",
+      "security_context": "Finding malware added by attacker."
+    },
+    {
+      "command": "find / -path /proc -prune -o -perm -2 -type f -print",
+      "why_powerful": "Find world-writable files.",
+      "security_context": "Finding misconfigurations."
+    }
+  ]
+}

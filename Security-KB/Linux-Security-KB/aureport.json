@@ -1,0 +1,167 @@
+{
+  "os": "Linux",
+  "tool_name": "aureport",
+  "category": "Intrusion Detection",
+  "flags": [
+    {
+      "flag": "-au",
+      "example_command": "aureport -au",
+      "purpose": "Authentication report.",
+      "security_use_case": "Auth attempt summary.",
+      "threat_detected": "Brute force, unauthorized logins.",
+      "risk_if_misused": "None.",
+      "safe_followup": "aureport -au --failed.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-l",
+      "example_command": "aureport -l",
+      "purpose": "Login report.",
+      "security_use_case": "Login/logout summary.",
+      "threat_detected": "Off-hour logins.",
+      "risk_if_misused": "None.",
+      "safe_followup": "aureport -l --failed.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-c",
+      "example_command": "aureport -c",
+      "purpose": "Config change report.",
+      "security_use_case": "Configuration modifications.",
+      "threat_detected": "Unauthorized config changes.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -m CONFIG_CHANGE.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-k",
+      "example_command": "aureport -k",
+      "purpose": "Key report.",
+      "security_use_case": "Audit rule key usage.",
+      "threat_detected": "Monitoring coverage gaps.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -k <key>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-s",
+      "example_command": "aureport -s",
+      "purpose": "Syscall report.",
+      "security_use_case": "Syscall activity summary.",
+      "threat_detected": "Unusual syscall patterns.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -sc <syscall>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-e",
+      "example_command": "aureport -e",
+      "purpose": "Event report.",
+      "security_use_case": "All event types summary.",
+      "threat_detected": "Event distribution anomalies.",
+      "risk_if_misused": "None.",
+      "safe_followup": "aureport -e --summary.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-f",
+      "example_command": "aureport -f",
+      "purpose": "File access report.",
+      "security_use_case": "File event summary.",
+      "threat_detected": "Excessive file access.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -f <filename>.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-p",
+      "example_command": "aureport -p",
+      "purpose": "Process report.",
+      "security_use_case": "Process event summary.",
+      "threat_detected": "Unusual process activity.",
+      "risk_if_misused": "None.",
+      "safe_followup": "ausearch -m SYSCALL.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-i",
+      "example_command": "aureport -i",
+      "purpose": "Interpret mode.",
+      "security_use_case": "Human-readable output.",
+      "threat_detected": "Readable reports.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Combine with any report.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "--failed",
+      "example_command": "aureport -au --failed",
+      "purpose": "Only failed events.",
+      "security_use_case": "Focus on failed attempts.",
+      "threat_detected": "Failed attacks.",
+      "risk_if_misused": "None.",
+      "safe_followup": "aureport -au --failed -i.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "--summary",
+      "example_command": "aureport -e --summary",
+      "purpose": "Summary report.",
+      "security_use_case": "Totals per element.",
+      "threat_detected": "Top event sources.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Drill into specific types.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-te",
+      "example_command": "aureport -te '2024-01-15 18:00:00'",
+      "purpose": "End time.",
+      "security_use_case": "End of forensic window.",
+      "threat_detected": "Events before containment.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Use with -ts.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-ts",
+      "example_command": "aureport -ts '2024-01-15 10:00:00'",
+      "purpose": "Start time.",
+      "security_use_case": "Start of forensic window.",
+      "threat_detected": "Events from breach start.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Use with -te.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "aureport -au -i --summary",
+      "why_powerful": "Auth summary by user.",
+      "security_context": "Brute force detection."
+    },
+    {
+      "command": "aureport -l -i --failed",
+      "why_powerful": "Failed login summary.",
+      "security_context": "Unauthorized access detection."
+    },
+    {
+      "command": "aureport -c -i",
+      "why_powerful": "Configuration changes.",
+      "security_context": "Tracking config modifications."
+    }
+  ]
+}

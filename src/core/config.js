@@ -38,7 +38,7 @@ const availableModels = getAvailableModels();
 const DEFAULT_CONFIG = {
     model: availableModels.find(m => m === 'granite4latest.gguf') || availableModels[0] || 'ollama-gpt-oss',
     engine: ENGINE_EXE,
-    contextLength: 2048,
+    contextLength: 8192,
     threads: 4,
 };
 

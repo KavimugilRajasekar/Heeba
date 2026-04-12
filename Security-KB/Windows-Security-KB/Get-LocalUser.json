@@ -1,0 +1,67 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-LocalUser",
+  "entity": "Get-LocalUser",
+  "category": "User Audit",
+  "description": "PowerShell cmdlet to enumerate and audit local user accounts, their status, SIDs, and password properties for security assessment.",
+  "prerequisites": [
+    "PowerShell 5.1+",
+    "Administrative privileges recommended for full visibility",
+    "LocalAccounts module available (default on modern Windows)"
+  ],
+  "log_sources": [
+    "Local SAM database",
+    "Security Event Log (for correlation)"
+  ],
+  "flags": [
+    {
+      "flag": "-Name",
+      "example_command": "Get-LocalUser -Name \"Admin\",\"Guest\",\"DefaultAccount\"",
+      "purpose": "Retrieve local users by exact name or wildcard pattern.",
+      "outputs": "User objects with Enabled, LastLogon, PasswordLastSet, SID.",
+      "security_use_case": "Audit built-in and suspiciously named accounts.",
+      "threat_detected": "Enabled Guest, rogue admin accounts, weak/empty password indicators.",
+      "detection_mapping": ["Rogue account detection", "Weak account posture"],
+      "risk_if_misused": "None (read-only). Wildcards may match unintended names.",
+      "safe_followup": "Disable, reset password, or remove unauthorized accounts after validation.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-SID",
+      "example_command": "Get-LocalUser -SID \"S-1-5-21-XXXX-XXXX-XXXX-500\"",
+      "purpose": "Retrieve user by SID which remains constant even if account is renamed.",
+      "outputs": "Exact account mapped to well-known SID.",
+      "security_use_case": "Detect renamed built-in Administrator or Guest accounts.",
+      "threat_detected": "Renamed Administrator account used for stealth persistence.",
+      "detection_mapping": ["Stealth admin persistence", "Built-in account abuse"],
+      "risk_if_misused": "None (read-only). Requires correct SID.",
+      "safe_followup": "Audit group membership with Get-LocalGroupMember.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "well_known_sids": {
+    "500": "Administrator",
+    "501": "Guest",
+    "503": "DefaultAccount",
+    "504": "WDAGUtilityAccount"
+  },
+  "powerful_combinations": [
+    {
+      "command": "Get-LocalUser | Where-Object {$_.Enabled -and $_.PasswordLastSet -lt (Get-Date).AddDays(-90)} | Select-Object Name,LastLogon,PasswordLastSet,PasswordNeverExpires",
+      "why_powerful": "Finds active accounts with old passwords indicating abandonment or compromise.",
+      "security_context": "Dormant account persistence and credential theft risk."
+    },
+    {
+      "command": "Get-LocalUser | Where-Object {$_.PasswordNeverExpires -and $_.Name -ne 'DefaultAccount'} | Select-Object Name,UserMayChangePassword,PasswordNeverExpires,Description",
+      "why_powerful": "Detects accounts violating password expiry policy, especially risky for admins/service accounts.",
+      "security_context": "Credential hygiene and policy enforcement."
+    },
+    {
+      "command": "Get-LocalUser | ForEach-Object {$_.SID.Value} | Where-Object {$_ -match '-500$|-501$|-503$|-504$'} | ForEach-Object { Get-LocalUser -SID $_ }",
+      "why_powerful": "Enumerates built-in accounts even if renamed for stealth.",
+      "security_context": "Built-in account abuse and privilege escalation detection."
+    }
+  ]
+}

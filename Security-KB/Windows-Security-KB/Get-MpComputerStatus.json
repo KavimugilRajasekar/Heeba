@@ -1,0 +1,79 @@
+{
+  "os": "Windows",
+  "tool_name": "Get-MpComputerStatus",
+  "entity": "Get-MpComputerStatus",
+  "category": "Antivirus",
+  "description": "PowerShell cmdlet to retrieve Microsoft Defender Antivirus health, protection state, and signature status locally or remotely.",
+  "prerequisites": [
+    "PowerShell with Defender module available",
+    "Administrative privileges for full visibility",
+    "WinRM enabled for remote CIM sessions",
+    "Firewall rules allowing remote management"
+  ],
+  "log_sources": [
+    "Microsoft Defender operational state",
+    "Security Event Log (for correlation)",
+    "Defender diagnostic logs"
+  ],
+  "key_fields": [
+    "AntivirusEnabled",
+    "RealTimeProtectionEnabled",
+    "IoavProtectionEnabled",
+    "AntivirusSignatureVersion",
+    "AntivirusSignatureLastUpdated",
+    "AntivirusSignatureAge",
+    "QuickScanStartTime",
+    "FullScanStartTime"
+  ],
+  "flags": [
+    {
+      "flag": "-CimSession",
+      "example_command": "$s = New-CimSession -ComputerName WS01,WS02; Get-MpComputerStatus -CimSession $s",
+      "purpose": "Query Defender status on remote endpoints via CIM sessions.",
+      "outputs": "Per-host Defender health and signature data.",
+      "security_use_case": "Enterprise-wide monitoring of protection state.",
+      "threat_detected": "Disabled AV, disabled real-time protection, outdated signatures.",
+      "detection_mapping": ["AV tampering", "Defense evasion", "Outdated protection"],
+      "risk_if_misused": "Requires proper permissions and WinRM exposure.",
+      "safe_followup": "Re-enable protections, update signatures, investigate root cause.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    },
+    {
+      "flag": "-ThrottleLimit",
+      "example_command": "Get-MpComputerStatus -ThrottleLimit 50",
+      "purpose": "Control concurrency when querying many hosts to avoid resource exhaustion.",
+      "outputs": "Same as default query with controlled parallelism.",
+      "security_use_case": "Safe enterprise querying without overloading endpoints.",
+      "threat_detected": "N/A (performance tuning).",
+      "detection_mapping": ["Operational safety"],
+      "risk_if_misused": "Too high may stress network/hosts; too low slows audits.",
+      "safe_followup": "Tune based on environment capacity.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "health_interpretation": {
+    "AntivirusEnabled_false": "Defender disabled — possible attacker tampering",
+    "RealTimeProtectionEnabled_false": "Real-time scanning off — high risk",
+    "AntivirusSignatureAge_gt_7": "Signatures outdated — reduced detection capability",
+    "IoavProtectionEnabled_false": "Web/download scanning disabled — malware ingress risk"
+  },
+  "powerful_combinations": [
+    {
+      "command": "Get-MpComputerStatus | Select-Object PSComputerName,AntivirusEnabled,RealTimeProtectionEnabled,AntivirusSignatureLastUpdated,AntivirusSignatureVersion,AntivirusSignatureAge",
+      "why_powerful": "Quick Defender health snapshot for local system.",
+      "security_context": "Initial endpoint triage during incident response."
+    },
+    {
+      "command": "Get-MpComputerStatus | Where-Object {$_.AntivirusEnabled -eq $false -or $_.RealTimeProtectionEnabled -eq $false -or $_.AntivirusSignatureAge -gt 7} | Select-Object PSComputerName,AntivirusEnabled,RealTimeProtectionEnabled,AntivirusSignatureAge",
+      "why_powerful": "Finds endpoints with disabled protection or stale signatures.",
+      "security_context": "Detecting defense evasion by attackers."
+    },
+    {
+      "command": "$servers='Server01','Server02','Server03'; $s=New-CimSession -ComputerName $servers; Get-MpComputerStatus -CimSession $s | Select-Object PSComputerName,AntivirusEnabled,RealTimeProtectionEnabled,IoavProtectionEnabled,QuickScanStartTime,FullScanStartTime",
+      "why_powerful": "Enterprise monitoring of critical servers’ Defender posture.",
+      "security_context": "Ensuring high-value servers remain protected."
+    }
+  ]
+}

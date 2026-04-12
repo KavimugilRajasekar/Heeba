@@ -1,0 +1,74 @@
+{
+  "os": "Linux",
+  "tool_name": "top",
+  "category": "Process Inspection",
+  "flags": [
+    {
+      "flag": "-d",
+      "example_command": "top -d 5",
+      "purpose": "Set refresh delay.",
+      "security_use_case": "Adjust monitoring speed.",
+      "threat_detected": "Same.",
+      "risk_if_misused": "None.",
+      "safe_followup": "q to quit.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-p",
+      "example_command": "top -p 1234,5678",
+      "purpose": "Monitor specific PIDs.",
+      "security_use_case": "Focus on suspicious PIDs.",
+      "threat_detected": "Targeted monitoring.",
+      "risk_if_misused": "None.",
+      "safe_followup": "q.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-u",
+      "example_command": "top -u www-data",
+      "purpose": "Show only user processes.",
+      "security_use_case": "Monitor specific user.",
+      "threat_detected": "User anomalies.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Shift+H for threads.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-H",
+      "example_command": "top -H",
+      "purpose": "Show threads.",
+      "security_use_case": "Thread-level view.",
+      "threat_detected": "Thread injection.",
+      "risk_if_misused": "None.",
+      "safe_followup": "H to toggle.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-b",
+      "example_command": "top -b -n 5 > /tmp/top_output.txt",
+      "purpose": "Batch mode.",
+      "security_use_case": "Capture snapshots.",
+      "threat_detected": "Automated capture.",
+      "risk_if_misused": "None.",
+      "safe_followup": "Analyze output.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "top -b -n 60 -d 1 | grep -E '^%Cpu|^top' > /var/log/cpu_monitor.log",
+      "why_powerful": "CPU monitoring over 60 seconds.",
+      "security_context": "Detecting cryptomining."
+    },
+    {
+      "command": "top -b -n 1 -u www-data",
+      "why_powerful": "Single snapshot of web server user.",
+      "security_context": "Web server compromise detection."
+    }
+  ]
+}

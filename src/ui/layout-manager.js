@@ -44,8 +44,8 @@ function updateWelcomeCard(UI, screen, state) {
   UI.engineInfoEl.setContent(`Engine : ${isVirtual ? 'Ollama (Online)' : 'llama.cpp (local)'}\nModel  : ${state.CONFIG.model}`);
   UI.tipsText.setContent(m.tips.join('   '));
 
-  UI.promptText.setContent(`>`);
-  UI.promptText.style.fg = m.color;
+  UI.promptText.setContent(`⟫`);
+  UI.promptText.style.fg = '#ffffff';
 
   UI.footerStatus.setContent('● ready');
   UI.footerStatus.style.fg = C.green;
@@ -264,11 +264,11 @@ function updatePageIndicator(UI, state) {
 }
 
 function showLoading(UI, overlays, screen, state, show) {
+  UI.promptText.setContent(`⟫`);
+  UI.promptText.style.fg = '#ffffff';
   if (show) {
-    UI.promptText.setContent(`>`);
     startLoadingAnimation(UI, overlays, screen, MODES.auto);
   } else {
-    UI.promptText.setContent(`>`);
     stopLoadingAnimation(UI, overlays, screen, MODES.auto);
   }
   UI.footerStatus.setContent(show ? '● busy' : '● ready');

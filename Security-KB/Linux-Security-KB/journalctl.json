@@ -1,0 +1,145 @@
+{
+  "os": "Linux",
+  "tool_name": "journalctl",
+  "category": "Log Analysis",
+  "flags": [
+    {
+      "flag": "--system",
+      "example_command": "journalctl --system",
+      "purpose": "Show only system messages.",
+      "security_use_case": "Focus on system-level events.",
+      "threat_detected": "Unauthorized service starts.",
+      "risk_if_misused": "None.",
+      "safe_followup": "journalctl --system -b.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-b",
+      "example_command": "journalctl -b",
+      "purpose": "Show messages from current boot.",
+      "security_use_case": "Isolate current session events.",
+      "threat_detected": "Recent compromise indicators.",
+      "risk_if_misused": "None.",
+      "safe_followup": "journalctl -b -p err.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-u",
+      "example_command": "journalctl -u ssh.service",
+      "purpose": "Show messages for specific unit.",
+      "security_use_case": "Audit specific service logs.",
+      "threat_detected": "SSH brute force, unauthorized logins.",
+      "risk_if_misused": "None.",
+      "safe_followup": "journalctl -u ssh --since '1 day ago'.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-p",
+      "example_command": "journalctl -p err",
+      "purpose": "Filter by message priority.",
+      "security_use_case": "Focus on error-level events.",
+      "threat_detected": "Service failures, auth failures.",
+      "risk_if_misused": "None.",
+      "safe_followup": "journalctl -p err --since today.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "--since",
+      "example_command": "journalctl --since '2024-01-15 10:00:00'",
+      "purpose": "Show entries on or newer than date.",
+      "security_use_case": "Time-bounded forensic analysis.",
+      "threat_detected": "Events during breach window.",
+      "risk_if_misused": "None.",
+      "safe_followup": "journalctl --since X --until Y.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-f",
+      "example_command": "journalctl -f",
+      "purpose": "Follow new entries in real time.",
+      "security_use_case": "Real-time monitoring.",
+      "threat_detected": "New attacks as they happen.",
+      "risk_if_misused": "Ctrl+C to stop.",
+      "safe_followup": "Ctrl+C.",
+      "automation_safe": false,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-n",
+      "example_command": "journalctl -n 50",
+      "purpose": "Show last N lines.",
+      "security_use_case": "Quick recent log review.",
+      "threat_detected": "Recent events.",
+      "risk_if_misused": "None.",
+      "safe_followup": "journalctl -n 100 -p err.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-o",
+      "example_command": "journalctl -o json",
+      "purpose": "Output format (short, json, verbose).",
+      "security_use_case": "SIEM integration.",
+      "threat_detected": "Automated log processing.",
+      "risk_if_misused": "None.",
+      "safe_followup": "jq for parsing.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-k",
+      "example_command": "journalctl -k",
+      "purpose": "Show kernel messages.",
+      "security_use_case": "Kernel-level event analysis.",
+      "threat_detected": "Kernel panics, module issues.",
+      "risk_if_misused": "None.",
+      "safe_followup": "lsmod.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "-g",
+      "example_command": "journalctl -g 'failed password'",
+      "purpose": "Search for text pattern.",
+      "security_use_case": "Search for auth failures.",
+      "threat_detected": "Brute force attempts.",
+      "risk_if_misused": "None.",
+      "safe_followup": "journalctl -g 'BREAK-IN'.",
+      "automation_safe": true,
+      "risk_level": "read_only_safe"
+    },
+    {
+      "flag": "--vacuum-size",
+      "example_command": "journalctl --vacuum-size=500M",
+      "purpose": "Reduce disk usage by deleting old entries.",
+      "security_use_case": "Emergency disk space recovery.",
+      "threat_detected": "Attacker filling disk.",
+      "risk_if_misused": "Destroys evidence.",
+      "safe_followup": "Back up first.",
+      "automation_safe": false,
+      "risk_level": "requires_confirmation"
+    }
+  ],
+  "powerful_combinations": [
+    {
+      "command": "journalctl -u ssh.service -p err --since '24 hours ago'",
+      "why_powerful": "SSH errors from last 24 hours.",
+      "security_context": "Detecting brute force."
+    },
+    {
+      "command": "journalctl -p err -b --no-pager",
+      "why_powerful": "All errors from current boot.",
+      "security_context": "Quick triage after compromise."
+    },
+    {
+      "command": "journalctl -f | grep -i 'failed\\|invalid\\|break-in'",
+      "why_powerful": "Real-time monitoring for auth failures.",
+      "security_context": "Live brute force detection."
+    }
+  ]
+}
