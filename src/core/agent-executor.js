@@ -100,9 +100,55 @@ Format: { "plan": ["Step 1", "Step 2", ...] }`;
     const command = parseCommandFromResponse(llmResponse);
 
     // Skip plans or empty commands - treat as final response
+    // A valid command must have either an 'action' or 'command' field
     if (!command || (!command.action && !command.command)) {
       finalResponse = llmResponse;
       break;
+    }
+
+    // Ignore plan-only responses (LLM returned {"plan": [...]} instead of executing)
+    if (command && command.plan && !command.action) {
+      // Extract the first step and try to parse it as an action
+      const firstStep = command.plan[0] || '';
+
+      // Try to detect "Use <action> with ..." pattern
+      const useMatch = firstStep.match(/^Use\s+(\w+)\s+with/i);
+      const doMatch = firstStep.match(/^Do\s+(\w+)/i);
+      const actionMatch = firstStep.match(/^(\w+)\s+/);
+      const detectedAction = useMatch?.[1] || doMatch?.[1] || actionMatch?.[1];
+
+      if (detectedAction && commandHandlers[detectedAction]) {
+        // Extract parameters from the step text
+        const pathMatch = firstStep.match(/path["\s:]+"?([^"]+)"?/i) ||
+                          firstStep.match(/command["\s:]+"?([^"]+)"?/i) ||
+                          firstStep.match(/file_path["\s:]+"?([^"]+)"?/i);
+        const paramValue = pathMatch?.[1]?.trim();
+
+        if (paramValue) {
+          // Directly execute the detected action
+          command.action = detectedAction;
+          command.parameters = detectedAction === 'run_command'
+            ? { command: paramValue }
+            : { path: paramValue };
+        }
+      }
+
+      // If still no valid action, ask LLM to retry
+      if (!command.action || !commandHandlers[command.action]) {
+        const retryPrompt = `You returned a plan instead of executing it. Please execute the first step of your plan now.
+YOUR PLAN: ${JSON.stringify(command.plan)}
+
+Available tools: ${Object.keys(commandHandlers).join(', ')}
+
+Respond ONLY with a JSON object like: {"action": "run_command", "parameters": {"command": "git branch -r"}}`;
+        const retryResponse = await queryFn(retryPrompt, 'auto');
+        const retryCommand = parseCommandFromResponse(retryResponse);
+        if (!retryCommand || (!retryCommand.action && !retryCommand.command)) {
+          finalResponse = retryResponse;
+          break;
+        }
+        Object.assign(command, retryCommand);
+      }
     }
 
     if (command && (command.action || command.command)) {

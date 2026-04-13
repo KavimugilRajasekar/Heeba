@@ -22,11 +22,12 @@ const ANSI_REGEX = /\x1b\[[0-9;]*m/g;
  * E.g., " ├─ " becomes " │  ", " └─ " becomes "    "
  */
 function getContinuationPrefix(line) {
-  const match = line.match(/^(\s*[│├└]─*\s*)/);
+  const match = line.match(/^(\s*[◈│├└]─*\s*)/);
   if (!match) return '  '; // Default paragraph indent
-  
+
   return match[1]
     .replace(/[├└]/g, (m) => m === '├' ? '│' : ' ')
+    .replace(/[◈]/g, ' ')
     .replace(/─/g, ' ');
 }
 
@@ -49,8 +50,25 @@ function renderMarkdown(text, termWidth, tags = true) {
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
 
+    // ── Tree-structure lines (with or without ANSI) ──
+    // Detect lines starting with tree chars: ◈ ├ └ │ ╟ ║ etc.
+    // Strip ANSI to detect tree characters even when wrapped in color codes
+    const cleanLine = raw.replace(ANSI_REGEX, '');
+    const treeLineMatch = cleanLine.match(/^(\s*[◈├└╟║│]─*)/);
+    if (treeLineMatch) {
+      // Tree lines are preformatted — preserve as-is without wrapping
+      result.push({
+        content: raw,
+        fg: '#ededef',
+        bold: false,
+        tags: false,
+        type: 'tree'
+      });
+      continue;
+    }
+
     // ── ANSI Escape Detection (Scientific/Tree Reports) ──
-    if (ANSI_REGEX.test(raw)) {
+    if (tags && ANSI_REGEX.test(raw)) {
       let content = raw;
       // Convert ANSI escapes to Blessed tags (for blessed rendering)
       // When tags=false (CLI mode), leave ANSI escapes as-is
@@ -64,7 +82,7 @@ function renderMarkdown(text, termWidth, tags = true) {
       wrapped.forEach(wl => {
         result.push({
           content: wl,
-          fg: C.fg,
+          fg: '#ededef',
           bold: false,
           tags: true,
           type: 'raw'
@@ -182,6 +200,23 @@ function renderMarkdown(text, termWidth, tags = true) {
           bold: false,
           type: 'quote'
         });
+      });
+      continue;
+    }
+
+    // ── Git graph / preformatted tree lines ──
+    // Detect git log --graph output: lines starting with graph chars (* | / \ _ =)
+    // optionally preceded by ANSI color codes — check BEFORE list detection
+    // Git graph: trim ANSI, then check if remaining line starts with a graph char
+    const gitGraphMatch = cleanLine.trimLeft().match(/^[*|\\/ _=]/);
+    if (gitGraphMatch) {
+      // Preserve raw content with ANSI codes intact
+      result.push({
+        content: raw,
+        fg: '#ededef',
+        bold: false,
+        tags: false,
+        type: 'git-graph'
       });
       continue;
     }

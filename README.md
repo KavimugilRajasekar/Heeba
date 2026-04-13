@@ -35,6 +35,50 @@ Heeba provides **three operational interfaces**:
 - **Engine** — High-performance inference powered by `llama.cpp` or Ollama
 - **Bridge** — Translates natural language into structured system actions
 - **Automation** — Executes real email, file, and system workflows
+- **Planning** — Multi-step strategic planning with tree-based roadmap visualization
+
+---
+
+## ◈ Strategic Planning
+
+Heeba features an intelligent **strategic planning system** that breaks down complex requests into executable steps, displayed as a visual tree structure in the terminal.
+
+### How It Works
+
+When you issue a multi-step request, Heeba:
+
+1. **Analyzes** your intent and available tools
+2. **Plans** a step-by-step roadmap using the optimal tool sequence
+3. **Executes** each step while tracking progress with visual indicators
+4. **Reports** results through each phase with clear status updates
+
+### Visual Roadmap
+
+```
+◈ Designing strategic plan...
+  ◈ STRATEGIC ROADMAP
+  └─ Front-loaded approach
+  ├─ Step 1: Use list_dir with path "C:\project" to verify the repository
+  ├─ Step 2: Execute run_command with parameters { "command": "git branch -a" }
+  ├─ Step 3: Execute run_command with parameters { "command": "git log --graph --oneline --all" }
+  └─ Step 4: Use read_file with path "..."
+```
+
+Progress markers indicate execution state:
+- `➤` — Current step being executed
+- `✔` — Completed step
+- `  ` — Pending step
+
+### CLI Usage
+
+```powershell
+# Strategic planning is automatic for complex multi-step queries
+heeba -m "Find all branches in this project and show me a tree structure"
+heeba -m "Security audit my system for open ports"
+heeba -m "Analyze this codebase and find all API endpoints"
+```
+
+> **Tip:** Complex queries (repository analysis, security audits, multi-file operations) trigger the planning system automatically. Simple queries execute directly without planning overhead.
 
 ---
 
@@ -380,6 +424,58 @@ The output is placed in `dist/heeba.exe`. The build uses `pkg` and automatically
 | `Escape` | Go back / close overlay |
 | `Tab` | Open session/page list |
 | `Ctrl+C` / `q` | Exit cleanly |
+
+---
+
+## ◈ Visual Design
+
+Heeba uses a **clean, text-based visual language** optimized for terminal readability:
+
+- **Tree structures** — `├`, `└`, `│` characters for hierarchical display of branches, roadmaps, and reports
+- **Box-drawing** — `┌`, `─`, `┐`, `│`, `└`, `─`, `┘` for tables, code blocks, and section dividers
+- **Progress markers** — `➤` (current), `✔` (done), `◈` (section header)
+- **No emoji** — Pure ASCII/Unicode for maximum terminal compatibility
+
+The markdown renderer preserves tree alignment automatically, ensuring preformatted output like git graphs and strategic roadmaps display correctly without text wrapping artifacts.
+
+---
+
+## ◈ File Statistics
+
+The following table lists all source files by line count in descending order:
+
+| Lines | File |
+|---:|---|
+| 722 | `src/web/client/app.js` |
+| 655 | `src/core/auditors/security-auditor.js` |
+| 611 | `src/core/auditors/app-auditor.js` |
+| 578 | `src/core/handlers/email-handler.js` |
+| 540 | `src/ui/components.js` |
+| 511 | `src/web/web-router.js` |
+| 436 | `src/telegram/telegram-router.js` |
+| 418 | `src/core/handlers/file-handler.js` |
+| 374 | `src/ui/layout-manager.js` |
+| 331 | `src/ui/animations.js` |
+| 330 | `src/ui/markdown-renderer.js` |
+| 308 | `src/core/handlers/software-handler.js` |
+| 262 | `src/core/ollama-adapter.js` |
+| 222 | `src/core/agent-executor.js` |
+| 210 | `src/core/engine.js` |
+| 210 | `src/core/email-accounts.js` |
+| 207 | `src/core/handlers/weather-handler.js` |
+| 185 | `src/core/handlers/system-handler.js` |
+| 179 | `src/web/session-bridge.js` |
+| 178 | `src/telegram/telegram-launcher.js` |
+| 174 | `src/core/state-manager.js` |
+| 173 | `src/email/automation/utils/parsers.js` |
+| 156 | `src/core/handlers/news-handler.js` |
+| 138 | `src/core/model-registry.js` |
+| 134 | `src/core/intent-executor.js` |
+| 125 | `src/email/automation/utils/formatters.js` |
+| 120 | `src/core/handlers/model-handler.js` |
+| 119 | `src/ui/input-manager.js` |
+| 116 | `src/email/automation/utils/cache.js` |
+| 113 | `src/core/security-tools-index.js` |
 
 ---
 

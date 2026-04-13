@@ -15,26 +15,51 @@ function parseCommandFromResponse(response) {
     }
   }
 
-  // Try to find anything that looks like a JSON object containing "action", "command", or "plan"
-  const anyJsonMatch = response.match(/\{[\s\S]*" (action|command|plan)"[\s\S]*\}/) || 
-                       response.match(/\{[\s\S]*"(action|command|plan)"[\s\S]*\}/);
-  
-  if (anyJsonMatch) {
-    try {
-      // Find the outermost braces around the action/command
-      const actionPos = response.indexOf(anyJsonMatch[0]);
-      const firstBrace = response.lastIndexOf('{', actionPos);
-      const lastBrace = response.indexOf('}', actionPos + anyJsonMatch[0].length - 1);
-      
-      if (firstBrace !== -1 && lastBrace !== -1) {
-        const jsonStr = response.substring(firstBrace, lastBrace + 1);
-        return JSON.parse(jsonStr);
+  // Try to extract a JSON object by finding balanced braces
+  // Look for { ... } blocks that contain action, command, or plan keys
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < response.length; i++) {
+    const ch = response[i];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (ch === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (ch === '{') {
+      if (start === -1) start = i;
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        const jsonStr = response.substring(start, i + 1);
+        try {
+          const parsed = JSON.parse(jsonStr);
+          // Only return if it has meaningful command fields
+          if (parsed.action || parsed.command || parsed.plan) {
+            return parsed;
+          }
+        } catch (e) {
+          // Not valid JSON, continue searching
+        }
+        start = -1;
       }
-    } catch (e) {
-      // Final fallback to simple match
-      try {
-        return JSON.parse(anyJsonMatch[0]);
-      } catch (e2) {}
     }
   }
 

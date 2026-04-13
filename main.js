@@ -234,7 +234,7 @@ async function runStateless(prompt, model) {
     const agentResult = await runAgenticLoop(
       prompt,
       (p, mode) => queryLLM(p, mode, state.CONFIG, null),
-      5,
+      15,
       {
         context: { screen: null, UI: null, config: state.CONFIG },
         onStep: (step) => {

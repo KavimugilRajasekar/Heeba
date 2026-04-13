@@ -288,6 +288,64 @@ const fileHandlers = {
    * Test an HTTP endpoint using OS-native tools (curl / Invoke-WebRequest)
    * @param {Object} params - { url: string, method?: string, body?: string, headers?: object }
    */
+  /**
+   * Run an arbitrary shell command
+   * @param {Object} params - { command: string }
+   */
+  run_command: async (params) => {
+    const { command } = params;
+    if (!command) return { success: false, message: 'No command provided. Usage: run_command { command: "git branch -r" }' };
+
+    const result = await execCommand(command);
+    const output = result.message || '';
+
+    // Format git branch output as a tree (but preserve git log graph structure)
+    if (command.trim().startsWith('git branch')) {
+      const TreeReporter = require('../../utils/tree-reporter');
+      const isRemote = command.includes('-r');
+      const tree = new TreeReporter(
+        'Git Branches',
+        isRemote ? 'Remote branches' : 'Local branches'
+      );
+
+      const lines = output.split('\n').filter(l => l.trim());
+      if (lines.length === 0) {
+        return { success: true, message: tree.toString() + '\n  (empty)' };
+      }
+
+      lines.forEach(line => {
+        const cleaned = line.replace(/^\* /, '  ').trim();
+        if (cleaned) tree.branch(cleaned);
+      });
+
+      return { success: result.success, message: tree.toString() };
+    }
+
+    // For git log (especially --graph), return raw output to preserve tree structure
+    if (command.trim().startsWith('git log')) {
+      // If --graph is used, return raw output so the git graph chars (* | / \) are preserved
+      if (command.includes('--graph')) {
+        return { success: result.success, message: output };
+      }
+      // Otherwise format as tree
+      const TreeReporter = require('../../utils/tree-reporter');
+      const tree = new TreeReporter('Git Commit History', 'Recent commits');
+      const lines = output.split('\n').filter(l => l.trim());
+      lines.slice(0, 20).forEach(line => tree.branch(line.trim()));
+      if (lines.length > 20) tree.branch(`... and ${lines.length - 20} more commits`);
+      return { success: result.success, message: tree.toString() };
+    }
+
+    return {
+      success: result.success,
+      message: output
+    };
+  },
+
+  /**
+   * Test an HTTP endpoint using OS-native tools (curl / Invoke-WebRequest)
+   * @param {Object} params - { url: string, method?: string, body?: string, headers?: object }
+   */
   test_endpoint: async (params) => {
     const { url, method = 'GET', body, headers } = params;
     if (!url) return { success: false, message: 'No URL provided. Usage: test_endpoint { url: "http://localhost:3000/api" }' };
