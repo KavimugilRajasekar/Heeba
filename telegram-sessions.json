@@ -1,1 +1,15 @@
-{}
+{
+  "1767023771": {
+    "history": [
+      {
+        "user": "Hi da bai !",
+        "assistant": "Hello kavi! Nice to hear from you."
+      },
+      {
+        "user": "About today's mail !",
+        "assistant": "Sure, kavi! Let me know which email you’d like to read first (e.g., “Read email 4”), and I’ll pull up its content for a detailed summary."
+      }
+    ],
+    "last_accessed": 1776095210516
+  }
+}

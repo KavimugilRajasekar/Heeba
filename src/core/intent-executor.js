@@ -8,6 +8,7 @@ const fileHandlers = require('./handlers/file-handler');
 const profileHandlers = require('./handlers/profile-handler');
 const softwareHandlers = require('./handlers/software-handler');
 const weatherHandlers = require('./handlers/weather-handler');
+const newsHandlers = require('./handlers/news-handler');
 const { getOS } = require('./kb-loader');
 
 // Auditors (New Modular Structure)
@@ -24,7 +25,8 @@ const commandHandlers = {
   ...fileHandlers,
   ...profileHandlers,
   ...softwareHandlers,
-  ...weatherHandlers
+  ...weatherHandlers,
+  ...newsHandlers
 };
 
 // Execute a command
@@ -77,8 +79,15 @@ function isSecurityIntentTriggered(userInput, intentRules) {
 // Check if intent matches app endpoint/backend auditing
 function isAppAuditIntentTriggered(userInput, intentRules) {
   const input = userInput.toLowerCase();
+
+  // Use word-boundary matching to avoid false positives
+  // e.g. "about" won't match "api", "sports" won't match "port"
   const appKeywords = ['backend', 'endpoint', 'api', 'port', 'route', 'server audit'];
-  return appKeywords.some(kw => input.includes(kw));
+  return appKeywords.some(kw => {
+    // Match whole word only: word boundaries before and after
+    const pattern = new RegExp(`\\b${kw}\\b`, 'i');
+    return pattern.test(input);
+  });
 }
 
 // Extract email address from user input (for audit report delivery)

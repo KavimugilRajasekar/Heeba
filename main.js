@@ -245,7 +245,7 @@ async function runStateless(prompt, model) {
             const tree = new TreeReporter('Strategic Roadmap', 'Front-loaded approach');
             step.plan.forEach((s, i) => tree.branch(`Step ${i + 1}`, s));
             
-            const renderedLines = renderMarkdown(tree.toString(), process.stdout.columns || 80);
+            const renderedLines = renderMarkdown(tree.toString(), process.stdout.columns || 80, false);
             process.stdout.write('\n');
             renderedLines.forEach(line => process.stdout.write(line.content + '\n'));
           } else if (step.phase === 'executing') {
@@ -263,7 +263,7 @@ async function runStateless(prompt, model) {
 
     // Render the final response (the last text block from the LLM)
     const finalResponse = agentResult.finalResponse;
-    const renderedLines = renderMarkdown(finalResponse, process.stdout.columns || 80);
+    const renderedLines = renderMarkdown(finalResponse, process.stdout.columns || 80, false);
     renderedLines.forEach(line => {
       process.stdout.write(line.content + '\n');
     });

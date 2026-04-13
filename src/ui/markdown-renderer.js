@@ -36,7 +36,7 @@ function getContinuationPrefix(line) {
  * 
  * Supports: Headings, bullet/numbered lists, code blocks, blockquotes, bold, inline code, horizontal rules.
  */
-function renderMarkdown(text, termWidth) {
+function renderMarkdown(text, termWidth, tags = true) {
   if (!text || typeof text !== 'string') return [];
 
   const width = termWidth || 80;
@@ -52,9 +52,12 @@ function renderMarkdown(text, termWidth) {
     // ── ANSI Escape Detection (Scientific/Tree Reports) ──
     if (ANSI_REGEX.test(raw)) {
       let content = raw;
-      // Convert ANSI escapes to Blessed tags
-      content = content.replace(ANSI_REGEX, (match) => ANSI_TAGS[match] || '');
-      
+      // Convert ANSI escapes to Blessed tags (for blessed rendering)
+      // When tags=false (CLI mode), leave ANSI escapes as-is
+      if (tags) {
+        content = content.replace(ANSI_REGEX, (match) => ANSI_TAGS[match] || '');
+      }
+
       const contPrefix = getContinuationPrefix(raw.replace(ANSI_REGEX, ''));
       const wrapped = wrapText(content, width - 2, contPrefix);
 

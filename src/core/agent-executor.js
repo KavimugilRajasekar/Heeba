@@ -31,11 +31,16 @@ async function runAgenticLoop(userInput, queryFn, commandHandlers, options = {})
   // === PHASE 1: PLANNING ===
   try {
     if (onStep) onStep({ phase: 'planning' });
-    
+
+    // Build a list of available actions for the planner
+    const availableActions = Object.keys(commandHandlers).join(', ');
+
     const planningPrompt = `You are a strategic planner. Analyze the user request and create a step-by-step plan using the available tools.
 USER REQUEST: "${userInput}"
 
-Your response MUST be a JSON object containing a "plan" key which is an array of strings. Each string should be a clear, tactical step.
+AVAILABLE TOOLS: ${availableActions}
+
+Your response MUST be a JSON object containing a "plan" key which is an array of strings. Each string should be a clear, tactical step that uses one of the available tools.
 Format: { "plan": ["Step 1", "Step 2", ...] }`;
 
     const planResponse = await queryFn(planningPrompt, 'auto');
@@ -56,8 +61,12 @@ Format: { "plan": ["Step 1", "Step 2", ...] }`;
     // Construct the prompt for this iteration
     let currentPrompt = userInput;
     
+    // Build available actions for this iteration
+    const availableActions = Object.keys(commandHandlers).join(', ');
+
     if (plan.length > 0) {
       currentPrompt = `USER REQUEST: ${userInput}\n\n`;
+      currentPrompt += `AVAILABLE TOOLS: ${availableActions}\n\n`;
       currentPrompt += `STRATEGIC PLAN:\n`;
       plan.forEach((step, idx) => {
         const marker = idx === currentStepIndex ? '➤ ' : (idx < currentStepIndex ? '✔ ' : '  ');
@@ -72,7 +81,12 @@ Format: { "plan": ["Step 1", "Step 2", ...] }`;
       history.forEach((h, i) => {
         currentPrompt += `Step ${i + 1}:\nAction: ${h.action}\nResult: ${h.result}\n\n`;
       });
-      currentPrompt += `Based on the latest results and the current step in your plan, provide your next action or final response to the user.`;
+      // If all planned steps are done, ask for final summary
+      if (currentStepIndex >= plan.length) {
+        currentPrompt += `All planned steps have been executed. Please provide a clear, friendly summary of the results to the user. Do NOT call any more tools.`;
+      } else {
+        currentPrompt += `Based on the latest results and the current step in your plan, provide your next action or final response to the user.`;
+      }
     } else if (plan.length > 0) {
       currentPrompt += `Execute the first step of the plan.`;
     }
@@ -82,15 +96,21 @@ Format: { "plan": ["Step 1", "Step 2", ...] }`;
     // Query the LLM
     const llmResponse = await queryFn(currentPrompt, 'auto');
     
-    // Check if the response contains a JSON command
+    // Check if the response contains a JSON command (with action field)
     const command = parseCommandFromResponse(llmResponse);
 
-    if (command && command.action) {
+    // Skip plans or empty commands - treat as final response
+    if (!command || (!command.action && !command.command)) {
+      finalResponse = llmResponse;
+      break;
+    }
+
+    if (command && (command.action || command.command)) {
       // Execute the command
-      if (onStep) onStep({ 
-        phase: 'executing', 
-        iteration, 
-        action: command.action, 
+      if (onStep) onStep({
+        phase: 'executing',
+        iteration,
+        action: command.action,
         parameters: command.parameters || command.payload,
         stepTitle: plan[currentStepIndex] || 'General Action'
       });
@@ -108,17 +128,15 @@ Format: { "plan": ["Step 1", "Step 2", ...] }`;
       }
 
       const resultStr = result.message || JSON.stringify(result);
-      
+
       // Store in history for the next iteration
-      history.push({ 
-        action: command.action, 
-        parameters: command.parameters || command.payload, 
-        result: resultStr 
+      history.push({
+        action: command.action,
+        parameters: command.parameters || command.payload,
+        result: resultStr
       });
 
       // If successful, we consider the current step progressed
-      // Note: In some cases one step might take multiple actions, but for Option A 
-      // we'll try a simple index increment for now.
       if (result.success && currentStepIndex < plan.length) {
         currentStepIndex++;
       }

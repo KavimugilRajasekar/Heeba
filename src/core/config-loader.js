@@ -50,7 +50,36 @@ function getDefaultConfig() {
       allowed_actions: ['answer_questions', 'explain_concepts', 'assist_with_tasks'],
       forbidden_actions: ['execute_commands', 'modify_files']
     },
-    intent_routing_rules: {},
+    intent_routing_rules: {
+      news_info: {
+        patterns: [
+          'news about',
+          'news on',
+          'latest news',
+          'what is the news',
+          'headlines about',
+          'headlines on',
+          'news regarding',
+          'news for',
+          'whatsapp news',
+          'news for',
+          'google news',
+          'top headlines',
+          'current news',
+          'recent news',
+          'breaking news'
+        ],
+        action: 'get_news',
+        response_type: 'structured_command',
+        backend_command: {
+          action: 'get_news',
+          parameters: {
+            topic: '{extracted_topic}',
+            location: '{user_location_or_ip}'
+          }
+        }
+      }
+    },
     system_rules: [
       'Follow heeba.json configuration',
       'Never invent behavior outside configured settings'
