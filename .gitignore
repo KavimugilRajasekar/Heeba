@@ -53,3 +53,6 @@ npm-debug.log*
 credentials.json
 session.json
 telegram-sessions.json
+
+# InnuCompiler
+InnuCompiler/
