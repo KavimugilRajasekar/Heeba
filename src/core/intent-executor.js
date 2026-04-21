@@ -56,7 +56,7 @@ function isSecurityIntentTriggered(userInput, intentRules) {
   if (intentRules && intentRules.system_security_testing) {
     const patterns = intentRules.system_security_testing.patterns || [];
     for (const pattern of patterns) {
-      if (input.includes(pattern.toLowerCase())) return true;
+      if (input.toLowerCase().includes(pattern.toLowerCase())) return true;
     }
   }
 

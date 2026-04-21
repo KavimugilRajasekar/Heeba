@@ -24,7 +24,7 @@ function ensureServerRunning(CONFIG) {
     return new Promise((resolve, reject) => {
         if (serverProcess) return resolve();
 
-        const serverExe = CONFIG.engine.includes('llama-cli.exe') ? 'llama-server.exe' : 'llama-cli.exe';
+        const serverExe = CONFIG.engine.includes('llama-server.exe') ? 'llama-server.exe' : 'llama-cli.exe';
         const serverPath = path.join(BASE_PATH, 'engine', 'inference-engine', serverExe);
         const modelPath = path.join(BASE_PATH, 'engine', 'models', CONFIG.model);
 
@@ -86,7 +86,7 @@ async function queryLLM(userInput, mode, CONFIG, onToken, history = []) {
 
         const postData = JSON.stringify({
             prompt: prompt,
-            n_predict: 512, // Increased for better responses
+            n_predict: CONFIG.num_predict || 512,
             stop: ["USER:", "\nUSER"],
             stream: !!onToken
         });
@@ -193,15 +193,19 @@ function getTotalTokensUsed() {
 
 async function generateTurnTitle(userInput, response, CONFIG) {
     if (isLLMRunning) return null; // Don't interrupt
-    
+
+    // Serialize title generation with a dedicated lock
+    if (generateTurnTitle._busy) return null;
+    generateTurnTitle._busy = true;
+
     const summaryPrompt = `User: ${userInput.substring(0, 500)}\nAssistant: ${response.substring(0, 500)}\n\nTask: Summarize this interaction in 2-3 simple words for a sidebar title. Output ONLY the words. Example: 'Project Setup' or 'Bug Fix'.`;
-    
+
     try {
-        // Use a variant of queryLLM or call adapters directly to avoid 'isLLMRunning' blocking if possible, 
-        // but here we just use it sequentially.
         const title = await queryLLM(summaryPrompt, 'auto', { ...CONFIG, model: CONFIG.model }, null);
+        generateTurnTitle._busy = false;
         return title.replace(/["']/g, '').trim();
     } catch (e) {
+        generateTurnTitle._busy = false;
         return null;
     }
 }

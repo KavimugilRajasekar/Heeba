@@ -28,7 +28,6 @@ const { MODES } = require('./src/utils/helpers');
 const { renderMarkdown } = require('./src/ui/markdown-renderer');
 const { launchTelegramMode } = require('./src/telegram/telegram-launcher');
 const { launchWebMode } = require('./src/web/web-launcher');
-const { printAuditStep } = require('./src/core/intent-executor');
 
 const Formatter = require('./src/utils/formatter');
 
@@ -675,7 +674,20 @@ if (isLaunchTele) {
 
   screen.on('resize', () => { if (state.sessions.length > 0 && state.currentSessionIndex >= 0) renderActivePage(UI, screen, state); requestRender(); });
   screen.key(['q', 'C-c'], () => { cancelLLM(); cleanupAndExit(); });
-  screen.key('escape', () => { if (UI.pageListView.visible) closePageList(UI); else if (UI.modelList.visible) closeModelSelection(UI); else if (state.sessions.length > 0) navigateToPage(UI, screen, state, -1, -1); else { cancelLLM(); cleanupAndExit(); } });
+  screen.key('escape', () => {
+    if (UI.pageListView.visible) { closePageList(UI); return; }
+    if (UI.modelList.visible) { closeModelSelection(UI); return; }
+    if (state.sessions.length > 0) {
+      if (state.currentSessionIndex === -1) {
+        navigateToPage(UI, screen, state, state.selectedSessionIndex >= 0 ? state.selectedSessionIndex : 0, null);
+      } else {
+        navigateToPage(UI, screen, state, -1, -1);
+      }
+    } else {
+      cancelLLM();
+      cleanupAndExit();
+    }
+  });
 
   // Start (TUI)
   (async () => {

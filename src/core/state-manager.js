@@ -34,7 +34,11 @@ const getPathToPage = (session, pageId) => {
 const getBrotherPages = (session, pageId) => {
   if (!session || !pageId || !session.pages[pageId]) return { index: 0, total: 1, list: [] };
   const parentId = session.pages[pageId].parentId;
-  const brothers = parentId ? session.pages[parentId].children : [session.rootPageId];
+  if (!parentId) {
+    // Root page has no siblings — return itself as the sole sibling
+    return { index: 0, total: 1, list: [pageId] };
+  }
+  const brothers = session.pages[parentId].children;
   return {
     index: brothers.indexOf(pageId),
     total: brothers.length,

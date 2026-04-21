@@ -117,6 +117,7 @@ async function runSecurityAuditLoop(userInput, queryFn, commandHandlers, maxIter
             silent: true  // Always silent — printAuditStep handles all display
           });
 
+          // Preserve both the original failed and the KB-corrected entry in history
           history[history.length - 1] = {
             tool: secCmd.tool,
             reason: secCmd.reason || '',
@@ -124,7 +125,6 @@ async function runSecurityAuditLoop(userInput, queryFn, commandHandlers, maxIter
             output: correctedResult.raw_output || correctedResult.message,
             success: correctedResult.success
           };
-          execResult = correctedResult;
         }
       }
 
@@ -163,9 +163,14 @@ async function runSecurityAuditLoop(userInput, queryFn, commandHandlers, maxIter
   }
 
   if (!conclusion && iteration >= maxIterations) {
+    // Extract any findings from history before concluding
+    const historyInsights = history.map(h => `${h.tool}: ${h.command}`).slice(0, 10);
     conclusion = {
       security_score: 'Inconclusive',
-      findings: [`Audit stopped after ${maxIterations} iterations without reaching a conclusion`],
+      findings: [
+        `Audit stopped after ${maxIterations} iterations without reaching a conclusion`,
+        ...(historyInsights.length > 0 ? [`Partial results: ${historyInsights.join('; ')}`] : [])
+      ],
       recommended_fixes: ['Explore manually or try a different model']
     };
   }
@@ -218,8 +223,6 @@ function buildToolsContextDetailed(toolsIndex, os) {
   }
   return ctx;
 }
-
-// Local parseSecurityCommandFromResponse removed
 
 function isSecurityConclusion(response) {
   return response.includes('"security_score"') && (response.includes('"findings"') || response.includes('"recommended_fixes"'));

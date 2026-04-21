@@ -191,8 +191,16 @@ async function runAppAuditLoop(userInput, queryFn, commandHandlers, maxIteration
           os
         });
 
-        // Update discovered endpoint with test result
-        const epIdx = discoveredEndpoints.findIndex(e => testPath.includes(e.path));
+        // Update discovered endpoint with test result — use exact path match first, fall back to longest-prefix match
+        let epIdx = discoveredEndpoints.findIndex(e => e.path === testPath);
+        if (epIdx === -1) {
+          // Find the endpoint whose path is a prefix of the tested path (longest prefix wins)
+          const candidates = discoveredEndpoints.filter(e => testPath.startsWith(e.path));
+          if (candidates.length > 0) {
+            candidates.sort((a, b) => b.path.length - a.path.length);
+            epIdx = discoveredEndpoints.indexOf(candidates[0]);
+          }
+        }
         if (epIdx !== -1) {
           discoveredEndpoints[epIdx].status = testStatus;
           discoveredEndpoints[epIdx].latency = testLatency;
@@ -410,8 +418,6 @@ function buildAppAuditPrompt(userInput, os, history = [], discoveredEndpoints = 
   }
   return prompt;
 }
-
-// No local parseCommandFromResponse here anymore
 
 function printAppAuditStep(step, isTUI, silent = false) {
   const C = '\x1b[36m';   // Cyan

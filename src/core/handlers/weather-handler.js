@@ -183,7 +183,7 @@ const weatherHandlers = {
           .leaf('UV Index', current.uvi);
 
       if (data.alerts && data.alerts.length > 0) {
-        tree.branch('⚠️ Alerts', data.alerts[0].event);
+        tree.branch('!! Alerts', data.alerts[0].event);
       }
 
       if (data.daily) {

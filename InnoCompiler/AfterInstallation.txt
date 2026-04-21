@@ -1,0 +1,88 @@
+After Installation - Heeba v1.3.0
+
+Installation Complete!
+=====================
+
+Heeba has been successfully installed on your system.
+
+Getting Started
+==============
+
+1. Launch Heeba
+   ------------
+   Option A: Double-click the "Heeba" shortcut on your desktop
+   Option B: Search for "Heeba" in the Start Menu
+   Option C: Run "heeba --launch" from Command Prompt or PowerShell
+
+2. Initial Configuration
+   ---------------------
+   On first launch, Heeba will create a default configuration at:
+   %USERPROFILE%/.heeba/heeba.json
+
+   Edit this file to configure:
+   - User profile (name)
+   - Default LLM model
+   - Intent routing rules
+   - Email accounts (if using email automation)
+   - Telegram bot token (if using Telegram integration)
+
+3. Available Commands
+   ------------------
+   heeba --launch          Start the Terminal UI (TUI)
+   heeba --launch-web     Start the Web Interface (default port: 7856)
+   heeba --launch-web -p  Custom port for web interface
+   heeba -m "prompt"      Run a single query in CLI mode
+   heeba --list-models     List all available LLM models
+   heeba --help           Show all available options
+
+   Telegram Mode:
+   heeba --launch-tele -l         Listen mode (log /start users)
+   heeba --launch-tele -uid <ID>   Server mode (bind to Telegram User ID)
+
+Web Interface Access
+===================
+
+If you selected the web interface option during installation:
+  - Open your browser and navigate to: http://localhost:7856
+  - The web interface provides a GUI alternative to the terminal UI
+
+Upgrading Heeba
+==============
+
+To upgrade to a new version:
+  1. Download the latest installer
+  2. Run the installer (your settings will be preserved)
+  3. Restart Heeba if it was running during installation
+
+Uninstallation
+==============
+
+To remove Heeba:
+  1. Open "Add or Remove Programs" in Windows Settings
+  2. Find "Heeba" in the program list
+  3. Click "Uninstall" and follow the prompts
+
+Note: User data and configuration files in %USERPROFILE%/.heeba/
+are not automatically removed. Delete manually if desired.
+
+Troubleshooting
+==============
+
+Issue: Heeba won't start
+  - Verify Node.js runtime is properly installed
+  - Check that your antivirus isn't blocking the application
+  - Try running as administrator
+
+Issue: Web interface not loading
+  - Ensure port 7856 is not in use by another application
+  - Check firewall settings allow localhost connections
+
+Issue: LLM models not connecting
+  - Verify your internet connection
+  - Check model endpoint URLs in heeba.json
+  - For local models, ensure Ollama is running
+
+For additional support, please visit the official Heeba repository:
+https://github.com/YourRepo/Heeba
+
+Thank you for choosing Heeba!

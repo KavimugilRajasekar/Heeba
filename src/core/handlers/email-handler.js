@@ -62,10 +62,6 @@ const getFromCache = (dateStr) => {
   return null;
 };
 
-// Keep emailToTable as an alias for backward compatibility within this file if needed
-// or just export formatEmailTable
-const emailToTable = (emails, title, context) => formatEmailTable(emails, title, context);
-
 // Command Implementations
 // Merge automation modules with existing handlers
 const allAutomationHandlers = {};
@@ -127,7 +123,7 @@ const emailHandlers = {
         }
 
         if (emails.length === 0) return { success: true, message: `No recent emails in last ${days} days.` };
-        return { success: true, message: emailToTable(emails, `Recent Emails`, context) + `\nType "Read email #" to open.` };
+        return { success: true, message: formatEmailTable(emails, `Recent Emails`, context) + `\nType "Read email #" to open.` };
       } finally { lock.release(); }
     } catch (err) { return { success: false, message: `IMAP Error: ${err.message}` }; }
     finally { await client.logout(); }
@@ -144,10 +140,12 @@ const emailHandlers = {
     const { from, to } = params;
     const dateStr = from ? from.split('T')[0] : new Date().toISOString().split('T')[0];
 
-    const cached = getFromCache(dateStr);
-    if (cached && !params.refresh) {
-      lastMailList.push(...cached.map(m => m.uid));
-      return { success: true, message: emailToTable(cached, `Emails on ${dateStr} (Cached)`, context) };
+    if (!params.refresh) {
+      const cached = getFromCache(dateStr);
+      if (cached) {
+        lastMailList.push(...cached.map(m => m.uid));
+        return { success: true, message: formatEmailTable(cached, `Emails on ${dateStr} (Cached)`, context) };
+      }
     }
 
     const searchCriteria = {};
@@ -170,7 +168,7 @@ const emailHandlers = {
           lastMailList.push(msg.uid);
         }
         saveToCache(dateStr, emails);
-        return { success: true, message: emailToTable(emails, `Emails on ${dateStr}`, context) + `\nType "Read email #" to open.` };
+        return { success: true, message: formatEmailTable(emails, `Emails on ${dateStr}`, context) + `\nType "Read email #" to open.` };
       } finally { lock.release(); }
     } catch (err) { return { success: false, message: `IMAP Error: ${err.message}` }; }
     finally { await client.logout(); }
@@ -205,7 +203,7 @@ const emailHandlers = {
           lastMailList.push(msg.uid);
         }
         if (emails.length === 0) return { success: true, message: `No unread emails on ${dateStr}.` };
-        return { success: true, message: emailToTable(emails, `Unread Emails on ${dateStr}`, context) };
+        return { success: true, message: formatEmailTable(emails, `Unread Emails on ${dateStr}`, context) };
       } finally { lock.release(); }
     } catch (err) { return { success: false, message: `IMAP Error: ${err.message}` }; }
     finally { await client.logout(); }
@@ -230,7 +228,12 @@ const emailHandlers = {
     const range = TIME_MAPPING[time_range] || TIME_MAPPING.morning;
 
     const since = new Date(dateStr); since.setHours(range.start, 0, 0, 0);
-    const before = new Date(dateStr); before.setHours(range.end, 0, 0, 0);
+    const before = new Date(dateStr);
+    if (range.end <= range.start) {
+        // Night range crosses midnight: 21:00 to 05:00 next day
+        before.setDate(before.getDate() + 1);
+    }
+    before.setHours(range.end, 0, 0, 0);
 
     const client = new ImapFlow({
       host: account.imap_host || account.host || 'imap.gmail.com', port: account.port || 993, secure: true,
@@ -248,7 +251,7 @@ const emailHandlers = {
           lastMailList.push(msg.uid);
         }
         if (emails.length === 0) return { success: true, message: `No emails found for ${dateStr} ${time_range}.` };
-        return { success: true, message: emailToTable(emails, `${time_range.toUpperCase()} Emails on ${dateStr}`, context) };
+        return { success: true, message: formatEmailTable(emails, `${time_range.toUpperCase()} Emails on ${dateStr}`, context) };
       } finally { lock.release(); }
     } catch (err) { return { success: false, message: `IMAP Error: ${err.message}` }; }
     finally { await client.logout(); }
@@ -288,7 +291,7 @@ const emailHandlers = {
           lastMailList.push(msg.uid);
         }
         if (emails.length === 0) return { success: true, message: `No emails found matching filters.` };
-        return { success: true, message: emailToTable(emails, `Search Results`, context) };
+        return { success: true, message: formatEmailTable(emails, `Search Results`, context) };
       } finally { lock.release(); }
     } catch (err) { return { success: false, message: `IMAP Error: ${err.message}` }; }
     finally { await client.logout(); }
@@ -575,4 +578,3 @@ for (const [name, handler] of Object.entries(allAutomationHandlers)) {
 finalHandlers._lastMailListByAccount = lastMailListByAccount;
 
 module.exports = finalHandlers;
-module.exports.emailHandlers = finalHandlers;

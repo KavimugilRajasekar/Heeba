@@ -1,0 +1,95 @@
+Windows Registry Editor Version 5.00
+
+; ============================================================
+; Heeba - Personal AI Terminal Companion
+; Registry Configuration File
+; ============================================================
+;
+; This file adds Heeba to your system PATH so you can run
+; 'heeba' from any Command Prompt or PowerShell window.
+;
+; To apply: Double-click this file or right-click > Merge
+; To remove: Run the uninstaller or delete this key manually
+;
+; NOTE: This only modifies HKCU (Current User) - no admin required
+; ============================================================
+
+; ----------------------------------------------------------
+; 1. Add Heeba installation folder to User PATH
+; ----------------------------------------------------------
+
+[HKEY_CURRENT_USER\Environment]
+"HeebaPath"="C:\\Program Files\\Heeba"
+"HeebaVersion"="1.3.0"
+
+; ----------------------------------------------------------
+; 2. File Association for .heeba session files (optional)
+; ----------------------------------------------------------
+
+[HKEY_CURRENT_USER\Software\Classes\.heeba]
+@="Heeba.SessionFile"
+"Content Type"="application/json"
+
+[HKEY_CURRENT_USER\Software\Classes\Heeba.SessionFile]
+@="Heeba Session File"
+
+[HKEY_CURRENT_USER\Software\Classes\Heeba.SessionFile\DefaultIcon]
+@="C:\\Program Files\\Heeba\\heeba.exe,0"
+
+[HKEY_CURRENT_USER\Software\Classes\Heeba.SessionFile\shell]
+
+[HKEY_CURRENT_USER\Software\Classes\Heeba.SessionFile\shell\open]
+@="Open with Heeba"
+
+[HKEY_CURRENT_USER\Software\Classes\Heeba.SessionFile\shell\open\command]
+@="\"C:\\Program Files\\Heeba\\heeba.exe\" \"--session\" \"%1\""
+
+; ----------------------------------------------------------
+; 3. URL Protocol Handler (heeba://)
+; ----------------------------------------------------------
+
+[HKEY_CURRENT_USER\Software\Classes\heeba]
+
+[HKEY_CURRENT_USER\Software\Classes\heeba]
+@="URL:Heeba Protocol"
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\Software\Classes\heeba\DefaultIcon]
+@="C:\\Program Files\\Heeba\\heeba.exe,0"
+
+[HKEY_CURRENT_USER\Software\Classes\heeba\shell]
+
+[HKEY_CURRENT_USER\Software\Classes\heeba\shell\open]
+@="Open with Heeba"
+
+[HKEY_CURRENT_USER\Software\Classes\heeba\shell\open\command]
+@="\"C:\\Program Files\\Heeba\\heeba.exe\" \"%1\""
+
+; ----------------------------------------------------------
+; 4. App Registration for "Open With" menu
+; ----------------------------------------------------------
+
+[HKEY_CURRENT_USER\Software\Classes\heeba.exe]
+@="Heeba - Personal AI Terminal Companion"
+
+[HKEY_CURRENT_USER\Software\Classes\heeba.exe\DefaultIcon]
+@="C:\\Program Files\\Heeba\\heeba.exe,0"
+
+[HKEY_CURRENT_USER\Software\Classes\heeba.exe\shell]
+
+[HKEY_CURRENT_USER\Software\Classes\heeba.exe\shell\open]
+@="Run Heeba"
+
+[HKEY_CURRENT_USER\Software\Classes\heeba.exe\shell\open\command]
+@="\"C:\\Program Files\\Heeba\\heeba.exe\""
+
+; ----------------------------------------------------------
+; 5. Heeba Application Registration
+; ----------------------------------------------------------
+
+[HKEY_CURRENT_USER\Software\Heeba]
+
+[HKEY_CURRENT_USER\Software\Heeba\Settings]
+"InstallPath"="C:\\Program Files\\Heeba"
+"Version"="1.3.0"
+"InstallDate"=""

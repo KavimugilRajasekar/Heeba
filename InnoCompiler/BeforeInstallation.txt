@@ -1,0 +1,48 @@
+Before Installation - Heeba v1.3.0
+
+System Requirements
+====================
+
+Minimum Requirements:
+  - Operating System : Windows 10 or later (64-bit)
+  - Processor        : Multi-core CPU (x64 architecture)
+  - RAM              : 4 GB available memory
+  - Disk Space       : 200 MB for installation
+  - Display          : 800x600 resolution or higher
+  - Prerequisites    : Node.js 18.x runtime (included)
+
+Recommended:
+  - RAM              : 8 GB or more
+  - Network          : Stable internet connection (for online LLM models)
+
+Pre-Installation Checklist
+=========================
+
+[ ] Ensure you have administrator privileges on this computer
+[ ] Close all other running applications before installing
+[ ] Verify Windows Defender or antivirus allows the installation
+[ ] Back up any existing heeba.json configuration if upgrading
+
+Before proceeding, please verify:
+  - You have downloaded Heeba from the official source
+  - Your system meets the minimum requirements
+  - You have sufficient disk space on the target drive
+
+Node.js Runtime Notice
+======================
+
+This installer includes the Node.js runtime components required to run Heeba.
+If you already have Node.js 18.x or later installed, the installer will
+detect it and use your existing installation.
+
+Next Steps
+=========
+
+Click "Next" to begin the installation process. You will be asked to:
+  1. Accept the license agreement
+  2. Choose the installation directory
+  3. Select additional tasks (desktop shortcut, start menu)
+  4. Confirm installation settings
+  5. Install Heeba
+
+For support or troubleshooting, visit the official Heeba repository.
