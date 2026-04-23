@@ -18,6 +18,9 @@ const state = {
   selectedSessionIndex: 0,
   currentPageId: null,
   userScrolledUp: false,
+  browserEnabled: false,
+  browserType: 'chromium',
+  browserVisible: false,
 };
 
 const getPathToPage = (session, pageId) => {

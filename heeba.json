@@ -1103,6 +1103,269 @@
           "headers": "{json_object}"
         }
       }
+    },
+    "browser_open": {
+      "patterns": [
+        "open website",
+        "go to website",
+        "navigate to",
+        "visit",
+        "browse to",
+        "open page",
+        "load website",
+        "go to url"
+      ],
+      "action": "browser_navigate",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "browser_navigate",
+        "parameters": {
+          "url": "{extracted_url}"
+        }
+      }
+    },
+    "browser_click": {
+      "patterns": [
+        "click on",
+        "click the",
+        "press the",
+        "click button",
+        "click link",
+        "click element"
+      ],
+      "action": "browser_click",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "browser_click",
+        "parameters": {
+          "selector": "{extracted_selector}"
+        }
+      }
+    },
+    "browser_type": {
+      "patterns": [
+        "type in",
+        "type into",
+        "enter text",
+        "fill in",
+        "enter",
+        "type"
+      ],
+      "action": "browser_type",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "browser_type",
+        "parameters": {
+          "selector": "{extracted_selector}",
+          "value": "{extracted_text}"
+        }
+      }
+    },
+    "browser_select": {
+      "patterns": [
+        "select option",
+        "choose from dropdown",
+        "select from",
+        "pick dropdown"
+      ],
+      "action": "browser_select",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "browser_select",
+        "parameters": {
+          "selector": "{extracted_selector}",
+          "value": "{extracted_value}"
+        }
+      }
+    },
+    "browser_scroll": {
+      "patterns": [
+        "scroll down",
+        "scroll up",
+        "scroll the page",
+        "scroll to",
+        "scroll",
+        "go down",
+        "go up"
+      ],
+      "action": "browser_scroll",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "browser_scroll",
+        "parameters": {
+          "direction": "{up|down}",
+          "amount": 500
+        }
+      }
+    },
+    "browser_screenshot": {
+      "patterns": [
+        "take screenshot",
+        "screenshot",
+        "capture screen",
+        "screen shot"
+      ],
+      "action": "browser_screenshot",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "browser_screenshot",
+        "parameters": {
+          "path": "{optional_path}"
+        }
+      }
+    },
+    "browser_get_state": {
+      "patterns": [
+        "get page state",
+        "show page",
+        "current page",
+        "what page am I on",
+        "page state",
+        "refresh page info"
+      ],
+      "action": "browser_get_state",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "browser_get_state",
+        "parameters": {}
+      }
+    },
+    "browser_back": {
+      "patterns": [
+        "go back",
+        "navigate back",
+        "back button",
+        "previous page"
+      ],
+      "action": "browser_back",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "browser_back",
+        "parameters": {}
+      }
+    },
+    "browser_forward": {
+      "patterns": [
+        "go forward",
+        "navigate forward",
+        "forward button",
+        "next page"
+      ],
+      "action": "browser_forward",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "browser_forward",
+        "parameters": {}
+      }
+    },
+    "browser_reload": {
+      "patterns": [
+        "reload page",
+        "refresh page",
+        "reload",
+        "refresh"
+      ],
+      "action": "browser_reload",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "browser_reload",
+        "parameters": {}
+      }
+    },
+    "browser_new_tab": {
+      "patterns": [
+        "open new tab",
+        "new tab",
+        "open tab",
+        "add tab"
+      ],
+      "action": "browser_new_tab",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "browser_new_tab",
+        "parameters": {}
+      }
+    },
+    "browser_switch_tab": {
+      "patterns": [
+        "switch to tab",
+        "switch tab",
+        "change tab",
+        "go to tab",
+        "tab"
+      ],
+      "action": "browser_switch_tab",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "browser_switch_tab",
+        "parameters": {
+          "index": "{number}"
+        }
+      }
+    },
+    "browser_close_tab": {
+      "patterns": [
+        "close tab",
+        "close this tab",
+        "close current tab"
+      ],
+      "action": "browser_close_tab",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "browser_close_tab",
+        "parameters": {
+          "index": "{number}"
+        }
+      }
+    },
+    "browser_launch": {
+      "patterns": [
+        "launch browser",
+        "start browser",
+        "open browser",
+        "initialize browser"
+      ],
+      "action": "browser_launch",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "browser_launch",
+        "parameters": {
+          "browserType": "{chromium|firefox|webkit}",
+          "headless": false,
+          "visible": true
+        }
+      }
+    },
+    "browser_close": {
+      "patterns": [
+        "close browser",
+        "exit browser",
+        "shutdown browser"
+      ],
+      "action": "browser_close",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "browser_close",
+        "parameters": {}
+      }
+    },
+    "run_doctor": {
+      "patterns": [
+        "run doctor",
+        "heeba doctor",
+        "system diagnostics",
+        "check system health",
+        "diagnose heeba",
+        "doctor check",
+        "check heeba health",
+        "system report"
+      ],
+      "action": "run_doctor",
+      "response_type": "structured_command",
+      "backend_command": {
+        "action": "run_doctor",
+        "parameters": {}
+      }
     }
   },
   "system_rules": [
@@ -1138,7 +1401,9 @@
     "When user asks to list, show, or get installed software (e.g. 'list installed software'), output a JSON structured command with action list_software and empty parameters. The user will see a numbered table of installed software.",
     "When user asks to open a software app by its number (e.g. 'open #3'), output a JSON structured command with action open_software and parameter index set to the number the user specified.",
     "When user asks to uninstall a software app by its number (e.g. 'uninstall #5'), output a JSON structured command with action uninstall_software and parameter index set to the number the user specified.",
-    "When user asks to move, copy, delete, or rename a file or folder, output a JSON structured command with the appropriate action (move_file, copy_file, delete_file, rename_file) and parameters extracted from the user's request. For move/copy, include both source and destination paths. For delete, include path. For rename, include path and newName. The user MUST provide full paths."
+    "When user asks to move, copy, delete, or rename a file or folder, output a JSON structured command with the appropriate action (move_file, copy_file, delete_file, rename_file) and parameters extracted from the user's request. For move/copy, include both source and destination paths. For delete, include path. For rename, include path and newName. The user MUST provide full paths.",
+    "BROWSER AUTOMATION: When user requests web navigation, interaction, or scraping, output a JSON command using browser_* actions from intent_routing_rules. Available actions: browser_launch, browser_navigate, browser_click, browser_type, browser_select, browser_scroll, browser_screenshot, browser_get_state, browser_back, browser_forward, browser_reload, browser_new_tab, browser_switch_tab, browser_close_tab, browser_close. Parameters: {url} for navigate, {selector} for click/type/select, {direction, amount} for scroll, {path} for screenshot, {index} for tab operations.",
+    "For browser click/type/select actions, the LLM extracts the CSS selector from the page state elements provided in the context. Match the selector from the elements list."
   ],
   "output_format": {
     "conversational": {

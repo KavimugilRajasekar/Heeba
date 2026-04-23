@@ -1,14 +1,13 @@
+# HEEBA — Humanized Efficient Engine Bridging Automation
+
 <div align="center">
-
 <img src="assets/heeba.png" alt="Heeba Logo" width="180"/>
-
-# HEEBA
-
-### Humanized Efficient Engine Bridging Automation
 
 **v1.4** · Local AI · Terminal-Native · Private by Design
 
-[Quick Start](#-quick-start) · [Auditors](#-auditors--security) · [Weather](#-weather-intelligence) · [CLI Reference](#-cli-reference) · [Architecture](#-architecture)
+*Your config-driven AI terminal companion — email, browser, security, and more.*
+
+[Quick Start](#-quick-start) · [Browser Automation](#-browser-automation) · [CLI Reference](#-cli-reference) · [Architecture](#-architecture) · [Email Suite](#-email-intelligence-suite)
 
 </div>
 
@@ -16,103 +15,24 @@
 
 ## ◈ What is Heeba?
 
-**Heeba** is a private, config-driven AI terminal companion powered by local GGUF models (`llama.cpp`) and online LLM APIs (Ollama, OpenRouter). It runs entirely on your machine with no cloud dependency — your conversations, emails, and files never leave your system.
+Heeba is a private, config-driven AI terminal companion powered by local GGUF models (`llama.cpp`) and online LLM APIs (Ollama, OpenRouter). It runs entirely on your machine — your conversations, emails, and files never leave your system.
 
-Heeba provides **three operational interfaces**:
+**Three operational interfaces:**
 
 | Interface | Command | Best For |
 |---|---|---|
 | **TUI** | `heeba --launch` | Deep, interactive sessions with branching conversations |
-| **CLI** | `heeba -m "prompt"` | Fast one-shot queries and shell scripting |
+| **CLI** | `heeba -m "prompt"` | Fast one-shot queries, scripting, and automation |
 | **Telegram** | `heeba --launch-tele` | Remote access via Telegram bot, anywhere |
 
----
+**Key capabilities:**
 
-## ◈ Core Principles
-
-- **Humanized** — Natural, context-aware conversation via local LLMs
-- **Efficient** — Runs lightweight GGUF models with minimal resource overhead
-- **Engine** — High-performance inference powered by `llama.cpp` or Ollama
-- **Bridge** — Translates natural language into structured system actions
-- **Automation** — Executes real email, file, and system workflows
-- **Planning** — Multi-step strategic planning with tree-based roadmap visualization
-
----
-
-## ◈ Strategic Planning
-
-Heeba features an intelligent **strategic planning system** that breaks down complex requests into executable steps, displayed as a visual tree structure in the terminal.
-
-### How It Works
-
-When you issue a multi-step request, Heeba:
-
-1. **Analyzes** your intent and available tools
-2. **Plans** a step-by-step roadmap using the optimal tool sequence
-3. **Executes** each step while tracking progress with visual indicators
-4. **Reports** results through each phase with clear status updates
-
-### Visual Roadmap
-
-```
-◈ Designing strategic plan...
-  ◈ STRATEGIC ROADMAP
-  └─ Front-loaded approach
-  ├─ Step 1: Use list_dir with path "C:\project" to verify the repository
-  ├─ Step 2: Execute run_command with parameters { "command": "git branch -a" }
-  ├─ Step 3: Execute run_command with parameters { "command": "git log --graph --oneline --all" }
-  └─ Step 4: Use read_file with path "..."
-```
-
-Progress markers indicate execution state:
-- `➤` — Current step being executed
-- `✔` — Completed step
-- `  ` — Pending step
-
-### CLI Usage
-
-```powershell
-# Strategic planning is automatic for complex multi-step queries
-heeba -m "Find all branches in this project and show me a tree structure"
-heeba -m "Security audit my system for open ports"
-heeba -m "Analyze this codebase and find all API endpoints"
-```
-
-> **Tip:** Complex queries (repository analysis, security audits, multi-file operations) trigger the planning system automatically. Simple queries execute directly without planning overhead.
-
----
-
-## ◈ Auditors & Security
-
-Heeba v1.4 introduces **Recursive Autonomous Auditors** — a specialized reasoning engine that allows Heeba to act as an independent security and application analyst.
-
-### 🛡️ Autonomous Security Auditor
-Heeba can perform deep, recursive security scans of your local system. It identifies potential vulnerabilities, analyzes open ports, and suggests hardening fixes using a built-in **Security Knowledge Base (KB)**.
-
-- **Recursive Reasoning**: Uses a multi-step agent loop to identify tools, analyze output, and pivot based on findings.
-- **KB-Driven**: Automatically learns flags and safe usage patterns for tools like `netstat`, `auditd`, `ufw`, and more.
-- **Rich Visual Reports**: Generates color-coded tree reports and action-oriented summaries.
-- **Trigger**: *"Run a security audit"*, *"Is my system safe?"*, *"Check for open ports"*.
-
-### 🔍 App & Endpoint Auditor
-For developers, Heeba can analyze local backend projects to discover running services and test API health.
-
-- **Repository Analysis**: Recursively scans codebases to find port configurations and route definitions.
-- **Endpoint Testing**: Automatically verifies endpoint uptime, latency, and response bodies.
-- **Audit Logs**: Provides a step-by-step trace of the backend discovery process.
-- **Trigger**: *"Scan my backend project"*, *"Audit this server's endpoints"*.
-
----
-
-## ◈ Weather Intelligence
-
-Powered by OpenWeather One Call API 3.0, Heeba provides real-time atmospheric data with extreme accuracy and "humanized" summaries.
-
-- **Current & Forecasts**: Hourly and daily weather details with "Feels Like", UV Index, and humidity.
-- **IP Location Discovery**: Ask *"How's the weather?"* and Heeba automatically detects your city via IP-based geolocation.
-- **Global Geocoding**: High-precision city name resolution for any location on Earth.
-- **Resilient Fallback**: Automatically switches between One Call 3.0 and standard 2.5 APIs based on your account's subscription tier.
-- **Trigger**: *"What's the weather?"*, *"Forecast for Chennai"*, *"Will it rain tomorrow?"*.
+- **Email** — Fetch, send, search, digest, narrate, automate via IMAP/SMTP
+- **Browser Automation** — Full DOM manipulation via Playwright: navigate, click, type, scroll, screenshot, tabs
+- **Security Auditing** — Recursive autonomous security scanner with a built-in Security Knowledge Base
+- **App Endpoint Auditing** — Scans local codebases for running services and API routes
+- **Strategic Planning** — Breaks complex multi-step requests into a visual tree roadmap
+- **Weather Intelligence** — Real-time forecasts via OpenWeather with IP geolocation
 
 ---
 
@@ -120,27 +40,11 @@ Powered by OpenWeather One Call API 3.0, Heeba provides real-time atmospheric da
 
 ### Prerequisites
 
-- **Node.js** v18+ (only needed for development — the `.exe` needs no Node.js)
+- **Node.js** v18+ (development only — the `.exe` needs no Node.js)
 - **llama.cpp binaries** in `engine/inference-engine/` *(for local GGUF models)*
 - **GGUF models** in `engine/models/` *(optional — online models work without this)*
 
-### Portable Deployment
-
-After building (`npm run build:exe`), copy these files/folders next to `dist/heeba.exe`:
-
-```
-dist/
-├── heeba.exe
-├── engine/                    ← copy this folder from project root
-│   ├── inference-engine/      ← llama-cli.exe, llama-server.exe, *.dll
-│   └── models/                ← *.gguf model files
-├── heeba.json                 ← copy from project root
-└── credentials.json           ← (optional) copy for email/Ollama credentials
-```
-
-> **Important:** The `engine/` directory **must** be in the same folder as `heeba.exe`. When `heeba.exe` runs from any terminal directory, it automatically resolves paths relative to its own location — no PATH changes required.
-
-### Installation (Development)
+### Installation
 
 ```powershell
 npm install
@@ -152,15 +56,192 @@ npm install
 # Interactive Terminal UI
 heeba --launch
 
-# Single natural language query
+# Single natural language query (stateless)
 heeba -m "Summarize my emails from this morning"
 
-# With model override and performance metrics
-heeba -m "Show my system status" -model ollama-gpt-oss -M
+# System diagnostics (like flutter doctor)
+heeba --doctor
 
 # List all available models
 heeba --list-models
 ```
+
+### Portable Deployment
+
+After building (`npm run build:exe`), copy these next to `dist/heeba.exe`:
+
+```
+dist/
+├── heeba.exe
+├── engine/                    ← from project root
+│   ├── inference-engine/      ← llama-cli.exe, llama-server.exe, *.dll
+│   └── models/                ← *.gguf model files
+├── heeba.json                 ← from project root
+└── credentials.json            ← (optional) for email/Ollama credentials
+```
+
+> The `engine/` directory **must** be in the same folder as `heeba.exe`. Paths are resolved relative to the exe location automatically.
+
+---
+
+## ◈ Browser Automation
+
+Heeba embeds a full **Playwright-based browser automation engine** — navigate websites, interact with forms, scrape content, manage tabs, and take screenshots.
+
+### Supported Actions
+
+| Action | Natural Language Trigger | Parameters |
+|---|---|---|
+| `browser_launch` | "launch browser", "open browser" | `browserType`, `headless`, `visible` |
+| `browser_navigate` | "go to google.com", "visit", "navigate to" | `url` |
+| `browser_click` | "click the button", "click on the link" | `selector` |
+| `browser_type` | "type into", "fill in", "enter text" | `selector`, `value` |
+| `browser_select` | "select option", "choose from dropdown" | `selector`, `value` |
+| `browser_scroll` | "scroll down", "scroll up" | `direction`, `amount`, `selector` |
+| `browser_screenshot` | "take screenshot", "capture screen" | `path` |
+| `browser_get_state` | "get page state", "what page am I on" | — |
+| `browser_back` / `browser_forward` | "go back", "go forward" | — |
+| `browser_reload` | "reload page", "refresh" | — |
+| `browser_new_tab` | "open new tab" | — |
+| `browser_switch_tab` | "switch to tab 2" | `index` |
+| `browser_close_tab` | "close this tab" | `index` |
+| `browser_close` | "close browser" | — |
+
+### Usage
+
+Enable browser automation in `heeba.json`:
+
+```json
+{
+  "browserEnabled": true,
+  "browserType": "chromium",
+  "browserVisible": false
+}
+```
+
+Then use natural language:
+
+```
+"Open gmail.com and log me in"
+"Click the login button"
+"Take a screenshot of the current page"
+"Scroll down to see more content"
+"Open a new tab and go to github.com"
+```
+
+### How It Works
+
+The browser engine is managed by `BrowserManager` — a Playwright singleton that maintains persistent context (cookies/localStorage survive across pages) and exposes methods for every DOM action. The `dom-handler.js` layer maps each `browser_*` action to the corresponding `BrowserManager` method, and all handlers are registered in `intent-executor.js` so the LLM can emit them from natural language.
+
+---
+
+## ◈ System Diagnostics (`--doctor`)
+
+Run `heeba --doctor` to get a `flutter doctor`-style diagnostic report covering:
+
+| Section | Checks |
+|---|---|
+| **Platform** | Node version, OS, arch, CPU cores, RAM |
+| **Network** | Internet connectivity, proxy settings |
+| **Engine (llama.cpp)** | `llama-cli.exe` exists, models directory |
+| **Local Models** | GGUF/BIN files found, file sizes |
+| **Online Models** | `credentials.json`, endpoint reachability |
+| **heeba.json** | File validity, identity, routing rules, browser/email config |
+| **Browser (Playwright)** | playwright installed, Chromium/Firefox/Webkit |
+| **Runtime Directories** | exports, email cache, downloads |
+| **Email** | IMAP/SMTP accounts configured |
+
+```
+$ heeba --doctor
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  HEEBA DOCTOR — System Diagnostics
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━ Platform ━━━
+  ✔ Node.js version (v22.14.0)
+  ✔ Platform (win32 10.0.26200)
+  ✔ Architecture (x64)
+  ✔ CPU cores (12)
+  ✔ RAM (7.6 GB free / 15.3 GB total)
+
+━━━ Network ━━━
+  ✔ Internet connectivity
+  ✔ Proxy (none configured)
+
+━━━ Engine (llama.cpp) ━━━
+  ✔ llama-cli executable
+    ✔ Version available
+  ✔ Models directory
+    ✔ Local model files (1 found)
+
+━━━ Summary ━━━
+  ✔ All checks passed!
+```
+
+---
+
+## ◈ Auditors & Security
+
+### Security Auditor
+
+Heeba performs deep, recursive security scans of your local system using a multi-step agent loop and a built-in **Security Knowledge Base** (`Security-KB/`).
+
+- **Recursive reasoning** — identifies tools, analyzes output, pivots based on findings
+- **KB-driven** — learns safe flags and usage patterns for `netstat`, `auditd`, `ufw`, `netsh`, etc.
+- **Rich visual reports** — color-coded tree reports with actionable fixes
+- **Trigger**: *"Run a security audit"*, *"Is my system safe?"*, *"Check for open ports"*
+
+### App & Endpoint Auditor
+
+Scans local backend projects to discover running services, route definitions, and API health.
+
+- **Repository analysis** — recursively finds port configs and route definitions
+- **Endpoint testing** — verifies uptime, latency, and response bodies
+- **Trigger**: *"Scan my backend project"*, *"Audit this server's endpoints"*
+
+---
+
+## ◈ Weather Intelligence
+
+Powered by OpenWeather One Call API 3.0:
+
+- **Current conditions + hourly/daily forecasts** with Feels Like, UV Index, humidity
+- **IP-based geolocation** — ask *"How's the weather?"* without specifying a location
+- **Global geocoding** — any city on Earth
+- **API fallback** — automatically switches between 3.0 and 2.5 based on subscription tier
+- **Trigger**: *"What's the weather?"*, *"Forecast for Chennai"*, *"Will it rain tomorrow?"*
+
+---
+
+## ◈ Telegram Interface
+
+Full Telegram bot integration for remote access from anywhere.
+
+### Step 1 — Discover your User ID
+
+```powershell
+heeba --launch-tele -l
+```
+Send `/start` to `@HeebaInterfaceBot` — your terminal shows your ID.
+
+### Step 2 — Bind to your ID
+
+```powershell
+heeba --launch-tele -uid <YOUR_TELEGRAM_ID>
+```
+
+Once bound, use natural language exactly as in the TUI:
+
+| What you type | What Heeba does |
+|---|---|
+| `"Show my emails from today"` | Fetches inbox as a numbered list |
+| `"Read email #3"` | Displays full email body |
+| `"Send email to X about Y"` | Composes and sends |
+| `"Summarize my morning emails"` | AI-powered digest |
+| `"Run a security audit"` | Fires the autonomous auditor |
+
+Long responses are automatically split into multiple messages (Telegram's 4096-char limit).
 
 ---
 
@@ -172,6 +253,8 @@ USAGE:
 
 OPTIONS:
   --launch                    Start the Interactive Terminal UI (TUI)
+  --launch-web                Start the Local Web Interface
+  -p <port>                   Port for web interface (default: 7856)
   --help, -h                  Show this help information
   --version, -v               Show version number
   -m "<prompt>"               Execute a natural language query (stateless)
@@ -181,111 +264,43 @@ OPTIONS:
   --list-models               List all available models (local + online)
   --list-online-models        List only online/API-based models
   --list-local-models         List only locally hosted GGUF models
+  --doctor                    Run system diagnostics
 
 TELEGRAM INTERFACE:
-  --launch-tele -l            Listen for /start — logs users & their IDs
-  --launch-tele -uid <ID>     Bind the Telegram bot to your User ID
-  --launch-tele -model <M> -uid <ID>   Bind with a specific model
+  --launch-tele -l            Listen mode — logs /start users & their IDs
+  --launch-tele -uid <ID>     Server mode — bind bot to a Telegram User ID
+  --launch-tele -model <M> -uid <ID>   Server mode with model override
 ```
-
----
-
-## ◈ Telegram Interface
-
-Heeba v1.3 includes a full **Telegram Bot Interface** that lets you interact with Heeba remotely using your phone — accessing all the same email, system, and AI features from anywhere.
-
-### How It Works
-
-```
-┌──────────────┐        ┌──────────────────┐        ┌───────────────┐
-│  Telegram    │ ──────▶│  Heeba Telegram  │ ──────▶│  Heeba Core  │
-│  (phone)     │        │  Router          │        │  Engine       │
-└──────────────┘        └──────────────────┘        └───────────────┘
-                               │                            │
-                        Session Storage             Intent → Handler
-                      (telegram-sessions.json)     (email, system, AI)
-```
-
-### Step 1 — Discover your Telegram User ID
-
-Run Heeba in **Listen Mode**, then send `/start` to `@HeebaInterfaceBot` on Telegram:
-
-```powershell
-heeba --launch-tele -l
-```
-
-Your terminal will display:
-
-```
-[18:05:12] @yourusername | ID: 123456789 → Registered
-```
-
-The bot will reply to you on Telegram with your ID and the exact bind command.
-
-### Step 2 — Start the Telegram Server
-
-```powershell
-# Bind to your Telegram User ID
-heeba --launch-tele -uid <YOUR_TELEGRAM_ID>
-
-# With a specific model override
-heeba --launch-tele -model ollama-gpt-oss -uid <YOUR_TELEGRAM_ID>
-```
-
-### Features via Telegram
-
-Once bound, you can use natural language exactly as you would in the TUI:
-
-| What you type | What Heeba does |
-|---|---|
-| `"Show my emails from today"` | Fetches inbox, formats as a clean numbered list |
-| `"Read email #3"` | Opens and displays the full email body |
-| `"What's my system status?"` | Returns CPU, RAM, platform info |
-| `"Send email to X about Y"` | Composes and sends an email |
-| `"Summarize my morning emails"` | AI-powered digest |
-
-### Terminal Console Logging
-
-Every Telegram interaction is logged in your terminal:
-
-```
-[18:08:15] 123456789 | "Show my emails..." → fetch_emails → fetch_emails → Success
-[18:08:42] 123456789 | "Read email #3..." → read_email → read_email → Success
-```
-
-### Smart Message Handling
-
-- **Long responses** (email bodies, digests) are automatically **split into multiple messages** — Telegram's 4096-char limit is handled transparently
-- **Email lists** are reformatted from ASCII tables to **clean numbered entries** with emoji
-- **Markdown** is applied where possible, with automatic plain-text fallback
 
 ---
 
 ## ◈ Architecture
 
-Heeba is built with a clean layered architecture where each module has a single responsibility.
-
 ```
 heeba/
-├── main.js                    ← Entry point, CLI parsing, TUI lifecycle
-├── heeba.json                 ← Master config: identity, profile, intent rules
-├── credentials.json           ← Decrypted API keys and email credentials (git-ignored)
-├── credentials.ex.json        ← Encrypted credential reference template (for collaborators)
-├── session.json               ← Persisted TUI/Web sessions (created at runtime, next to exe)
-├── assets/
-│   └── heeba.png              ← Application logo (used for .exe icon)
-├── engine/                    ← Local inference runtime (must be copied next to heeba.exe)
-│   ├── inference-engine/      ← llama-cli.exe, llama-server.exe, *.dll
+├── main.js                    ← Entry point, CLI parsing, TUI/CLI/Telegram lifecycle
+├── heeba.json                 ← Master config: identity, profile, 77+ intent routing rules
+├── credentials.json           ← API keys, email credentials (git-ignored)
+├── credentials.ex.json       ← Encrypted credential reference template for collaborators
+├── session.json               ← Persisted TUI/Web sessions (created at runtime)
+├── engine/                    ← Local inference runtime (must be next to heeba.exe)
+│   ├── inference-engine/     ← llama-cli.exe, llama-server.exe, *.dll
 │   └── models/                ← *.gguf model files
+├── Security-KB/               ← OS-specific security tool knowledge base
+│   ├── Windows-Security-KB/  ← netsh, netstat, auditpol, sfc, etc.
+│   └── Linux-Security-KB/     ← iptables, ss, journalctl, auditd, etc.
 ├── src/
 │   ├── core/
 │   │   ├── engine.js          ← LLM inference orchestration (llama.cpp + Ollama)
-│   │   ├── intent-executor.js ← Parses AI response → dispatches to handlers
-│   │   ├── state-manager.js   ← Branching session tree (non-linear history)
+│   │   ├── intent-executor.js ← Parses AI JSON responses → dispatches to handlers
+│   │   ├── state-manager.js   ← Branching session tree with non-linear history
 │   │   ├── config-loader.js   ← Hot-reloads heeba.json and credentials.json
 │   │   ├── model-registry.js  ← Dynamic discovery: local GGUF + online APIs
-│   │   ├── ollama-adapter.js  ← Ollama / OpenRouter HTTP adapter
+│   │   ├── ollama-adapter.js  ← Ollama / OpenRouter / OpenAI HTTP adapter
 │   │   ├── email-accounts.js  ← IMAP/SMTP multi-account manager
+│   │   ├── agent-executor.js  ← Multi-step agent loop with plan/execute phases
+│   │   ├── security-tools-index.js  ← Security KB indexing and lookup
+│   │   ├── kb-loader.js       ← Loads and formats KB context for the LLM
 │   │   └── handlers/
 │   │       ├── email-handler.js    ← Core IMAP fetch/send + automation bridge
 │   │       ├── system-handler.js   ← CPU, RAM, platform reporting
@@ -293,17 +308,26 @@ heeba/
 │   │       ├── profile-handler.js  ← User identity and tone updates
 │   │       ├── session-handler.js  ← Session rename, delete, branching
 │   │       ├── weather-handler.js  ← OpenWeather 3.0 + IP Geolocation
-│   │       └── model-handler.js    ← Online model registration
+│   │       ├── news-handler.js     ← Google News via web scraper
+│   │       ├── model-handler.js    ← Online model registration
+│   │       ├── software-handler.js ← Windows installed software listing
+│   │       ├── dom-handler.js      ← Browser DOM automation (Playwright)
+│   │       └── doctor-handler.js   ← System diagnostics (--doctor)
 │   ├── auditors/
-│   │   ├── security-auditor.js ← Recursive system audit agent loop
+│   │   ├── security-auditor.js ← Recursive autonomous security audit agent loop
 │   │   └── app-auditor.js      ← Local project & endpoint discovery logic
-│   ├── security-kb/            ← OS-specific knowledge base for security tools
-│   │   ├── windows/            ← netstat, tasklist, etc.
-│   │   └── linux/              ← auditd, systemctl, ufw, etc.
+│   ├── browser/
+│   │   ├── manager.js         ← Playwright BrowserManager singleton
+│   │   └── cleaner.js         ← Browser lifecycle management and cleanup
 │   ├── telegram/
-│   │   ├── telegram-launcher.js   ← Bot init, listen/server mode, message chunking
-│   │   ├── telegram-router.js     ← Session state, Telegram-native formatting
-│   │   └── qr-renderer.js         ← Terminal QR code for bot link
+│   │   ├── telegram-launcher.js  ← Bot init, listen/server mode, message chunking
+│   │   ├── telegram-router.js    ← Session state, Telegram-native formatting
+│   │   └── qr-renderer.js        ← Terminal QR code rendering for bot link
+│   ├── web/
+│   │   ├── web-launcher.js       ← Local web interface launcher
+│   │   ├── web-router.js         ← Web session management and routing
+│   │   ├── session-bridge.js      ← TUI ↔ Web bridge
+│   │   └── client/app.js         ← Web UI (blessed-backed terminal in browser)
 │   ├── email/automation/
 │   │   ├── digest-generator.js    ← Daily/weekly categorical inbox summary
 │   │   ├── otp-detector.js        ← Verification code extraction
@@ -320,70 +344,74 @@ heeba/
 │   │   ├── rule-engine.js         ← User-defined automation rule engine
 │   │   ├── search-builder.js      ← Natural-language IMAP query builder
 │   │   ├── thread-grouper.js      ← Groups emails into conversation threads
-│   │   ├── date-filter.js         ← Time-range filtering (morning/evening)
+│   │   ├── date-filter.js         ← Time-range filtering (morning/afternoon/evening/night)
 │   │   ├── stats.js               ← Inbox volume statistics
-│   │   └── email-to-task.js       ← Action item extraction from emails
+│   │   ├── email-to-task.js       ← Action item extraction from emails
+│   │   └── utils/
+│   │       ├── imap-client.js  ← imapflow wrapper for mailbox operations
+│   │       ├── parsers.js      ← Email parsing utilities
+│   │       ├── formatters.js   ← Terminal formatting helpers
+│   │       └── cache.js        ← Email cache manager
 │   └── ui/
 │       ├── components.js          ← Blessed UI element definitions
 │       ├── animations.js          ← Boot sequences, loading overlays
 │       ├── layout-manager.js      ← Page rendering & navigation conductor
-│       ├── input-manager.js       ← Keyboard input, shortcuts, history
+│       ├── input-manager.js      ← Keyboard input, shortcuts, history
 │       ├── markdown-renderer.js   ← Color-aware terminal Markdown parser
-│       ├── render-manager.js      ← Debounced render loop
-│       ├── scroll-manager.js      ← Smart auto-scroll with user detection
-│       └── theme.js               ← Centralized color palette tokens
+│       ├── render-manager.js     ← Debounced render loop
+│       ├── scroll-manager.js     ← Smart auto-scroll with user detection
+│       ├── theme.js              ← Centralized color palette tokens
+│       └── table-gen.js          ← Terminal table builder
 └── src/utils/
     ├── table-formatter.js         ← Pixel-perfect terminal table builder
-    ├── stats-refresher.js         ← Real-time CPU/RAM polling loop
+    ├── stats-refresher.js        ← Real-time CPU/RAM polling loop
     ├── paths.js                   ← pkg-compatible cross-platform path resolver
-    ├── logger.js                  ← Structured runtime debug logger
-    └── helpers.js                 ← Shared constants, string utils, MODES
+    ├── logger.js                 ← Structured runtime debug logger
+    ├── tree-reporter.js          ← Tree-structure output for roadmaps/reports
+    └── helpers.js                ← Shared constants, buildSystemPrompt, MODES
 ```
 
 ---
 
 ## ◈ Email Intelligence Suite
 
-Heeba ships with 18 email automation modules — all accessible via natural language from TUI, CLI, or Telegram.
+18 automation modules — all accessible via natural language from TUI, CLI, or Telegram:
 
-| Command | Natural Language Example | Module |
-|---|---|---|
-| Fetch inbox | `"Show my emails from today"` | `email-handler` |
-| Read email | `"Read email #2"` | `email-handler` |
-| Send email | `"Send email to X about Y with file Z"` | `email-handler` |
-| Daily digest | `"Give me my daily digest"` | `digest-generator` |
-| OTP detection | `"What's the OTP in my mail?"` | `otp-detector` |
-| Smart search | `"Find Amazon emails from last week"` | `search-builder` |
-| Categorize | `"Categorize my inbox"` | `categorizer` |
-| Timeline | `"Show my email timeline"` | `timeline-view` |
-| Follow-ups | `"What emails need a reply?"` | `followup-tracker` |
-| Priority | `"Show priority unread"` | `priority-unread` |
-| Spam check | `"Detect spam in last 3 days"` | `spam-detector` |
-| Download | `"Download attachments from email #3"` | `attachment-downloader` |
-| Export | `"Export today's emails to markdown"` | `exporter` |
-| Narrate | `"Narrate my inbox"` | `narrator` |
-| Quick reply | `"Reply noted to #5"` | `quick-reply` |
-| Bulk archive | `"Archive all promotional emails"` | `bulk-actions` |
-| Threads | `"Show email threads with Amazon"` | `thread-grouper` |
-| Stats | `"How many emails this week?"` | `stats` |
+| Command | Natural Language Example |
+|---|---|
+| Fetch inbox | `"Show my emails from today"` |
+| Read email | `"Read email #2"` |
+| Send email | `"Send email to X about Y with file Z"` |
+| Daily digest | `"Give me my daily digest"` |
+| Weekly digest | `"Summarize this week's emails"` |
+| OTP detection | `"What's the OTP in my mail?"` |
+| Smart search | `"Find Amazon emails from last week"` |
+| Categorize | `"Categorize my inbox"` |
+| Timeline | `"Show my email timeline"` |
+| Follow-ups | `"What emails need a reply?"` |
+| Priority unread | `"Show priority unread"` |
+| Spam check | `"Detect spam in last 3 days"` |
+| Download attachments | `"Download attachments from email #3"` |
+| Export to markdown | `"Export today's emails"` |
+| Narrate inbox | `"Tell me about my emails"` |
+| Quick reply | `"Reply yes to #5"` |
+| Bulk archive | `"Archive all promotional emails"` |
+| Email threads | `"Show email threads with Amazon"` |
+| Stats | `"How many emails this week?"` |
+| Detect action items | `"Extract tasks from email #3"` |
+| Apply rules | `"Apply automation rules to inbox"` |
+| Search emails | `"Search for messages about project X"` |
 
 ---
 
 ## ◈ Configuration
 
-All configuration lives in `heeba.json` at the root. It is the single source of truth for:
-
-- **Identity** — Heeba's name, personality, and core principles
-- **User Profile** — Your name, address preference, communication style
-- **Online Models** — API keys, endpoints, and model IDs for cloud LLMs
-- **Email Accounts** — IMAP/SMTP credentials for multiple accounts
-- **Intent Routing Rules** — Pattern-to-action mappings for the AI dispatcher
-- **System Rules** — Hard behavioral rules enforced at every interaction
+All configuration lives in `heeba.json` — the single source of truth for identity, profile, models, email accounts, and intent routing rules.
 
 ### Adding an Online Model
 
 ```
-heeba -m "add online model named my-model from https://openrouter.ai/api/v1/chat/completions with api key sk-... and model meta-llama/llama-3.1-8b"
+heeba -m "add online model from https://openrouter.ai/api/v1/chat/completions with api key sk-... and model meta-llama/llama-3.1-8b"
 ```
 
 ### Adding an Email Account
@@ -392,25 +420,25 @@ heeba -m "add online model named my-model from https://openrouter.ai/api/v1/chat
 heeba -m "add email account for user@gmail.com with app password xxxx xxxx xxxx xxxx"
 ```
 
+### Intent Routing
+
+Heeba ships with **77+ intent routing rules** in `heeba.json`. Each rule maps natural language patterns to an action and optional backend command. To add a new command:
+
+1. Add a handler function in `src/core/handlers/<name>-handler.js`
+2. Register it in `intent-executor.js` via `...require('./handlers/<name>-handler')`
+3. Add a routing rule in `heeba.json` under `intent_routing_rules`
+
 ---
 
 ## ◈ Building an Executable
-
-Heeba can be compiled into a standalone Windows `.exe` with the Heeba logo embedded as the application icon:
 
 ```powershell
 npm run build:exe
 ```
 
-The output is placed in `dist/heeba.exe`. The build uses `pkg` and automatically bundles:
-- `heeba.json` — your configuration
-- `assets/heeba.png` — embedded as the `.exe` icon
-- `credentials.ex.json` — encrypted credential reference (for collaborator use)
-- All `src/` modules and relevant `node_modules`
+Output is placed in `dist/heeba.exe`. The build uses `pkg` and automatically bundles `heeba.json`, `assets/`, `src/`, and relevant `node_modules`.
 
-> **After building**, copy the `engine/` folder from the project root into `dist/` alongside `heeba.exe`. This folder contains the llama.cpp binaries and GGUF models and must be present for local model inference to work.
-
-> **Note:** `credentials.ex.json` is an encrypted credential template for collaborators. It is not loaded at runtime. For actual credentials, use `credentials.json` (decrypted format, git-ignored).
+> After building, copy `engine/` from the project root into `dist/` — it contains llama.cpp binaries and GGUF models.
 
 ---
 
@@ -429,20 +457,14 @@ The output is placed in `dist/heeba.exe`. The build uses `pkg` and automatically
 
 ## ◈ Visual Design
 
-Heeba uses a **clean, text-based visual language** optimized for terminal readability:
-
-- **Tree structures** — `├`, `└`, `│` characters for hierarchical display of branches, roadmaps, and reports
-- **Box-drawing** — `┌`, `─`, `┐`, `│`, `└`, `─`, `┘` for tables, code blocks, and section dividers
+- **Tree structures** — `├`, `└`, `│` for hierarchical display
+- **Box-drawing** — `┌ ─ ┐ │ └ ─ ┘` for tables and section dividers
 - **Progress markers** — `➤` (current), `✔` (done), `◈` (section header)
-- **No emoji** — Pure ASCII/Unicode for maximum terminal compatibility
-
-The markdown renderer preserves tree alignment automatically, ensuring preformatted output like git graphs and strategic roadmaps display correctly without text wrapping artifacts.
+- **Color system** — Centralized palette via `src/ui/theme.js` (cyan, yellow, green, red, border)
 
 ---
 
 ## ◈ File Statistics
-
-The following table lists all source files by line count in descending order:
 
 | Lines | File |
 |---:|---|
@@ -463,6 +485,7 @@ The following table lists all source files by line count in descending order:
 | 210 | `src/core/engine.js` |
 | 210 | `src/core/email-accounts.js` |
 | 207 | `src/core/handlers/weather-handler.js` |
+| 393 | `src/core/handlers/doctor-handler.js` |
 | 185 | `src/core/handlers/system-handler.js` |
 | 179 | `src/web/session-bridge.js` |
 | 178 | `src/telegram/telegram-launcher.js` |
@@ -481,15 +504,13 @@ The following table lists all source files by line count in descending order:
 
 ## ◈ Privacy
 
-Heeba is **private by design**:
-
-- Local GGUF models run entirely offline — no requests leave your machine
-- Online model API calls go directly to your configured provider (OpenRouter, Ollama, etc.) — no middleware
-- Email credentials are stored locally in `heeba.json` — never transmitted
-- **Session persistence:** TUI and Web conversations survive app restarts via `session.json` stored next to `heeba.exe`. The Telegram session cache (`telegram-sessions.json`) is also local.
+- **Local GGUF models** — run entirely offline, no requests leave your machine
+- **Online API calls** — go directly to your configured provider, no middleware
+- **Email credentials** — stored locally in `credentials.json`, never transmitted
+- **Session persistence** — conversations survive restarts via `session.json` stored next to `heeba.exe`
 
 ---
 
 ## ◈ License
 
-MIT License. Built with ❤️ for terminal enthusiasts who believe their tools should be as smart as they are.
+MIT License. Built with care for terminal enthusiasts who want their tools to be genuinely intelligent.

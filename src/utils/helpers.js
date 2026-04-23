@@ -101,7 +101,24 @@ function buildSystemPrompt(mode) {
     lines.push(`- ${rule}`);
   });
 
-  lines.push(``);
+  // Add browser automation section if browser is enabled
+  if (config.browserEnabled) {
+    lines.push('');
+    lines.push('=== BROWSER AUTOMATION ===');
+    lines.push('When the user requests web navigation, interaction, or scraping tasks:');
+    lines.push('  Available actions: browser_launch, browser_navigate, browser_click, browser_type,');
+    lines.push('    browser_select, browser_scroll, browser_screenshot, browser_back, browser_forward,');
+    lines.push('    browser_reload, browser_get_state, browser_new_tab, browser_switch_tab, browser_close_tab, browser_close');
+    lines.push('  Parameters for navigation: { url: "https://..." }');
+    lines.push('  Parameters for click/type/select: { selector: "css-selector", value: "..." }');
+    lines.push('  Parameters for scroll: { direction: "up|down", amount: 500, selector: null }');
+    lines.push('  Parameters for screenshot: { path: "optional-file-path" }');
+    lines.push('  Parameters for tab operations: { index: 0-based-integer }');
+    lines.push('  Response format: { "action": "browser_action", "parameters": { ... } }');
+    lines.push('');
+  }
+
+  lines.push('');
   lines.push(`Remember: Always follow heeba.json. Address the user as "${user_profile.how_to_address}".`);
 
   return lines.join('\n');

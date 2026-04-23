@@ -59,6 +59,7 @@ const isLaunch = args.includes('--launch') || args.includes('-launch');
 const isLaunchTele = args.includes('--launch-tele') || args.includes('-launch-tele');
 const isLaunchWeb = args.includes('--launch-web') || args.includes('-launch-web');
 const isHelp = args.includes('--help') || args.includes('-h');
+const isDoctor = args.includes('--doctor');
 
 // Web interface port
 const portIdx = args.indexOf('-p') !== -1 ? args.indexOf('-p') : args.indexOf('--port');
@@ -100,7 +101,8 @@ function showHelp() {
   console.log(`  \x1b[33m-M\x1b[0m                          Show performance metrics after CLI query`);
   console.log(`  \x1b[33m--list-models\x1b[0m               List all available models`);
   console.log(`  \x1b[33m--list-online-models\x1b[0m        List only online-based models`);
-  console.log(`  \x1b[33m--list-local-models\x1b[0m         List only locally hosted models\n`);
+  console.log(`  \x1b[33m--list-local-models\x1b[0m         List only locally hosted models`);
+  console.log(`  \x1b[33m--doctor\x1b[0m                    Run system diagnostics (like flutter doctor)\n`);
 
   console.log(`\x1b[1mTELEGRAM INTERFACE:\x1b[0m`);
   console.log(`  \x1b[33m--launch-tele -l\x1b[0m            Listen mode — log /start users & their IDs`);
@@ -145,7 +147,7 @@ if (listAll || listOnline || listLocal) {
 
   console.log(`\n\x1b[36m◈ Heeba Model Registry: ${title}\x1b[0m`);
   console.log(`\x1b[90m${'─'.repeat(40)}\x1b[0m`);
-  
+
   if (filtered.length === 0) {
     console.log(`  (No models found matching criteria)`);
   } else {
@@ -154,9 +156,21 @@ if (listAll || listOnline || listLocal) {
       console.log(`  ${(i + 1).toString().padStart(2)}. ${type} ${m}`);
     });
   }
-  
+
   console.log(`\x1b[90m${'─'.repeat(40)}\x1b[0m\n`);
   process.exit(0);
+}
+
+// Handle --doctor diagnostics
+if (isDoctor) {
+  const { runDoctor } = require('./src/core/handlers/doctor-handler');
+  runDoctor().then(output => {
+    console.log(output);
+    process.exit(0);
+  }).catch(err => {
+    console.error(`\x1b[31mDoctor error: ${err.message}\x1b[0m`);
+    process.exit(1);
+  });
 }
 
 // Load config

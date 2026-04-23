@@ -40,6 +40,9 @@ const DEFAULT_CONFIG = {
     engine: ENGINE_EXE,
     contextLength: 8192,
     threads: 4,
+    browserEnabled: false,
+    browserType: 'chromium',
+    browserVisible: false,
 };
 
 module.exports = { DEFAULT_CONFIG, getAvailableModels, getVirtualModels };

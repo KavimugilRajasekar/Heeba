@@ -9,6 +9,8 @@ const profileHandlers = require('./handlers/profile-handler');
 const softwareHandlers = require('./handlers/software-handler');
 const weatherHandlers = require('./handlers/weather-handler');
 const newsHandlers = require('./handlers/news-handler');
+const domHandlers = require('./handlers/dom-handler');
+const doctorHandlers = require('./handlers/doctor-handler');
 const { getOS } = require('./kb-loader');
 
 // Auditors (New Modular Structure)
@@ -26,7 +28,9 @@ const commandHandlers = {
   ...profileHandlers,
   ...softwareHandlers,
   ...weatherHandlers,
-  ...newsHandlers
+  ...newsHandlers,
+  ...domHandlers,
+  ...doctorHandlers
 };
 
 // Execute a command
