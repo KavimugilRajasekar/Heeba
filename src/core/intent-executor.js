@@ -1,5 +1,7 @@
 // src/core/intent-executor.js
 const { parseCommandFromResponse } = require('../utils/json-parser');
+const { validateIntent, generateClarificationMessage } = require('./intent-firewall');
+const logger = require('../utils/logger');
 const emailHandlers = require('./handlers/email-handler');
 const systemHandlers = require('./handlers/system-handler');
 const sessionHandlers = require('./handlers/session-handler');
@@ -46,8 +48,25 @@ async function executeCommand(command, context) {
 async function processLLMResponse(response, context = {}) {
   const command = parseCommandFromResponse(response);
   if (command && command.action) {
-    const result = await executeCommand(command, context);
-    return { hasCommand: true, command, result };
+    // Apply intent firewall validation if strictIntentMode is enabled
+    const strictIntentMode = context.strictIntentMode || false;
+    const firewallResult = validateIntent(context.userPrompt || '', command, { strictIntentMode });
+
+    if (!firewallResult.valid) {
+      logger.warn('FIREWALL', `Intent blocked: ${firewallResult.reason}`);
+      return {
+        hasCommand: false,
+        command: null,
+        result: null,
+        blocked: true,
+        clarification: generateClarificationMessage(context.userPrompt || '', firewallResult.reason)
+      };
+    }
+
+    // Use sanitized intent (with stripped parameters)
+    const sanitizedCommand = firewallResult.sanitizedIntent;
+    const result = await executeCommand(sanitizedCommand, context);
+    return { hasCommand: true, command: sanitizedCommand, result };
   }
   return { hasCommand: false, command: null, result: null };
 }
