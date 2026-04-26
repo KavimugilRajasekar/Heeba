@@ -39,23 +39,29 @@ function getLegacyEmailCredentials() {
         // Try encrypted credentials first
         if (fs.existsSync(ENC_CREDENTIALS_PATH)) {
             const encrypted = fs.readFileSync(ENC_CREDENTIALS_PATH, 'utf8');
-            const creds = decryptJson(encrypted);
-            if (Array.isArray(creds.email) && creds.email.length > 0) {
-                return {
-                    id: 'legacy',
-                    email: creds.email[0].user,
-                    app_password: creds.email[0].pass,
-                    imap_host: creds.email[0].host || 'imap.gmail.com',
-                    smtp_host: creds.email[0].smtp || 'smtp.gmail.com'
-                };
-            } else if (creds.email && typeof creds.email === 'object') {
-                return {
-                    id: 'legacy',
-                    email: creds.email.user,
-                    app_password: creds.email.pass,
-                    imap_host: creds.email.host || 'imap.gmail.com',
-                    smtp_host: creds.email.smtp || 'smtp.gmail.com'
-                };
+            if (encrypted && encrypted.trim()) {
+                try {
+                    const creds = decryptJson(encrypted);
+                    if (Array.isArray(creds.email) && creds.email.length > 0) {
+                        return {
+                            id: 'legacy',
+                            email: creds.email[0].user,
+                            app_password: creds.email[0].pass,
+                            imap_host: creds.email[0].host || 'imap.gmail.com',
+                            smtp_host: creds.email[0].smtp || 'smtp.gmail.com'
+                        };
+                    } else if (creds.email && typeof creds.email === 'object') {
+                        return {
+                            id: 'legacy',
+                            email: creds.email.user,
+                            app_password: creds.email.pass,
+                            imap_host: creds.email.host || 'imap.gmail.com',
+                            smtp_host: creds.email.smtp || 'smtp.gmail.com'
+                        };
+                    }
+                } catch (e) {
+                    // Decrypt failed, fall through to plain credentials
+                }
             }
         }
         // Fall back to plain credentials (not recommended)
