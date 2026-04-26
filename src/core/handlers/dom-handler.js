@@ -2,6 +2,11 @@
 // DOM action handlers wrapping BrowserManager for the intent-executor command map
 
 const { getBrowserManager } = require('../browser/cleaner');
+const { state } = require('../state-manager');
+
+function getBM() {
+  return getBrowserManager({ visible: state.browserVisible || false });
+}
 
 const domHandlers = {
   // Launch browser (idempotent)
@@ -10,7 +15,7 @@ const domHandlers = {
       const bm = getBrowserManager({
         browserType: params.browserType || 'chromium',
         headless: params.headless !== false,
-        visible: params.visible || false
+        visible: params.visible !== undefined ? params.visible : (state.browserVisible || false)
       });
       await bm.launch();
       return { success: true, message: 'Browser launched successfully.' };
@@ -24,7 +29,7 @@ const domHandlers = {
     const { url } = params;
     if (!url) return { success: false, message: 'No URL provided.' };
     try {
-      const bm = getBrowserManager();
+      const bm = getBM();
       const pageState = await bm.navigate(url);
       return { success: true, message: `Navigated to ${url}`, state: pageState };
     } catch (err) {
@@ -37,7 +42,7 @@ const domHandlers = {
     const { selector } = params;
     if (!selector) return { success: false, message: 'No selector provided.' };
     try {
-      const bm = getBrowserManager();
+      const bm = getBM();
       const pageState = await bm.click(selector);
       return { success: true, message: `Clicked element: ${selector}`, state: pageState };
     } catch (err) {
@@ -51,7 +56,7 @@ const domHandlers = {
     if (!selector) return { success: false, message: 'No selector provided.' };
     if (value === undefined) return { success: false, message: 'No value provided.' };
     try {
-      const bm = getBrowserManager();
+      const bm = getBM();
       const pageState = await bm.type(selector, value);
       return { success: true, message: `Typed into: ${selector}`, state: pageState };
     } catch (err) {
@@ -65,7 +70,7 @@ const domHandlers = {
     if (!selector) return { success: false, message: 'No selector provided.' };
     if (!value) return { success: false, message: 'No option value provided.' };
     try {
-      const bm = getBrowserManager();
+      const bm = getBM();
       const pageState = await bm.selectOption(selector, value);
       return { success: true, message: `Selected option in: ${selector}`, state: pageState };
     } catch (err) {
@@ -77,7 +82,7 @@ const domHandlers = {
   browser_scroll: async (params, context) => {
     const { direction = 'down', amount = 500, selector } = params;
     try {
-      const bm = getBrowserManager();
+      const bm = getBM();
       const pageState = await bm.scroll(direction, amount, selector);
       return { success: true, message: `Scrolled ${direction}`, state: pageState };
     } catch (err) {
@@ -89,7 +94,7 @@ const domHandlers = {
   browser_screenshot: async (params, context) => {
     const { path: screenshotPath } = params;
     try {
-      const bm = getBrowserManager();
+      const bm = getBM();
       const result = await bm.screenshot(screenshotPath);
       if (screenshotPath) {
         return { success: true, message: `Screenshot saved to ${result}` };
@@ -103,7 +108,7 @@ const domHandlers = {
   // Get current page state (DOM snapshot)
   browser_get_state: async (params, context) => {
     try {
-      const bm = getBrowserManager();
+      const bm = getBM();
       const pageState = await bm.getState();
       return { success: true, message: 'Page state retrieved', state: pageState };
     } catch (err) {
@@ -114,7 +119,7 @@ const domHandlers = {
   // Go back in history
   browser_back: async (params, context) => {
     try {
-      const bm = getBrowserManager();
+      const bm = getBM();
       const pageState = await bm.goBack();
       return { success: true, message: 'Navigated back', state: pageState };
     } catch (err) {
@@ -125,9 +130,9 @@ const domHandlers = {
   // Go forward in history
   browser_forward: async (params, context) => {
     try {
-      const bm = getBrowserManager();
+      const bm = getBM();
       const pageState = await bm.goForward();
-      return { success: true, message: 'Navigated forward', state: pageState };
+      return { success: true, message: `Navigated forward`, state: pageState };
     } catch (err) {
       return { success: false, message: `Go forward failed: ${err.message}` };
     }
@@ -136,7 +141,7 @@ const domHandlers = {
   // Reload current page
   browser_reload: async (params, context) => {
     try {
-      const bm = getBrowserManager();
+      const bm = getBM();
       const pageState = await bm.reload();
       return { success: true, message: 'Page reloaded', state: pageState };
     } catch (err) {
@@ -147,7 +152,7 @@ const domHandlers = {
   // Open new tab
   browser_new_tab: async (params, context) => {
     try {
-      const bm = getBrowserManager();
+      const bm = getBM();
       await bm.newPage();
       return { success: true, message: `New tab opened (${bm.getPageCount()} total tabs)`, pageIndex: bm.getPageCount() - 1 };
     } catch (err) {
@@ -160,7 +165,7 @@ const domHandlers = {
     const { index } = params;
     if (index === undefined) return { success: false, message: 'No tab index provided.' };
     try {
-      const bm = getBrowserManager();
+      const bm = getBM();
       bm.setActivePage(index);
       const pageState = await bm.getState();
       return { success: true, message: `Switched to tab ${index}`, state: pageState };
@@ -173,7 +178,7 @@ const domHandlers = {
   browser_close_tab: async (params, context) => {
     const { index } = params;
     try {
-      const bm = getBrowserManager();
+      const bm = getBM();
       await bm.closePage(index !== undefined ? index : bm._activePageIndex);
       return { success: true, message: `Tab closed (${bm.getPageCount()} tabs remaining)` };
     } catch (err) {

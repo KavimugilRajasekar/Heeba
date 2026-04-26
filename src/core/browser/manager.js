@@ -322,25 +322,25 @@ class BrowserManager {
         const hasSearch = await targetPage.$('[data-testid="chat-list-search"], #main > div:nth-child(2)') !== null;
         if (hasQR || !hasSearch) {
           isLoginRequired = true;
-          loginHint = 'WhatsApp Web requires QR code scan. Run: heeba --browser --visible, then scan the QR code, then retry.';
+          loginHint = 'WhatsApp Web requires QR code scan. Use the -browser True flag to show the browser window, then scan the QR code, then retry.';
         }
       } else if (hostname.includes('google') && hostname.includes('mail')) {
         const hasEmailInput = await targetPage.$('#identifierId, input[type="email"][name="identifier"]') !== null;
         if (hasEmailInput) {
           isLoginRequired = true;
-          loginHint = 'Gmail requires login. Run: heeba --browser --visible, go to mail.google.com, sign in manually, then retry.';
+          loginHint = 'Gmail requires login. Use the -browser True flag to show the browser window, go to mail.google.com, sign in manually, then retry.';
         }
       } else if (hostname.includes('twitter') || hostname.includes('x.com')) {
         const hasLoginForm = await targetPage.$('[data-testid="login"], [href="/login"]') !== null;
         if (hasLoginForm) {
           isLoginRequired = true;
-          loginHint = 'Twitter/X requires login. Run: heeba --browser --visible, sign in manually, then retry.';
+          loginHint = 'Twitter/X requires login. Use the -browser True flag to show the browser window, sign in manually, then retry.';
         }
       } else if (hostname.includes('instagram')) {
         const hasLoginForm = await targetPage.$('form[action*="login"], input[name="username"]') !== null;
         if (hasLoginForm) {
           isLoginRequired = true;
-          loginHint = 'Instagram requires login. Run: heeba --browser --visible, sign in manually, then retry.';
+          loginHint = 'Instagram requires login. Use the -browser True flag to show the browser window, sign in manually, then retry.';
         }
       } else {
         // Generic login detection: check for email + password inputs
@@ -348,7 +348,7 @@ class BrowserManager {
         const hasPasswordInput = await targetPage.$('input[type="password"]') !== null;
         if (hasEmailInput && hasPasswordInput) {
           isLoginRequired = true;
-          loginHint = 'This site requires login. Run: heeba --browser --visible, navigate manually, sign in, then retry.';
+          loginHint = 'This site requires login. Use the -browser True flag to show the browser window, navigate manually, sign in, then retry.';
         }
       }
     } catch (e) {}

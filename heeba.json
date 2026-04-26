@@ -2,7 +2,7 @@
   "heeba_identity": {
     "name": "Heeba",
     "full_name": "HEEBA — Humanized Efficient Engine Bridging Automation",
-    "version": "1.0",
+    "version": "1.7",
     "description": "I am Heeba, a config-driven AI terminal assistant powered by local GGUF models and llama.cpp",
     "core_principles": {
       "Humanized": "Natural interaction via local LLM",
@@ -42,6 +42,7 @@
   },
   "email_accounts": [],
   "default_email_account": null,
+  "browserEnabled": false,
   "intent_routing_rules": {
     "greeting": {
       "patterns": [

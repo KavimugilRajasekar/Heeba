@@ -60,6 +60,8 @@ const isLaunchTele = args.includes('--launch-tele') || args.includes('-launch-te
 const isLaunchWeb = args.includes('--launch-web') || args.includes('-launch-web');
 const isHelp = args.includes('--help') || args.includes('-h');
 const isDoctor = args.includes('--doctor');
+const browserIdx = args.indexOf('-browser') !== -1 ? args.indexOf('-browser') : args.indexOf('--browser');
+const browserVisible = browserIdx !== -1 ? (args[(browserIdx + 1)] === 'True' || args[(browserIdx + 1)] === 'true' || args[(browserIdx + 1)] === '1') : false;
 
 // Web interface port
 const portIdx = args.indexOf('-p') !== -1 ? args.indexOf('-p') : args.indexOf('--port');
@@ -103,6 +105,7 @@ function showHelp() {
   console.log(`  \x1b[33m--list-online-models\x1b[0m        List only online-based models`);
   console.log(`  \x1b[33m--list-local-models\x1b[0m         List only locally hosted models`);
   console.log(`  \x1b[33m--doctor\x1b[0m                    Run system diagnostics (like flutter doctor)\n`);
+  console.log(`  \x1b[33m-browser True\x1b[0m                Make browser automation visible (default: headless)\n`);
 
   console.log(`\x1b[1mTELEGRAM INTERFACE:\x1b[0m`);
   console.log(`  \x1b[33m--launch-tele -l\x1b[0m            Listen mode — log /start users & their IDs`);
@@ -117,29 +120,6 @@ function showHelp() {
   console.log(`  heeba -m "Show my system status" -M`);
   console.log(`  heeba --launch-tele -l`);
   console.log(`  heeba --launch-tele -model ollama-gpt-oss -uid <YOUR_TELEGRAM_ID>\n`);
-
-  console.log(`\x1b[1mBROWSER AUTOMATION:\x1b[0m`);
-  console.log(`  Browser actions are triggered by natural language — no special flag needed.\n`);
-  console.log(`  \x1b[33mAvailable browser actions:\x1b[0m`);
-  console.log(`    browser_launch       • Open the browser (chromium/firefox/webkit)`);
-  console.log(`    browser_navigate     • Go to a URL (e.g., "Open gmail.com")`);
-  console.log(`    browser_click        • Click an element by CSS selector`);
-  console.log(`    browser_type         • Type text into a field`);
-  console.log(`    browser_select       • Select a dropdown option`);
-  console.log(`    browser_scroll       • Scroll up/down`);
-  console.log(`    browser_screenshot   • Take a screenshot`);
-  console.log(`    browser_get_state    • Get current page URL, title, elements`);
-  console.log(`    browser_new_tab      • Open a new tab`);
-  console.log(`    browser_switch_tab   • Switch to a tab by index`);
-  console.log(`    browser_close_tab    • Close a tab`);
-  console.log(`    browser_back/forward • Navigate history`);
-  console.log(`    browser_reload       • Reload the page`);
-  console.log(`    browser_close       • Close the browser\n`);
-  console.log(`  \x1b[33mExample prompts in CLI mode:\x1b[0m`);
-  console.log(`    heeba -m "Open google.com and search for AI news"`);
-  console.log(`    heeba -m "Take a screenshot of the current page"`);
-  console.log(`    heeba -m "Click the login button on github.com"`);
-  console.log(`    heeba -m "Open a new tab with twitter.com"\n`);
 
   process.exit(0);
 }
@@ -199,6 +179,7 @@ if (isDoctor) {
 // Load config
 const heebaConfig = loadHeebaConfig();
 Object.assign(state.CONFIG, heebaConfig);
+state.browserVisible = browserVisible || state.browserVisible;
 logger.info('CONFIG', `Loaded heeba.json for user: ${heebaConfig.user_profile.name}`);
 
 // Helper: Display CLI Metrics
