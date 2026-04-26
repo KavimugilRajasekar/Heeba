@@ -21,14 +21,6 @@ engine/models/*
 # System/Runtime
 *.tmp
 *.temp
-.DS_Store
-Thumbs.db
-
-# Build artifacts
-*.o
-*.so
-*.dll
-*.exe
 
 # OS files
 .DS_Store
@@ -48,11 +40,29 @@ npm-debug.log*
 *.swp
 *.swo
 *~
+# Claude Code workspace (local only)
 .claude/
 
+# Screenshots (runtime-generated)
+*.png
+
+# Credentials & Secrets
 credentials.json
-session.json
+credentials.ex.json
 telegram-sessions.json
 
-# InnuCompiler
-InnuCompiler/
+# Runtime data (created at runtime)
+logs/
+.cache/
+downloads/
+exports/
+session.json
+
+# Development scratch files
+scratch/
+tmp/
+test-app/
+
+# Installer/build output
+InnoCompiler/
+HeebaInstaller.exe
