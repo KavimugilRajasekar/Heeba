@@ -6,7 +6,7 @@ const { state } = require('../core/state-manager');
 const logger = require('../utils/logger');
 
 // Hardcoded Credentials
-const TELEGRAM_TOKEN = '8605659655:AAFVx9BVfXdq9GJq3MdFcyX3-_3gmdOS8eY';
+const TELEGRAM_TOKEN = 'TOKEN HERE';
 const BOT_LINK = 'https://t.me/HeebaInterfaceBot';
 
 /**
